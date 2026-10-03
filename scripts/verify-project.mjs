@@ -15,6 +15,7 @@ const requiredFiles = [
   'src/features/inventory/InventoryShoppingBridge.tsx',
   'src/features/inventory/ExpiryPage.tsx',
   'src/features/inventory/InventoryEditor.tsx',
+  'src/features/inventory/StorageLocationPicker.tsx',
   'src/features/inventory/InventoryConsumeSheet.tsx',
   'src/features/inventory/expiry.ts',
   'src/features/inventory/inventoryReadModel.ts',
@@ -58,6 +59,8 @@ const requiredFiles = [
   'tests/SHOPPING_PURCHASED_STATE_CONTRACT.md',
   'tests/SHOPPING_PARTIAL_PURCHASE_CONTRACT.md',
   'tests/SHOPPING_TO_INVENTORY_CONTRACT.md',
+  'tests/STORAGE_LOCATION_PICKER_CONTRACT.md',
+  'tests/SHOPPING_QUICK_PURCHASE_CONTRACT.md',
   'vite.config.ts',
 ]
 
@@ -233,8 +236,8 @@ const editor = await readFile('src/features/inventory/InventoryEditor.tsx', 'utf
 if (!editor.includes("mode.kind === 'create'") || !editor.includes("mode.kind === 'edit'")) {
   throw new Error('Inventory editor must support explicit create and edit modes.')
 }
-if (!editor.includes('<QuantityStepperInput') || !editor.includes('model.units.map') || !editor.includes('model.locations.map')) {
-  throw new Error('V1.3/V2.4.1 editor must use the shared validated quantity input, controlled units and owner locations.')
+if (!editor.includes('<QuantityStepperInput') || !editor.includes('model.units.map') || !editor.includes('<StorageLocationPicker')) {
+  throw new Error('V1.3/V2.6.2 editor must use the shared quantity input, controlled units and shared owner-location picker.')
 }
 
 if (!editor.includes('mode.initialLocationId ?? model.locations[0]?.id')) {
@@ -610,6 +613,34 @@ for (const marker of ['.quantity-stepper', '.quantity-stepper-button', 'grid-tem
 for (const marker of ['.shopping-purchase-toggle', '.shopping-completed-section', '.shopping-completed-heading', '.shopping-item-completed', '.shopping-all-done-card', '.shopping-purchase-sheet', '.shopping-purchase-remaining', '.shopping-to-inventory-button', '.inventory-create-seed-summary', '.shopping-inventory-bridge-state']) {
   if (!quantityStepperStyles.includes(marker)) {
     throw new Error(`V2.6 purchased-state/inventory-transfer style marker missing: ${marker}`)
+  }
+}
+
+
+
+// V2.6.2 — one shared location picker + fast full-purchase path.
+const storageLocationPicker = await readFile('src/features/inventory/StorageLocationPicker.tsx', 'utf8')
+for (const marker of ['storage-location-picker', 'role="radiogroup"', 'role="radio"', 'aria-checked={selected}', "kind === 'fridge'", "kind === 'freezer'", "kind === 'pantry'"]) {
+  if (!storageLocationPicker.includes(marker)) {
+    throw new Error(`V2.6.2 shared storage-location picker marker missing: ${marker}`)
+  }
+}
+const inventoryEditorV262 = await readFile('src/features/inventory/InventoryEditor.tsx', 'utf8')
+if (!inventoryEditorV262.includes('<StorageLocationPicker') || inventoryEditorV262.includes('id="inventory-location"')) {
+  throw new Error('V2.6.2 InventoryEditor must use the shared icon location picker instead of its location select.')
+}
+const shoppingPageV262 = await readFile('src/features/shopping/ShoppingPage.tsx', 'utf8')
+for (const marker of ['handleQuickPurchase', 'purchaseShoppingQuantity({', 'quantity: item.quantity', 'Zmień ilość', 'setPurchaseTarget(item)']) {
+  if (!shoppingPageV262.includes(marker)) {
+    throw new Error(`V2.6.2 Shopping quick-purchase marker missing: ${marker}`)
+  }
+}
+if (shoppingPageV262.includes('onClick={() => setPurchaseTarget(item)}\n                      disabled={Boolean(updatingItemId)}\n                      aria-label={`Oznacz')) {
+  throw new Error('V2.6.2 purchase check must not open the quantity sheet for the full-quantity fast path.')
+}
+for (const marker of ['.storage-location-picker', '.storage-location-option', '.shopping-active-row', '.shopping-partial-purchase-button']) {
+  if (!globalCss.includes(marker)) {
+    throw new Error(`V2.6.2 mobile interaction style marker missing: ${marker}`)
   }
 }
 

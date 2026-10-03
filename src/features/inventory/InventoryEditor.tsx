@@ -8,6 +8,7 @@ import { QuantityStepperInput } from '../quantity/QuantityStepperInput'
 import { parseQuantityInput, QUANTITY_INPUT_ERROR } from '../quantity/quantity'
 import { formatDateOnly, isValidDateOnly } from './expiry'
 import { createInventoryLot, removeInventoryLot, updateInventoryLot } from './inventoryMutations'
+import { StorageLocationPicker } from './StorageLocationPicker'
 import type { CreateInventoryLotInput } from './inventoryMutations'
 import type { InventoryCreateSeed, InventoryLot, InventoryReadModel } from './types'
 
@@ -376,21 +377,18 @@ export function InventoryEditor({ ownerId, model, mode, onClose, onSaved, onCons
             </div>
           </div>}
 
-          <div className="form-field">
-            <label htmlFor="inventory-location">Miejsce</label>
-            <select
-              id="inventory-location"
+          <div className="form-field storage-location-field">
+            <span className="form-field-label" id="inventory-location-label">Miejsce</span>
+            <StorageLocationPicker
+              locations={model.locations}
               value={locationId}
-              onChange={(event) => {
-                setLocationId(event.target.value)
+              onChange={(nextLocationId) => {
+                setLocationId(nextLocationId)
                 setErrorMessage('')
               }}
               disabled={busy}
-            >
-              {model.locations.map((location) => (
-                <option value={location.id} key={location.id}>{location.name}</option>
-              ))}
-            </select>
+              labelId="inventory-location-label"
+            />
           </div>
 
           <div className="form-field">

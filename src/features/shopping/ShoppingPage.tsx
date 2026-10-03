@@ -4,7 +4,7 @@ import { formatQuantity } from '../quantity/quantity'
 import { ShoppingEditor } from './ShoppingEditor'
 import { ShoppingPurchaseSheet } from './ShoppingPurchaseSheet'
 import { ShoppingInventoryBridge } from './ShoppingInventoryBridge'
-import { restoreShoppingPurchase } from './shoppingMutations'
+import { purchaseShoppingQuantity, restoreShoppingPurchase } from './shoppingMutations'
 import { loadShoppingReadModel } from './shoppingReadModel'
 import type { ShoppingItem, ShoppingReadModel } from './types'
 
@@ -87,6 +87,27 @@ export function ShoppingPage({ ownerId }: ShoppingPageProps) {
     const nextModel = await loadShoppingReadModel(ownerId)
     setShoppingStatus({ status: 'ready', model: nextModel })
     setCompletedOpen(true)
+  }
+
+  async function handleQuickPurchase(item: ShoppingItem) {
+    if (updatingItemId) return
+
+    setUpdatingItemId(item.id)
+    setActionError('')
+    try {
+      await purchaseShoppingQuantity({
+        ownerId,
+        itemId: item.id,
+        quantity: item.quantity,
+      })
+      const nextModel = await loadShoppingReadModel(ownerId)
+      setShoppingStatus({ status: 'ready', model: nextModel })
+      setCompletedOpen(true)
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : 'Nie udało się oznaczyć rzeczy jako kupione.')
+    } finally {
+      setUpdatingItemId(null)
+    }
   }
 
   async function handleTransferredToInventory() {
@@ -209,20 +230,32 @@ export function ShoppingPage({ ownerId }: ShoppingPageProps) {
                     <button
                       className="shopping-purchase-toggle"
                       type="button"
-                      onClick={() => setPurchaseTarget(item)}
+                      onClick={() => void handleQuickPurchase(item)}
                       disabled={Boolean(updatingItemId)}
-                      aria-label={`Oznacz ${item.name} jako kupione`}
-                      title="Oznacz jako kupione"
+                      aria-label={`Kupiono całość: ${item.name}, ${formatQuantity(item.quantity)} ${item.unitSymbol}`}
+                      title="Kupiono całość"
                     >
                       <span aria-hidden="true" />
                     </button>
-                    <button className="shopping-row" type="button" onClick={() => setEditor({ kind: 'edit', item })} disabled={Boolean(updatingItemId)}>
-                      <span className="shopping-row-copy">
-                        <strong>{item.name}</strong>
-                        <small>{formatQuantity(item.quantity)} {item.unitSymbol}</small>
-                      </span>
-                      <KitchenIcon name="chevronRight" size={18} />
-                    </button>
+                    <div className="shopping-active-row">
+                      <button className="shopping-row" type="button" onClick={() => setEditor({ kind: 'edit', item })} disabled={Boolean(updatingItemId)}>
+                        <span className="shopping-row-copy">
+                          <strong>{item.name}</strong>
+                          <small>{formatQuantity(item.quantity)} {item.unitSymbol}</small>
+                        </span>
+                        <KitchenIcon name="chevronRight" size={18} />
+                      </button>
+                      <button
+                        className="shopping-partial-purchase-button"
+                        type="button"
+                        onClick={() => setPurchaseTarget(item)}
+                        disabled={Boolean(updatingItemId)}
+                        aria-label={`Kup inną ilość produktu ${item.name}`}
+                      >
+                        <KitchenIcon name="edit" size={14} />
+                        Zmień ilość
+                      </button>
+                    </div>
                   </li>
                 ))}
               </ul>

@@ -237,3 +237,12 @@ business rules. Both Inventory create and Shopping -> Inventory now decode the s
 
 This keeps one response-shape authority and removes unsafe direct property access from both callers.
 No SQL rerun is required when the V2.6 production postcheck already passed.
+
+
+## V2.6.2 — Mobile interaction corrective
+
+- Storage location dropdowns in the shared Inventory editor are replaced by one shared icon-tile picker.
+- Because Shopping -> Inventory reuses InventoryEditor, the same location picker is used there automatically.
+- Shopping purchase check is now the fast path: one tap buys the full listed quantity with no confirmation sheet.
+- `Zmień ilość` on the active Shopping row opens the existing partial-purchase sheet only when the bought quantity differs.
+- No SQL/schema/RLS/Auth change.
