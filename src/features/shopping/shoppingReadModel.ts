@@ -10,6 +10,8 @@ type RawShoppingItem = {
   custom_name: string | null
   quantity: number | string
   unit_code: string
+  is_purchased: boolean
+  purchased_at: string | null
   created_at: string
 }
 
@@ -19,15 +21,20 @@ function assertNoQueryError(error: { message: string } | null, resource: string)
   }
 }
 
+function comparePurchasedNewestFirst(a: ShoppingItem, b: ShoppingItem) {
+  const aTime = a.purchasedAt ? Date.parse(a.purchasedAt) : 0
+  const bTime = b.purchasedAt ? Date.parse(b.purchasedAt) : 0
+  return bTime - aTime
+}
+
 export async function loadShoppingReadModel(ownerId: string): Promise<ShoppingReadModel> {
   if (!supabase) throw new Error('Supabase is not configured.')
 
   const [itemsResult, products, units] = await Promise.all([
     supabase
       .from('shopping_items')
-      .select('id, product_id, custom_name, quantity, unit_code, created_at')
+      .select('id, product_id, custom_name, quantity, unit_code, is_purchased, purchased_at, created_at')
       .eq('owner_id', ownerId)
-      .eq('is_purchased', false)
       .order('created_at', { ascending: true }),
     loadOwnerProductCatalog(ownerId),
     loadMeasurementUnits(),
@@ -51,6 +58,10 @@ export async function loadShoppingReadModel(ownerId: string): Promise<ShoppingRe
       throw new Error('Shopping read returned an item with an unresolved identity.')
     }
 
+    if ((row.is_purchased && !row.purchased_at) || (!row.is_purchased && row.purchased_at)) {
+      throw new Error('Shopping read returned an item with an incoherent purchased state.')
+    }
+
     return {
       id: row.id,
       productId: row.product_id,
@@ -58,11 +69,16 @@ export async function loadShoppingReadModel(ownerId: string): Promise<ShoppingRe
       quantity: readStoredQuantity(row.quantity, 'Shopping read returned an invalid quantity.'),
       unitCode: unit.code,
       unitSymbol: unit.symbol,
+      isPurchased: row.is_purchased,
+      purchasedAt: row.purchased_at,
       createdAt: row.created_at,
     }
   })
 
-  return { items, products, units }
+  const activeItems = items.filter((item) => !item.isPurchased)
+  const purchasedItems = items.filter((item) => item.isPurchased).sort(comparePurchasedNewestFirst)
+
+  return { activeItems, purchasedItems, products, units }
 }
 
 export async function loadActiveShoppingCount(ownerId: string) {

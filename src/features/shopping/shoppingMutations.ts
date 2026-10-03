@@ -3,6 +3,7 @@ import {
   cleanCanonicalProductName,
   cleanupCreatedCanonicalProduct,
   findOwnerProductByName,
+  loadOwnerProductCatalog,
   resolveCanonicalProductForEdit,
   resolveOrCreateCanonicalProduct,
 } from '../products/productCatalogMutations'
@@ -36,12 +37,22 @@ export type RemoveShoppingItemInput = {
   itemId: string
 }
 
+export type SetShoppingItemPurchasedInput = {
+  ownerId: string
+  itemId: string
+  purchased: boolean
+}
+
 type ActiveShoppingItem = {
   id: string
   product_id: string | null
   custom_name: string | null
   quantity: number | string
   unit_code: string
+}
+
+type ShoppingStateItem = ActiveShoppingItem & {
+  is_purchased: boolean
 }
 
 async function loadActiveShoppingItems(ownerId: string): Promise<ActiveShoppingItem[]> {
@@ -227,3 +238,90 @@ export async function removeShoppingItem(input: RemoveShoppingItemInput) {
     throw new Error('Nie znaleziono rzeczy do usunięcia.')
   }
 }
+
+function resolveShoppingIdentityName(
+  item: ActiveShoppingItem,
+  productNameById: Map<string, string>,
+) {
+  if (item.product_id) return productNameById.get(item.product_id) ?? ''
+  return item.custom_name ?? ''
+}
+
+function hasSameShoppingIdentity(
+  a: ActiveShoppingItem,
+  b: ActiveShoppingItem,
+  productNameById: Map<string, string>,
+) {
+  if (a.product_id && b.product_id && a.product_id === b.product_id) return true
+
+  const aName = resolveShoppingIdentityName(a, productNameById)
+  const bName = resolveShoppingIdentityName(b, productNameById)
+  return Boolean(aName && bName && normalizeProductName(aName) === normalizeProductName(bName))
+}
+
+async function loadShoppingStateItem(ownerId: string, itemId: string): Promise<ShoppingStateItem> {
+  if (!supabase) throw new Error('Supabase is not configured.')
+
+  const result = await supabase
+    .from('shopping_items')
+    .select('id, product_id, custom_name, quantity, unit_code, is_purchased')
+    .eq('id', itemId)
+    .eq('owner_id', ownerId)
+    .maybeSingle()
+
+  if (result.error) {
+    throw new Error(`Nie udało się odczytać rzeczy z listy: ${result.error.message}`)
+  }
+
+  if (!result.data) {
+    throw new Error('Nie znaleziono rzeczy na liście.')
+  }
+
+  return result.data as ShoppingStateItem
+}
+
+export async function setShoppingItemPurchased(input: SetShoppingItemPurchasedInput) {
+  if (!supabase) throw new Error('Supabase is not configured.')
+
+  const current = await loadShoppingStateItem(input.ownerId, input.itemId)
+  if (current.is_purchased === input.purchased) return
+
+  if (!input.purchased) {
+    const [activeItems, products] = await Promise.all([
+      loadActiveShoppingItems(input.ownerId),
+      loadOwnerProductCatalog(input.ownerId),
+    ])
+    const productNameById = new Map(products.map((product) => [product.id, product.name]))
+    const conflict = activeItems.find((item) =>
+      item.id !== current.id
+      && item.unit_code === current.unit_code
+      && hasSameShoppingIdentity(item, current, productNameById),
+    )
+
+    if (conflict) {
+      throw new Error('Ta rzecz jest już na aktywnej liście w tej samej jednostce.')
+    }
+  }
+
+  const nextPurchasedAt = input.purchased ? new Date().toISOString() : null
+  const result = await supabase
+    .from('shopping_items')
+    .update({
+      is_purchased: input.purchased,
+      purchased_at: nextPurchasedAt,
+    })
+    .eq('id', input.itemId)
+    .eq('owner_id', input.ownerId)
+    .eq('is_purchased', current.is_purchased)
+    .select('id')
+    .maybeSingle()
+
+  if (result.error) {
+    throw new Error(`Nie udało się zmienić stanu zakupu: ${result.error.message}`)
+  }
+
+  if (!result.data) {
+    throw new Error('Stan tej rzeczy zmienił się w międzyczasie. Odśwież listę i spróbuj ponownie.')
+  }
+}
+

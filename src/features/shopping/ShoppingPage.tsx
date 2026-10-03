@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { KitchenIcon } from '../../components/KitchenIcon'
 import { formatQuantity } from '../quantity/quantity'
 import { ShoppingEditor } from './ShoppingEditor'
+import { setShoppingItemPurchased } from './shoppingMutations'
 import { loadShoppingReadModel } from './shoppingReadModel'
 import type { ShoppingItem, ShoppingReadModel } from './types'
 
@@ -19,7 +20,6 @@ type EditorState =
   | { kind: 'edit'; item: ShoppingItem }
   | null
 
-
 function thingsLabel(count: number) {
   if (count === 1) return '1 rzecz'
   const mod10 = count % 10
@@ -30,10 +30,18 @@ function thingsLabel(count: number) {
   return `${count} rzeczy`
 }
 
+function filterItems(items: ShoppingItem[], normalizedSearch: string) {
+  if (!normalizedSearch) return items
+  return items.filter((item) => item.name.toLocaleLowerCase('pl-PL').includes(normalizedSearch))
+}
+
 export function ShoppingPage({ ownerId }: ShoppingPageProps) {
   const [shoppingStatus, setShoppingStatus] = useState<ShoppingStatus>({ status: 'loading', model: null })
   const [editor, setEditor] = useState<EditorState>(null)
   const [searchQuery, setSearchQuery] = useState('')
+  const [completedOpen, setCompletedOpen] = useState(true)
+  const [updatingItemId, setUpdatingItemId] = useState<string | null>(null)
+  const [actionError, setActionError] = useState('')
 
   const load = useCallback(async () => {
     setShoppingStatus({ status: 'loading', model: null })
@@ -51,15 +59,39 @@ export function ShoppingPage({ ownerId }: ShoppingPageProps) {
 
   const model = shoppingStatus.status === 'ready' ? shoppingStatus.model : null
   const normalizedSearch = searchQuery.trim().toLocaleLowerCase('pl-PL')
-  const visibleItems = useMemo(() => {
-    if (!model) return []
-    if (!normalizedSearch) return model.items
-    return model.items.filter((item) => item.name.toLocaleLowerCase('pl-PL').includes(normalizedSearch))
-  }, [model, normalizedSearch])
+  const visibleActiveItems = useMemo(
+    () => filterItems(model?.activeItems ?? [], normalizedSearch),
+    [model, normalizedSearch],
+  )
+  const visiblePurchasedItems = useMemo(
+    () => filterItems(model?.purchasedItems ?? [], normalizedSearch),
+    [model, normalizedSearch],
+  )
+  const totalItemCount = model ? model.activeItems.length + model.purchasedItems.length : 0
+  const searchHasNoResults = Boolean(model && normalizedSearch && visibleActiveItems.length === 0 && visiblePurchasedItems.length === 0)
+  const completedVisible = completedOpen || Boolean(normalizedSearch)
 
   async function handleSaved() {
     setEditor(null)
+    setActionError('')
     await load()
+  }
+
+  async function handlePurchasedState(item: ShoppingItem, purchased: boolean) {
+    if (updatingItemId) return
+
+    setUpdatingItemId(item.id)
+    setActionError('')
+    try {
+      await setShoppingItemPurchased({ ownerId, itemId: item.id, purchased })
+      const nextModel = await loadShoppingReadModel(ownerId)
+      setShoppingStatus({ status: 'ready', model: nextModel })
+      if (purchased) setCompletedOpen(true)
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : 'Nie udało się zmienić stanu zakupu.')
+    } finally {
+      setUpdatingItemId(null)
+    }
   }
 
   return (
@@ -68,8 +100,9 @@ export function ShoppingPage({ ownerId }: ShoppingPageProps) {
         <div>
           <p className="eyebrow">Bieżąca lista</p>
           <h1>Zakupy</h1>
-          {model && model.items.length > 0 && <p>{thingsLabel(model.items.length)} do kupienia</p>}
-          {model && model.items.length === 0 && <p>Dodaj to, czego brakuje w domu.</p>}
+          {model && model.activeItems.length > 0 && <p>{thingsLabel(model.activeItems.length)} do kupienia</p>}
+          {model && model.activeItems.length === 0 && model.purchasedItems.length > 0 && <p>Wszystko kupione</p>}
+          {model && totalItemCount === 0 && <p>Dodaj to, czego brakuje w domu.</p>}
         </div>
         <div className="shopping-heading-actions">
           <button className="icon-button" type="button" onClick={() => void load()} aria-label="Odśwież listę zakupów" title="Odśwież">
@@ -96,7 +129,9 @@ export function ShoppingPage({ ownerId }: ShoppingPageProps) {
         </section>
       )}
 
-      {model && model.items.length === 0 && (
+      {actionError && <p className="shopping-action-error" role="alert">{actionError}</p>}
+
+      {model && totalItemCount === 0 && (
         <section className="shopping-empty-card">
           <span className="shopping-empty-icon" aria-hidden="true"><KitchenIcon name="shopping" size={25} /></span>
           <div>
@@ -110,7 +145,21 @@ export function ShoppingPage({ ownerId }: ShoppingPageProps) {
         </section>
       )}
 
-      {model && model.items.length >= 8 && (
+      {model && model.activeItems.length === 0 && model.purchasedItems.length > 0 && !normalizedSearch && (
+        <section className="shopping-empty-card shopping-all-done-card">
+          <span className="shopping-empty-icon" aria-hidden="true"><KitchenIcon name="check" size={25} /></span>
+          <div>
+            <strong>Wszystko kupione</strong>
+            <span>Dodaj kolejną rzecz albo przywróć coś z sekcji „Kupione”.</span>
+          </div>
+          <button className="primary-button" type="button" onClick={() => setEditor({ kind: 'create' })}>
+            <KitchenIcon name="plus" size={18} />
+            Dodaj
+          </button>
+        </section>
+      )}
+
+      {model && totalItemCount >= 8 && (
         <label className="inventory-search shopping-search">
           <KitchenIcon name="search" size={18} />
           <input
@@ -128,33 +177,95 @@ export function ShoppingPage({ ownerId }: ShoppingPageProps) {
         </label>
       )}
 
-      {model && model.items.length > 0 && (
-        <section className="shopping-list-card" aria-label="Rzeczy do kupienia">
-          {visibleItems.length > 0 ? (
-            <ul className="shopping-list">
-              {visibleItems.map((item) => (
-                <li key={item.id}>
-                  <button className="shopping-row" type="button" onClick={() => setEditor({ kind: 'edit', item })}>
-                    <span className="shopping-row-icon" aria-hidden="true"><KitchenIcon name="shopping" size={18} /></span>
-                    <span className="shopping-row-copy">
-                      <strong>{item.name}</strong>
-                      <small>{formatQuantity(item.quantity)} {item.unitSymbol}</small>
-                    </span>
-                    <KitchenIcon name="chevronRight" size={18} />
-                  </button>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <div className="shopping-search-empty">
-              <strong>Brak wyników</strong>
-              <span>Spróbuj innej nazwy.</span>
+      {model && model.activeItems.length > 0 && (!normalizedSearch || visibleActiveItems.length > 0) && (
+        <section className="shopping-list-section" aria-label="Rzeczy do kupienia">
+          <div className="shopping-section-heading">
+            <strong>Do kupienia</strong>
+            <span>{model.activeItems.length}</span>
+          </div>
+          {visibleActiveItems.length > 0 ? (
+            <div className="shopping-list-card">
+              <ul className="shopping-list">
+                {visibleActiveItems.map((item) => (
+                  <li key={item.id} className="shopping-item-line">
+                    <button
+                      className="shopping-purchase-toggle"
+                      type="button"
+                      onClick={() => void handlePurchasedState(item, true)}
+                      disabled={Boolean(updatingItemId)}
+                      aria-label={`Oznacz ${item.name} jako kupione`}
+                      title="Oznacz jako kupione"
+                    >
+                      <span aria-hidden="true" />
+                    </button>
+                    <button className="shopping-row" type="button" onClick={() => setEditor({ kind: 'edit', item })} disabled={Boolean(updatingItemId)}>
+                      <span className="shopping-row-copy">
+                        <strong>{item.name}</strong>
+                        <small>{formatQuantity(item.quantity)} {item.unitSymbol}</small>
+                      </span>
+                      <KitchenIcon name="chevronRight" size={18} />
+                    </button>
+                  </li>
+                ))}
+              </ul>
             </div>
+          ) : null}
+        </section>
+      )}
+
+      {model && model.purchasedItems.length > 0 && (!normalizedSearch || visiblePurchasedItems.length > 0) && (
+        <section className="shopping-completed-section" aria-label="Kupione rzeczy">
+          <button
+            className={`shopping-completed-heading${completedOpen ? ' is-open' : ''}`}
+            type="button"
+            onClick={() => setCompletedOpen((value) => !value)}
+            aria-expanded={completedVisible}
+          >
+            <span className="shopping-completed-heading-copy">
+              <span className="shopping-completed-heading-icon" aria-hidden="true"><KitchenIcon name="check" size={17} /></span>
+              <strong>Kupione</strong>
+              <small>{model.purchasedItems.length}</small>
+            </span>
+            <span className="shopping-completed-chevron" aria-hidden="true"><KitchenIcon name="chevronDown" size={18} /></span>
+          </button>
+
+          {completedVisible && (
+            visiblePurchasedItems.length > 0 ? (
+              <div className="shopping-list-card shopping-completed-card">
+                <ul className="shopping-list shopping-completed-list">
+                  {visiblePurchasedItems.map((item) => (
+                    <li key={item.id} className="shopping-item-line shopping-item-completed">
+                      <button
+                        className="shopping-purchase-toggle is-checked"
+                        type="button"
+                        onClick={() => void handlePurchasedState(item, false)}
+                        disabled={Boolean(updatingItemId)}
+                        aria-label={`Przywróć ${item.name} do listy zakupów`}
+                        title="Przywróć do kupienia"
+                      >
+                        <span aria-hidden="true"><KitchenIcon name="check" size={16} /></span>
+                      </button>
+                      <div className="shopping-completed-row-copy">
+                        <strong>{item.name}</strong>
+                        <small>{formatQuantity(item.quantity)} {item.unitSymbol}</small>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null
           )}
         </section>
       )}
 
-      {model && model.items.length > 0 && (
+      {searchHasNoResults && (
+        <div className="shopping-search-empty">
+          <strong>Brak wyników</strong>
+          <span>Spróbuj innej nazwy.</span>
+        </div>
+      )}
+
+      {model && totalItemCount > 0 && (
         <button className="shopping-add-footer" type="button" onClick={() => setEditor({ kind: 'create' })}>
           <KitchenIcon name="plus" size={18} />
           Dodaj do listy

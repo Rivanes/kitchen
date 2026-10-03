@@ -11,6 +11,8 @@ export type ShoppingItem = {
   quantity: number
   unitCode: string
   unitSymbol: string
+  isPurchased: boolean
+  purchasedAt: string | null
   createdAt: string
 }
 
@@ -27,5 +29,6 @@ export type ShoppingCreateSeed = {
 }
 
 export type ShoppingReadModel = ShoppingCatalogModel & {
-  items: ShoppingItem[]
+  activeItems: ShoppingItem[]
+  purchasedItems: ShoppingItem[]
 }

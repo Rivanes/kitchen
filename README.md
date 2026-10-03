@@ -173,3 +173,17 @@ Added one reusable `QuantityStepperInput` around the existing shared Quantity au
 - no separate module-specific stepper logic was introduced
 
 No SQL/schema/RLS/Auth changes.
+
+
+## V2.5 — Bought state / completion
+
+Shopping now has one coherent active/completed lifecycle over the existing `shopping_items` table:
+- active items can be marked bought with a one-tap check control
+- `is_purchased=true` and `purchased_at=<timestamp>` are written together
+- bought rows move to a collapsible `Kupione` section
+- bought rows can be restored to active state
+- restore refuses a same-identity + same-unit active collision instead of creating duplicate active rows
+- an active-empty list with completed rows shows `Wszystko kupione`
+- active Home count remains active-only
+
+No SQL/schema/RLS/Auth changes are required because V2.2 already prepared purchased state.

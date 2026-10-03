@@ -1966,3 +1966,170 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
     width: 100%;
   }
 }
+
+
+/* V2.5 — bought state / completion */
+.shopping-action-error {
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid #f0d4d1;
+  border-radius: 13px;
+  background: #fffafa;
+  color: #9b343a;
+  font-size: 11px;
+  line-height: 1.4;
+}
+.shopping-list-section,
+.shopping-completed-section {
+  display: grid;
+  gap: 8px;
+}
+.shopping-section-heading {
+  min-height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 0 2px;
+}
+.shopping-section-heading strong { font-size: 12px; }
+.shopping-section-heading span {
+  min-width: 25px;
+  min-height: 25px;
+  display: inline-grid;
+  place-items: center;
+  padding: 0 7px;
+  border-radius: 999px;
+  background: #eef4ed;
+  color: var(--color-accent-strong);
+  font-size: 10px;
+  font-weight: 800;
+}
+.shopping-item-line {
+  min-height: 62px;
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr);
+  align-items: stretch;
+}
+.shopping-item-line + .shopping-item-line { border-top: 1px solid #edf1ec; }
+.shopping-list .shopping-item-line + .shopping-item-line { border-top: 1px solid #edf1ec; }
+.shopping-purchase-toggle {
+  width: 48px;
+  min-height: 54px;
+  display: grid;
+  place-items: center;
+  align-self: center;
+  border: 0;
+  background: transparent;
+  color: var(--color-accent-strong);
+}
+.shopping-purchase-toggle > span {
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  border: 1.5px solid #bdcbbd;
+  border-radius: 50%;
+  background: #fff;
+}
+.shopping-purchase-toggle:active > span { background: #f0f5ef; }
+.shopping-purchase-toggle.is-checked > span {
+  border-color: var(--color-accent-strong);
+  background: var(--color-accent-strong);
+  color: #fff;
+}
+.shopping-purchase-toggle:disabled { opacity: .55; }
+.shopping-item-line .shopping-row {
+  min-height: 62px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  padding-left: 0;
+}
+.shopping-item-line .shopping-row:disabled { opacity: .62; }
+.shopping-all-done-card .shopping-empty-icon {
+  background: #edf6eb;
+  color: var(--color-accent-strong);
+}
+.shopping-completed-heading {
+  width: 100%;
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 7px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  background: #fafbf9;
+  color: var(--color-text);
+  text-align: left;
+}
+.shopping-completed-heading-copy {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.shopping-completed-heading-copy strong { font-size: 12px; }
+.shopping-completed-heading-copy small {
+  min-width: 24px;
+  min-height: 24px;
+  display: inline-grid;
+  place-items: center;
+  padding: 0 7px;
+  border-radius: 999px;
+  background: #eaf2e8;
+  color: var(--color-accent-strong);
+  font-size: 10px;
+  font-weight: 800;
+}
+.shopping-completed-heading-icon {
+  width: 31px;
+  height: 31px;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  background: #edf6eb;
+  color: var(--color-accent-strong);
+}
+.shopping-completed-chevron {
+  display: grid;
+  place-items: center;
+  color: var(--color-muted);
+  transition: transform 160ms ease;
+}
+.shopping-completed-heading.is-open .shopping-completed-chevron { transform: rotate(180deg); }
+.shopping-completed-card {
+  background: #fbfcfa;
+}
+.shopping-item-completed {
+  min-height: 58px;
+  grid-template-columns: 48px minmax(0, 1fr);
+}
+.shopping-completed-row-copy {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+  align-content: center;
+  padding: 8px 12px 8px 0;
+}
+.shopping-completed-row-copy strong {
+  overflow: hidden;
+  color: #6d756f;
+  font-size: 13px;
+  text-decoration: line-through;
+  text-decoration-thickness: 1px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.shopping-completed-row-copy small {
+  color: var(--color-muted);
+  font-size: 11px;
+}
+.shopping-section-empty {
+  padding: 12px;
+  border: 1px dashed var(--color-border);
+  border-radius: 13px;
+  color: var(--color-muted);
+  font-size: 11px;
+  text-align: center;
+}

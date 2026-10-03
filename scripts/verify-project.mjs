@@ -52,6 +52,7 @@ const requiredFiles = [
   'tests/SHARED_CORE_CONSISTENCY_CONTRACT.md',
   'tests/INVENTORY_TO_SHOPPING_CONTRACT.md',
   'tests/QUANTITY_STEPPER_CONTRACT.md',
+  'tests/SHOPPING_PURCHASED_STATE_CONTRACT.md',
   'vite.config.ts',
 ]
 
@@ -421,20 +422,30 @@ for (const marker of ['loadOwnerProductCatalog(ownerId)', 'loadMeasurementUnits(
     throw new Error(`V2.3.3 Shopping read model must reuse shared core authority: ${marker}`)
   }
 }
-if (!shoppingReadModel.includes(".eq('owner_id', ownerId)") || !shoppingReadModel.includes(".eq('is_purchased', false)")) {
-  throw new Error('V2.3 Shopping reads must be owner-scoped and limited to the active list.')
+if (!shoppingReadModel.includes(".eq('owner_id', ownerId)")) {
+  throw new Error('Shopping reads must remain owner-scoped.')
 }
 if (/\.(insert|update|upsert|delete)\s*\(/.test(shoppingReadModel)) {
-  throw new Error('V2.3 Shopping read model itself must remain read-only.')
+  throw new Error('Shopping read model itself must remain read-only.')
 }
-if (!shoppingReadModel.includes('loadActiveShoppingCount')) {
-  throw new Error('V2.3 Start needs an owner-scoped active Shopping count.')
+if (!shoppingReadModel.includes('loadActiveShoppingCount') || !shoppingReadModel.includes(".eq('is_purchased', false)")) {
+  throw new Error('Start/Home Shopping count must remain owner-scoped and active-only.')
+}
+for (const marker of ['is_purchased, purchased_at', 'activeItems', 'purchasedItems', 'comparePurchasedNewestFirst', 'incoherent purchased state']) {
+  if (!shoppingReadModel.includes(marker)) {
+    throw new Error(`V2.5 Shopping read model purchased-state marker missing: ${marker}`)
+  }
 }
 
 const shoppingMutations = await readFile('src/features/shopping/shoppingMutations.ts', 'utf8')
 for (const marker of ['createShoppingItem', 'updateShoppingItem', 'removeShoppingItem', 'normalizeProductName', 'resolveOrCreateCanonicalProduct', 'resolveCanonicalProductForEdit', 'currentProductId', 'cleanupCreatedCanonicalProduct', 'assertValidQuantity', 'readStoredQuantity', 'addQuantities', 'product_id: product.id', 'custom_name: null', ".eq('owner_id', input.ownerId)", ".eq('is_purchased', false)"]) {
   if (!shoppingMutations.includes(marker)) {
     throw new Error(`V2.3.2 Shopping mutation marker missing: ${marker}`)
+  }
+}
+for (const marker of ['setShoppingItemPurchased', 'loadShoppingStateItem', 'hasSameShoppingIdentity', 'is_purchased: input.purchased', 'purchased_at: nextPurchasedAt', 'Ta rzecz jest już na aktywnej liście w tej samej jednostce.', ".eq('is_purchased', current.is_purchased)"]) {
+  if (!shoppingMutations.includes(marker)) {
+    throw new Error(`V2.5 Shopping purchased-state mutation marker missing: ${marker}`)
   }
 }
 if (!shoppingMutations.includes('mergeTarget') || !shoppingMutations.includes('item.unit_code === input.unitCode')) {
@@ -471,13 +482,18 @@ if (shoppingEditor.includes("unit.code === 'szt'")) {
 }
 
 const shoppingPage = await readFile('src/features/shopping/ShoppingPage.tsx', 'utf8')
-for (const marker of ['Zakupy', 'Lista jest pusta', 'loadShoppingReadModel', 'model.items.length >= 8', 'Szukaj na liście', '<ShoppingEditor']) {
+for (const marker of ['Zakupy', 'Lista jest pusta', 'loadShoppingReadModel', 'totalItemCount >= 8', 'Szukaj na liście', '<ShoppingEditor']) {
   if (!shoppingPage.includes(marker)) {
-    throw new Error(`V2.3 Shopping page marker missing: ${marker}`)
+    throw new Error(`Shopping page marker missing: ${marker}`)
   }
 }
-if (/Kupione|Oznacz jako kupione/.test(shoppingPage)) {
-  throw new Error('V2.3 must not prematurely implement purchased-state UI reserved for the next stage.')
+for (const marker of ['setShoppingItemPurchased', 'Do kupienia', 'Kupione', 'Wszystko kupione', 'shopping-purchase-toggle', 'model.activeItems', 'model.purchasedItems', 'Przywróć ${item.name} do listy zakupów']) {
+  if (!shoppingPage.includes(marker)) {
+    throw new Error(`V2.5 Shopping purchased-state UI marker missing: ${marker}`)
+  }
+}
+if (!shoppingPage.includes('visibleActiveItems') || !shoppingPage.includes('visiblePurchasedItems')) {
+  throw new Error('V2.5 shared Shopping search must filter both active and purchased groups.')
 }
 
 if (!homePage.includes('onOpenShopping') || !homePage.includes('home-shopping-hub') || !homePage.includes('loadActiveShoppingCount')) {
@@ -500,6 +516,11 @@ if (!inventoryTypes.includes("MeasurementUnit as SharedMeasurementUnit") || !sho
 for (const marker of ['ShoppingCatalogModel', 'ShoppingCreateSeed', 'productId: string', 'productName: string', 'unitCode: string']) {
   if (!shoppingTypes.includes(marker)) {
     throw new Error(`V2.4 shared Shopping create seed/catalog marker missing: ${marker}`)
+  }
+}
+for (const marker of ['isPurchased: boolean', 'purchasedAt: string | null', 'activeItems: ShoppingItem[]', 'purchasedItems: ShoppingItem[]']) {
+  if (!shoppingTypes.includes(marker)) {
+    throw new Error(`V2.5 Shopping type marker missing: ${marker}`)
   }
 }
 
@@ -530,6 +551,11 @@ const quantityStepperStyles = await readFile('src/styles/global.css', 'utf8')
 for (const marker of ['.quantity-stepper', '.quantity-stepper-button', 'grid-template-columns: 44px minmax(0, 1fr) 44px']) {
   if (!quantityStepperStyles.includes(marker)) {
     throw new Error(`V2.4.1 quantity stepper style marker missing: ${marker}`)
+  }
+}
+for (const marker of ['.shopping-purchase-toggle', '.shopping-completed-section', '.shopping-completed-heading', '.shopping-item-completed', '.shopping-all-done-card']) {
+  if (!quantityStepperStyles.includes(marker)) {
+    throw new Error(`V2.5 purchased-state style marker missing: ${marker}`)
   }
 }
 
