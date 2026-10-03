@@ -32,6 +32,7 @@ const requiredFiles = [
   'tests/INVENTORY_EDITOR_MOBILE_CONTRACT.md',
   'tests/INVENTORY_EXPIRY_CENTER_CONTRACT.md',
   'tests/INVENTORY_OPENED_PRODUCT_CONTRACT.md',
+  'tests/INVENTORY_V1_CLOSEOUT_CONTRACT.md',
   'vite.config.ts',
 ]
 
@@ -213,6 +214,9 @@ if (inventoryPage.includes('expandedLocations') || inventoryPage.includes('toggl
 if (!inventoryPage.includes('group.lots.length >= 8')) {
   throw new Error('V1.5 location pages must keep contextual search for larger location inventories.')
 }
+if (!inventoryPage.includes('model.totalLots >= 8') || !inventoryPage.includes('Szukaj produktu lub miejsca w zapasach')) {
+  throw new Error('V1.7 Zapasy overview must provide contextual cross-location search for larger inventories.')
+}
 if (!inventoryPage.includes("initialLocationId: selectedGroup.location.id")) {
   throw new Error('V1.5 add-from-location flow must preselect the current storage location.')
 }
@@ -265,6 +269,12 @@ for (const marker of ['Wszystkie', 'Z terminem', 'Bez terminu', 'Termin: nie pod
   if (!expiryPage.includes(marker)) {
     throw new Error(`V1.6.2 Expiry Center contract marker missing: ${marker}`)
   }
+}
+if (!expiryPage.includes('Terminy ważności') || !expiryPage.includes('allLots.length >= 10') || !expiryPage.includes('Szukaj produktu lub miejsca')) {
+  throw new Error('V1.7 Expiry Center must keep unified wording and contextual search for larger collections.')
+}
+if (!expiryPage.includes('counts.critical > 0') || !expiryPage.includes('Wszystko w porządku')) {
+  throw new Error('V1.7 Expiry Center must suppress zero-value summary noise and expose one calm good state.')
 }
 
 console.log('Kitchen project contract verification: PASS')

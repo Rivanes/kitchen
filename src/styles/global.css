@@ -931,6 +931,9 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
   gap: 7px;
 }
 
+.inventory-overview-search { margin: 0 0 12px; }
+.inventory-overview-search-empty { margin-bottom: 12px; }
+
 .inventory-location-grid { display: grid; gap: 10px; }
 .inventory-location-entry {
   width: 100%;
@@ -1318,6 +1321,13 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
   border-color: var(--color-expiry-none-border) !important;
   color: var(--color-expiry-none);
 }
+
+.expiry-summary-good {
+  background: var(--color-expiry-good-bg);
+  border-color: var(--color-expiry-good-border) !important;
+  color: var(--color-expiry-good);
+}
+.expiry-search { margin: 0; }
 
 .expiry-filter {
   display: grid;

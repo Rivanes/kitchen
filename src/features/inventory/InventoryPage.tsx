@@ -72,13 +72,26 @@ function locationPreview(lots: InventoryLot[]) {
 
 function InventoryOverview({
   model,
+  searchQuery,
+  onSearchChange,
   onOpenLocation,
   onAdd,
 }: {
   model: InventoryReadModel
+  searchQuery: string
+  onSearchChange: (value: string) => void
   onOpenLocation: (locationId: string) => void
   onAdd: () => void
 }) {
+  const shouldShowSearch = model.totalLots >= 8
+  const normalizedSearch = shouldShowSearch ? searchQuery.trim().toLocaleLowerCase('pl') : ''
+  const visibleGroups = normalizedSearch
+    ? model.groups.filter((group) => (
+      group.location.name.toLocaleLowerCase('pl').includes(normalizedSearch)
+      || group.lots.some((lot) => lot.productName.toLocaleLowerCase('pl').includes(normalizedSearch))
+    ))
+    : model.groups
+
   return (
     <>
       {model.totalLots === 0 && (
@@ -94,28 +107,66 @@ function InventoryOverview({
         </div>
       )}
 
-      <div className="inventory-location-grid" aria-label="Miejsca przechowywania">
-        {model.groups.map((group) => (
-          <button
-            className={`inventory-location-entry location-entry-${group.location.kind}`}
-            type="button"
-            key={group.location.id}
-            onClick={() => onOpenLocation(group.location.id)}
-          >
-            <span className={`location-mark location-mark-${group.location.kind}`} aria-hidden="true">
-              <KitchenIcon name={locationIcon(group.location.kind)} size={22} />
-            </span>
-            <span className="location-entry-copy">
-              <strong>{group.location.name}</strong>
-              <span>{locationPreview(group.lots)}</span>
-            </span>
-            <span className="location-entry-end">
-              <span className="location-count-badge">{uniqueProductCount(group.lots)}</span>
-              <KitchenIcon name="chevronRight" size={18} />
-            </span>
-          </button>
-        ))}
-      </div>
+      {shouldShowSearch && (
+        <label className="inventory-search inventory-overview-search">
+          <span className="sr-only">Szukaj produktu lub miejsca w zapasach</span>
+          <KitchenIcon name="search" size={19} />
+          <input
+            type="search"
+            value={searchQuery}
+            onChange={(event) => onSearchChange(event.target.value)}
+            placeholder="Szukaj produktu lub miejsca"
+            autoComplete="off"
+          />
+          {searchQuery && (
+            <button type="button" onClick={() => onSearchChange('')} aria-label="Wyczyść wyszukiwanie">
+              <KitchenIcon name="close" size={17} />
+            </button>
+          )}
+        </label>
+      )}
+
+      {normalizedSearch && visibleGroups.length === 0 ? (
+        <div className="inventory-search-empty inventory-overview-search-empty" role="status">
+          <strong>Nie znaleziono produktu</strong>
+          <span>Spróbuj innej nazwy albo wyszukaj miejsce przechowywania.</span>
+        </div>
+      ) : (
+        <div className="inventory-location-grid" aria-label="Miejsca przechowywania">
+          {visibleGroups.map((group) => {
+            const locationMatches = normalizedSearch
+              ? group.location.name.toLocaleLowerCase('pl').includes(normalizedSearch)
+              : false
+            const matchingLots = normalizedSearch
+              ? group.lots.filter((lot) => lot.productName.toLocaleLowerCase('pl').includes(normalizedSearch))
+              : group.lots
+            const displayLots = normalizedSearch && locationMatches && matchingLots.length === 0
+              ? group.lots
+              : matchingLots
+
+            return (
+              <button
+                className={`inventory-location-entry location-entry-${group.location.kind}`}
+                type="button"
+                key={group.location.id}
+                onClick={() => onOpenLocation(group.location.id)}
+              >
+                <span className={`location-mark location-mark-${group.location.kind}`} aria-hidden="true">
+                  <KitchenIcon name={locationIcon(group.location.kind)} size={22} />
+                </span>
+                <span className="location-entry-copy">
+                  <strong>{group.location.name}</strong>
+                  <span>{locationPreview(displayLots)}</span>
+                </span>
+                <span className="location-entry-end">
+                  <span className="location-count-badge">{uniqueProductCount(displayLots)}</span>
+                  <KitchenIcon name="chevronRight" size={18} />
+                </span>
+              </button>
+            )
+          })}
+        </div>
+      )}
     </>
   )
 }
@@ -364,6 +415,8 @@ export function InventoryPage({
       {loadState.status === 'ready' && !selectedGroup && (
         <InventoryOverview
           model={loadState.model}
+          searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
           onOpenLocation={openLocation}
           onAdd={() => setEditor({ kind: 'create' })}
         />

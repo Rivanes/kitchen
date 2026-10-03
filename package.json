@@ -1,7 +1,7 @@
 {
   "name": "kitchen",
   "private": true,
-  "version": "1.6.2",
+  "version": "1.7.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -23,5 +23,8 @@
     "typescript": "latest",
     "vite": "latest",
     "vite-plugin-pwa": "latest"
+  },
+  "engines": {
+    "node": ">=22 <25"
   }
 }

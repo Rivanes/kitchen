@@ -49,3 +49,16 @@ No SQL, schema, RLS or Auth changes.
 - Opened stock never merges with newly added unopened stock.
 
 V1.6.2 requires its Supabase migration before this frontend is deployed.
+
+
+## V1.7 — Inventory polish / V1 closeout candidate
+
+V1.7 prepares the complete Inventory domain for final V1 production closeout.
+
+- Zapasy overview gains contextual cross-location search at 8+ stock lots.
+- Location pages retain their own contextual search.
+- Expiry Center hides zero-value noise, exposes one calm good-state summary, and gains contextual search at 10+ lots.
+- Expiry Center wording is unified around `Terminy ważności`.
+- Opened-product date assignment is made explicitly household-calendar based by the accompanying V1.7 SQL corrective.
+
+No new Inventory feature family is introduced; V1.7 is polish/corrective work before V2 Shopping List.

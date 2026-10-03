@@ -41,6 +41,7 @@ export function ExpiryPage({ ownerId, onBack }: ExpiryPageProps) {
   const [loadState, setLoadState] = useState<LoadState>({ status: 'loading', model: null })
   const [reloadVersion, setReloadVersion] = useState(0)
   const [filter, setFilter] = useState<ExpiryFilter>('all')
+  const [searchQuery, setSearchQuery] = useState('')
   const [editLot, setEditLot] = useState<InventoryLot | null>(null)
   const [consumeLot, setConsumeLot] = useState<InventoryLot | null>(null)
 
@@ -77,10 +78,20 @@ export function ExpiryPage({ ownerId, onBack }: ExpiryPageProps) {
   }, [loadState])
 
   const visibleLots = useMemo(() => {
+    const normalizedSearch = allLots.length >= 10 ? searchQuery.trim().toLocaleLowerCase('pl') : ''
     const filtered = allLots.filter((lot) => {
-      if (filter === 'with-date') return lot.expiryDate !== null
-      if (filter === 'without-date') return lot.expiryDate === null
-      return true
+      const matchesFilter = filter === 'with-date'
+        ? lot.expiryDate !== null
+        : filter === 'without-date'
+          ? lot.expiryDate === null
+          : true
+
+      if (!matchesFilter) return false
+      if (!normalizedSearch) return true
+
+      const locationName = locationNames.get(lot.storageLocationId) ?? ''
+      return lot.productName.toLocaleLowerCase('pl').includes(normalizedSearch)
+        || locationName.toLocaleLowerCase('pl').includes(normalizedSearch)
     })
 
     return [...filtered].sort((a, b) => {
@@ -95,7 +106,7 @@ export function ExpiryPage({ ownerId, onBack }: ExpiryPageProps) {
 
       return a.productName.localeCompare(b.productName, 'pl', { sensitivity: 'base' })
     })
-  }, [allLots, filter])
+  }, [allLots, filter, locationNames, searchQuery])
 
   const counts = useMemo(() => {
     let critical = 0
@@ -128,7 +139,7 @@ export function ExpiryPage({ ownerId, onBack }: ExpiryPageProps) {
       <div className="page-heading-row expiry-page-heading">
         <div>
           <p className="eyebrow">Terminy</p>
-          <h1 id="expiry-page-title">Ważność produktów</h1>
+          <h1 id="expiry-page-title">Terminy ważności</h1>
         </div>
         <button className="icon-button icon-button-quiet" type="button" onClick={reload} disabled={loadState.status === 'loading'} aria-label="Odśwież terminy" title="Odśwież">
           <KitchenIcon name="refresh" />
@@ -154,25 +165,51 @@ export function ExpiryPage({ ownerId, onBack }: ExpiryPageProps) {
 
       {loadState.status === 'ready' && (
         <>
-          <div className="expiry-quick-summary" aria-label="Podsumowanie terminów">
-            <span className="expiry-summary-critical">{counts.critical} pilne</span>
-            <span className="expiry-summary-warning">{counts.warning} wkrótce</span>
-            <span className="expiry-summary-missing">{counts.missing} bez terminu</span>
-          </div>
+          {allLots.length > 0 && (
+            <>
+              <div className="expiry-quick-summary" aria-label="Podsumowanie terminów">
+                {counts.critical > 0 && <span className="expiry-summary-critical">{counts.critical} pilne</span>}
+                {counts.warning > 0 && <span className="expiry-summary-warning">{counts.warning} wkrótce</span>}
+                {counts.missing > 0 && <span className="expiry-summary-missing">{counts.missing} bez terminu</span>}
+                {counts.critical === 0 && counts.warning === 0 && counts.missing === 0 && (
+                  <span className="expiry-summary-good">Wszystko w porządku</span>
+                )}
+              </div>
 
-          <div className="expiry-filter" role="group" aria-label="Filtr terminów ważności">
-            {(['all', 'with-date', 'without-date'] as const).map((value) => (
-              <button
-                key={value}
-                type="button"
-                className={filter === value ? 'is-active' : ''}
-                onClick={() => setFilter(value)}
-                aria-pressed={filter === value}
-              >
-                {filterLabel(value)}
-              </button>
-            ))}
-          </div>
+              <div className="expiry-filter" role="group" aria-label="Filtr terminów ważności">
+                {(['all', 'with-date', 'without-date'] as const).map((value) => (
+                  <button
+                    key={value}
+                    type="button"
+                    className={filter === value ? 'is-active' : ''}
+                    onClick={() => setFilter(value)}
+                    aria-pressed={filter === value}
+                  >
+                    {filterLabel(value)}
+                  </button>
+                ))}
+              </div>
+
+              {allLots.length >= 10 && (
+                <label className="inventory-search expiry-search">
+                  <span className="sr-only">Szukaj produktu lub miejsca w terminach</span>
+                  <KitchenIcon name="search" size={19} />
+                  <input
+                    type="search"
+                    value={searchQuery}
+                    onChange={(event) => setSearchQuery(event.target.value)}
+                    placeholder="Szukaj produktu lub miejsca"
+                    autoComplete="off"
+                  />
+                  {searchQuery && (
+                    <button type="button" onClick={() => setSearchQuery('')} aria-label="Wyczyść wyszukiwanie">
+                      <KitchenIcon name="close" size={17} />
+                    </button>
+                  )}
+                </label>
+              )}
+            </>
+          )}
 
           {allLots.length === 0 ? (
             <div className="inventory-location-empty">
@@ -181,7 +218,8 @@ export function ExpiryPage({ ownerId, onBack }: ExpiryPageProps) {
             </div>
           ) : visibleLots.length === 0 ? (
             <div className="inventory-search-empty" role="status">
-              <strong>Brak produktów w tym filtrze</strong>
+              <strong>Brak pasujących produktów</strong>
+              <span>Zmień filtr albo wyszukiwane hasło.</span>
             </div>
           ) : (
             <div className="expiry-list-card">
