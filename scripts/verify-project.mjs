@@ -7,7 +7,9 @@ const requiredFiles = [
   '.github/workflows/deploy.yml',
   'src/App.tsx',
   'src/components/LoginPage.tsx',
+  'src/components/OwnerGate.tsx',
   'src/lib/supabase/client.ts',
+  'tests/SECURITY_CONTRACT.md',
   'vite.config.ts',
 ]
 
@@ -32,6 +34,19 @@ if (!client.includes('VITE_SUPABASE_URL') || !client.includes('VITE_SUPABASE_PUB
 }
 if (/service_role|SUPABASE_SECRET|DATABASE_PASSWORD/i.test(client)) {
   throw new Error('Forbidden server/admin credential reference detected in browser client.')
+}
+
+const app = await readFile('src/App.tsx', 'utf8')
+if (!app.includes('<OwnerGate user={session.user} />')) {
+  throw new Error('Authenticated sessions must pass through OwnerGate before AppShell.')
+}
+
+const ownerGate = await readFile('src/components/OwnerGate.tsx', 'utf8')
+if (!/\.rpc\(\s*['"]is_kitchen_owner['"]\s*\)/.test(ownerGate)) {
+  throw new Error('OwnerGate must verify access through the is_kitchen_owner RPC.')
+}
+if (!ownerGate.includes("data === true ? 'allowed' : 'denied'")) {
+  throw new Error('OwnerGate must fail closed unless the owner RPC returns true.')
 }
 
 const viteConfig = await readFile('vite.config.ts', 'utf8')
