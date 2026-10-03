@@ -1,7 +1,7 @@
 import { FormEvent, useEffect, useRef, useState } from 'react'
 import { KitchenIcon } from '../../components/KitchenIcon'
 import { QuantityStepperInput } from '../quantity/QuantityStepperInput'
-import { formatQuantity, parseQuantityInput, QUANTITY_INPUT_ERROR } from '../quantity/quantity'
+import { DEFAULT_QUANTITY_STEP, formatQuantity, formatQuantityInput, parseQuantityInput, QUANTITY_INPUT_ERROR } from '../quantity/quantity'
 import { consumeAllInventoryLot, consumeInventoryLot } from './inventoryMutations'
 import type { ConsumeInventoryResult } from './inventoryMutations'
 import type { InventoryLot } from './types'
@@ -15,7 +15,7 @@ type InventoryConsumeSheetProps = {
 
 
 export function InventoryConsumeSheet({ ownerId, lot, onClose, onConsumed }: InventoryConsumeSheetProps) {
-  const [quantity, setQuantity] = useState('')
+  const [quantity, setQuantity] = useState(() => formatQuantityInput(Math.min(DEFAULT_QUANTITY_STEP, lot.quantity)))
   const [saving, setSaving] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)

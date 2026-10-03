@@ -246,3 +246,14 @@ No SQL rerun is required when the V2.6 production postcheck already passed.
 - Shopping purchase check is now the fast path: one tap buys the full listed quantity with no confirmation sheet.
 - `Zmień ilość` on the active Shopping row opens the existing partial-purchase sheet only when the bought quantity differs.
 - No SQL/schema/RLS/Auth change.
+
+
+## V2.6.3 — Purchased Quantity Correction + Stepper Default
+
+The common Shopping purchase path is now truly one tap: active-row check immediately purchases the full current quantity.
+If the real purchase differed (for example 4 planned but 3 bought), `Zmień ilość` appears only on the already-purchased row.
+Correcting 4 -> 3 atomically keeps 3 in `Kupione` and returns 1 to `Do kupienia`.
+
+Inventory Consume now seeds the shared quantity stepper with a valid real value (`min(1, available)`), so +/- works immediately without first typing a number when the amount is already known.
+
+V2.6.3 requires `V2_6_3_PURCHASED_QUANTITY_CORRECTION.sql` before runtime deploy.

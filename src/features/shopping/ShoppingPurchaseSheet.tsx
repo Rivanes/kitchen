@@ -8,21 +8,21 @@ import {
   parseQuantityInput,
   QUANTITY_INPUT_ERROR,
 } from '../quantity/quantity'
-import { purchaseShoppingQuantity } from './shoppingMutations'
+import { adjustPurchasedShoppingQuantity } from './shoppingMutations'
 import type { ShoppingItem } from './types'
 
 type ShoppingPurchaseSheetProps = {
   ownerId: string
   item: ShoppingItem
   onClose: () => void
-  onPurchased: () => void
+  onSaved: () => void
 }
 
 export function ShoppingPurchaseSheet({
   ownerId,
   item,
   onClose,
-  onPurchased,
+  onSaved,
 }: ShoppingPurchaseSheetProps) {
   const inputRef = useRef<HTMLInputElement>(null)
   const [quantity, setQuantity] = useState(() => formatQuantityInput(item.quantity))
@@ -30,10 +30,9 @@ export function ShoppingPurchaseSheet({
   const [errorMessage, setErrorMessage] = useState('')
 
   const parsedQuantity = parseQuantityInput(quantity)
-  const remaining = parsedQuantity && parsedQuantity <= item.quantity
+  const difference = parsedQuantity
     ? normalizeQuantityPrecision(item.quantity - parsedQuantity)
     : null
-  const isFullPurchase = remaining === 0
 
   useEffect(() => {
     const previousOverflow = document.body.style.overflow
@@ -64,22 +63,18 @@ export function ShoppingPurchaseSheet({
       setErrorMessage(QUANTITY_INPUT_ERROR)
       return
     }
-    if (parsed > item.quantity) {
-      setErrorMessage('Nie możesz oznaczyć jako kupione więcej niż było na liście.')
-      return
-    }
 
     setSaving(true)
     setErrorMessage('')
     try {
-      await purchaseShoppingQuantity({
+      await adjustPurchasedShoppingQuantity({
         ownerId,
         itemId: item.id,
         quantity: parsed,
       })
-      onPurchased()
+      onSaved()
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : 'Nie udało się zapisać zakupu.')
+      setErrorMessage(error instanceof Error ? error.message : 'Nie udało się zmienić kupionej ilości.')
       setSaving(false)
     }
   }
@@ -97,8 +92,8 @@ export function ShoppingPurchaseSheet({
         <div className="sheet-handle" aria-hidden="true" />
         <header className="sheet-header">
           <div>
-            <p className="eyebrow">Zakupy</p>
-            <h2 id="shopping-purchase-title">Ile kupiono?</h2>
+            <p className="eyebrow">Kupione</p>
+            <h2 id="shopping-purchase-title">Zmień kupioną ilość</h2>
           </div>
           <button className="icon-button" type="button" onClick={onClose} disabled={saving} aria-label="Zamknij">
             <KitchenIcon name="close" />
@@ -107,7 +102,7 @@ export function ShoppingPurchaseSheet({
 
         <div className="shopping-purchase-summary">
           <strong>{item.name}</strong>
-          <span>Na liście: {formatQuantity(item.quantity)} {item.unitSymbol}</span>
+          <span>Aktualnie kupiono: {formatQuantity(item.quantity)} {item.unitSymbol}</span>
         </div>
 
         <form className="inventory-form shopping-purchase-form" onSubmit={handleSubmit}>
@@ -121,21 +116,32 @@ export function ShoppingPurchaseSheet({
                 setQuantity(nextQuantity)
                 setErrorMessage('')
               }}
-              max={item.quantity}
               suffix={item.unitSymbol}
               disabled={saving}
               ariaLabel={`Kupiona ilość ${item.name} w ${item.unitSymbol}`}
             />
           </div>
 
-          {remaining !== null && (
-            <div className={`shopping-purchase-remaining${isFullPurchase ? ' is-complete' : ''}`}>
-              <KitchenIcon name={isFullPurchase ? 'check' : 'shopping'} size={17} />
+          {difference !== null && difference > 0 && (
+            <div className="shopping-purchase-remaining">
+              <KitchenIcon name="shopping" size={17} />
+              <span>Do „Do kupienia” wróci: {formatQuantity(difference)} {item.unitSymbol}</span>
+            </div>
+          )}
+
+          {difference !== null && difference < 0 && (
+            <div className="shopping-purchase-remaining">
+              <KitchenIcon name="plus" size={17} />
               <span>
-                {isFullPurchase
-                  ? 'Cała pozycja trafi do „Kupione”.'
-                  : `Zostanie do kupienia: ${formatQuantity(remaining)} ${item.unitSymbol}`}
+                System spróbuje przenieść {formatQuantity(Math.abs(difference))} {item.unitSymbol} z aktywnej pozycji do „Kupione”.
               </span>
+            </div>
+          )}
+
+          {difference === 0 && (
+            <div className="shopping-purchase-remaining is-complete">
+              <KitchenIcon name="check" size={17} />
+              <span>Kupiona ilość pozostaje bez zmian.</span>
             </div>
           )}
 
@@ -146,7 +152,7 @@ export function ShoppingPurchaseSheet({
               Anuluj
             </button>
             <button className="primary-button" type="submit" disabled={saving}>
-              {saving ? 'Zapisuję…' : 'Zapisz zakup'}
+              {saving ? 'Zapisuję…' : 'Zapisz'}
             </button>
           </div>
         </form>

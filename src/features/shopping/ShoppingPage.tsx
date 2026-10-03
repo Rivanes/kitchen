@@ -245,16 +245,6 @@ export function ShoppingPage({ ownerId }: ShoppingPageProps) {
                         </span>
                         <KitchenIcon name="chevronRight" size={18} />
                       </button>
-                      <button
-                        className="shopping-partial-purchase-button"
-                        type="button"
-                        onClick={() => setPurchaseTarget(item)}
-                        disabled={Boolean(updatingItemId)}
-                        aria-label={`Kup inną ilość produktu ${item.name}`}
-                      >
-                        <KitchenIcon name="edit" size={14} />
-                        Zmień ilość
-                      </button>
                     </div>
                   </li>
                 ))}
@@ -299,6 +289,16 @@ export function ShoppingPage({ ownerId }: ShoppingPageProps) {
                       <div className="shopping-completed-row-copy">
                         <strong>{item.name}</strong>
                         <small>{formatQuantity(item.quantity)} {item.unitSymbol}</small>
+                        <button
+                          className="shopping-purchased-quantity-button"
+                          type="button"
+                          onClick={() => setPurchaseTarget(item)}
+                          disabled={Boolean(updatingItemId)}
+                          aria-label={`Zmień kupioną ilość produktu ${item.name}`}
+                        >
+                          <KitchenIcon name="edit" size={14} />
+                          Zmień ilość
+                        </button>
                       </div>
                       <button
                         className="shopping-to-inventory-button"
@@ -347,7 +347,7 @@ export function ShoppingPage({ ownerId }: ShoppingPageProps) {
           ownerId={ownerId}
           item={purchaseTarget}
           onClose={() => setPurchaseTarget(null)}
-          onPurchased={() => void handlePurchasedSaved()}
+          onSaved={() => void handlePurchasedSaved()}
         />
       )}
 

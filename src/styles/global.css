@@ -2098,38 +2098,11 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
 .shopping-active-row {
   min-width: 0;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr);
   align-items: center;
-  column-gap: 4px;
 }
 .shopping-active-row .shopping-row {
   min-width: 0;
-}
-.shopping-partial-purchase-button {
-  min-height: 44px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
-  margin-right: 8px;
-  padding: 0 8px;
-  border: 0;
-  border-radius: 11px;
-  background: transparent;
-  color: var(--color-accent-strong);
-  font-size: 10px;
-  font-weight: 800;
-  white-space: nowrap;
-}
-.shopping-partial-purchase-button:active:not(:disabled) { background: #eef5ed; }
-.shopping-partial-purchase-button:disabled { opacity: .5; }
-@media (max-width: 359px) {
-  .shopping-partial-purchase-button {
-    width: 44px;
-    padding: 0;
-    font-size: 0;
-  }
-  .shopping-partial-purchase-button svg { width: 17px; height: 17px; }
 }
 .shopping-all-done-card .shopping-empty-icon {
   background: #edf6eb;
@@ -2335,4 +2308,34 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
 .shopping-inventory-bridge-message.is-error {
   border-color: #f0d4d1;
   background: #fffafa;
+}
+
+
+/* V2.6.3 — purchased quantity correction lives on the purchased tile */
+.shopping-purchased-quantity-button {
+  width: fit-content;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+  padding: 4px 8px;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  background: #f8faf7;
+  color: var(--color-muted);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 750;
+  cursor: pointer;
+}
+.shopping-purchased-quantity-button:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+@media (hover: hover) and (pointer: fine) {
+  .shopping-purchased-quantity-button:not(:disabled):hover {
+    border-color: #b9cbb8;
+    background: #f1f6f0;
+  }
 }

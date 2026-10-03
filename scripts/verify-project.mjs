@@ -460,7 +460,7 @@ for (const marker of ['createShoppingItem', 'updateShoppingItem', 'removeShoppin
     throw new Error(`V2.3.2 Shopping mutation marker missing: ${marker}`)
   }
 }
-for (const marker of ['purchaseShoppingQuantity', 'restoreShoppingPurchase', "rpc('purchase_shopping_item'", "rpc('restore_shopping_purchase'", 'assertValidQuantity(input.quantity)', 'p_owner_id: input.ownerId']) {
+for (const marker of ['purchaseShoppingQuantity', 'restoreShoppingPurchase', 'adjustPurchasedShoppingQuantity', "rpc('purchase_shopping_item'", "rpc('restore_shopping_purchase'", "rpc('adjust_purchased_shopping_quantity'", 'assertValidQuantity(input.quantity)', 'p_owner_id: input.ownerId']) {
   if (!shoppingMutations.includes(marker)) {
     throw new Error(`V2.5.1 Shopping purchase mutation marker missing: ${marker}`)
   }
@@ -530,10 +530,13 @@ for (const marker of ['ShoppingInventoryBridge', 'inventoryTarget', 'shopping-to
 
 
 const shoppingPurchaseSheet = await readFile('src/features/shopping/ShoppingPurchaseSheet.tsx', 'utf8')
-for (const marker of ['Ile kupiono?', 'QuantityStepperInput', 'max={item.quantity}', 'purchaseShoppingQuantity', 'Zostanie do kupienia:', 'Cała pozycja trafi do „Kupione”.']) {
+for (const marker of ['Zmień kupioną ilość', 'QuantityStepperInput', 'adjustPurchasedShoppingQuantity', 'Do „Do kupienia” wróci:', 'Aktualnie kupiono:']) {
   if (!shoppingPurchaseSheet.includes(marker)) {
-    throw new Error(`V2.5.1 partial-purchase sheet marker missing: ${marker}`)
+    throw new Error(`V2.6.3 purchased-quantity correction sheet marker missing: ${marker}`)
   }
+}
+if (shoppingPurchaseSheet.includes('max={item.quantity}') || shoppingPurchaseSheet.includes('purchaseShoppingQuantity')) {
+  throw new Error('V2.6.3 correction sheet must edit an already-purchased quantity, not run the old pre-purchase partial flow.')
 }
 
 
@@ -630,17 +633,24 @@ if (!inventoryEditorV262.includes('<StorageLocationPicker') || inventoryEditorV2
   throw new Error('V2.6.2 InventoryEditor must use the shared icon location picker instead of its location select.')
 }
 const shoppingPageV262 = await readFile('src/features/shopping/ShoppingPage.tsx', 'utf8')
-for (const marker of ['handleQuickPurchase', 'purchaseShoppingQuantity({', 'quantity: item.quantity', 'Zmień ilość', 'setPurchaseTarget(item)']) {
+for (const marker of ['handleQuickPurchase', 'purchaseShoppingQuantity({', 'quantity: item.quantity', 'shopping-purchased-quantity-button', 'Zmień ilość', 'setPurchaseTarget(item)']) {
   if (!shoppingPageV262.includes(marker)) {
-    throw new Error(`V2.6.2 Shopping quick-purchase marker missing: ${marker}`)
+    throw new Error(`V2.6.3 Shopping quick-purchase/correction marker missing: ${marker}`)
   }
 }
-if (shoppingPageV262.includes('onClick={() => setPurchaseTarget(item)}\n                      disabled={Boolean(updatingItemId)}\n                      aria-label={`Oznacz')) {
-  throw new Error('V2.6.2 purchase check must not open the quantity sheet for the full-quantity fast path.')
+if (shoppingPageV262.includes('shopping-partial-purchase-button')) {
+  throw new Error('V2.6.3 must not expose pre-purchase Zmień ilość on active Shopping rows.')
 }
-for (const marker of ['.storage-location-picker', '.storage-location-option', '.shopping-active-row', '.shopping-partial-purchase-button']) {
+for (const marker of ['.storage-location-picker', '.storage-location-option', '.shopping-active-row', '.shopping-purchased-quantity-button']) {
   if (!globalCss.includes(marker)) {
-    throw new Error(`V2.6.2 mobile interaction style marker missing: ${marker}`)
+    throw new Error(`V2.6.3 mobile interaction style marker missing: ${marker}`)
+  }
+}
+
+const consumeSheetV263 = await readFile('src/features/inventory/InventoryConsumeSheet.tsx', 'utf8')
+for (const marker of ['formatQuantityInput(Math.min(DEFAULT_QUANTITY_STEP, lot.quantity))', '<QuantityStepperInput', 'max={lot.quantity}']) {
+  if (!consumeSheetV263.includes(marker)) {
+    throw new Error(`V2.6.3 Consume stepper initialization marker missing: ${marker}`)
   }
 }
 

@@ -244,6 +244,12 @@ export type RestoreShoppingPurchaseInput = {
   itemId: string
 }
 
+export type AdjustPurchasedShoppingQuantityInput = {
+  ownerId: string
+  itemId: string
+  quantity: number
+}
+
 export async function purchaseShoppingQuantity(input: PurchaseShoppingQuantityInput) {
   if (!supabase) throw new Error('Supabase is not configured.')
 
@@ -270,6 +276,23 @@ export async function restoreShoppingPurchase(input: RestoreShoppingPurchaseInpu
 
   if (result.error) {
     throw new Error(`Nie udało się przywrócić rzeczy do listy: ${result.error.message}`)
+  }
+}
+
+
+export async function adjustPurchasedShoppingQuantity(input: AdjustPurchasedShoppingQuantityInput) {
+  if (!supabase) throw new Error('Supabase is not configured.')
+
+  assertValidQuantity(input.quantity)
+
+  const result = await supabase.rpc('adjust_purchased_shopping_quantity', {
+    p_owner_id: input.ownerId,
+    p_item_id: input.itemId,
+    p_quantity: input.quantity,
+  })
+
+  if (result.error) {
+    throw new Error(`Nie udało się zmienić kupionej ilości: ${result.error.message}`)
   }
 }
 

@@ -17,11 +17,11 @@ Kitchen has one shared quantity input interaction for Inventory, Shopping and Co
 The same `QuantityStepperInput` is used by:
 - Inventory add/edit quantity
 - Shopping add/edit quantity
-- Inventory Consume quantity
+- Inventory Consume quantity, prefilled with a valid initial amount so +/- works immediately
 
 No module may create its own plus/minus quantity implementation.
 
 ## Persistence
 The stepper changes only the form value. Existing shared mutation functions remain the persistence authority.
 
-No SQL/schema/RLS/Auth changes.
+V2.6.3 additionally requires all stepper flows to initialize the controlled input with a real valid quantity when the screen already knows the amount; a separate display label must not leave the stepper empty.

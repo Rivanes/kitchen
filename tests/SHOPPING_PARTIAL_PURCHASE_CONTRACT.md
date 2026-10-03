@@ -1,20 +1,16 @@
-# Shopping Partial Purchase Contract — V2.5.1
+# Shopping Purchased Quantity Correction Contract — V2.6.3
 
 Business rule:
-planned quantity and actually purchased quantity are not assumed to be equal.
+planned quantity and actually purchased quantity are not assumed to be equal, but the common full purchase must remain one tap.
 
-The system must support:
-`4 szt. planned -> 3 szt. purchased -> 1 szt. still active`.
+Canonical flow:
+`4 planned -> tap purchased -> 4 purchased -> correct to 3 -> 3 purchased + 1 active`.
 
-One operation authority:
-- UI: ShoppingPurchaseSheet
-- Quantity control: shared QuantityStepperInput
-- mutation: purchaseShoppingQuantity
-- DB authority: public.purchase_shopping_item
+One correction authority:
+- UI: `ShoppingPurchaseSheet` opened from an already-purchased row
+- quantity control: shared `QuantityStepperInput`
+- mutation: `adjustPurchasedShoppingQuantity()`
+- DB authority: `public.adjust_purchased_shopping_quantity(...)`
 
-Undo authority:
-- mutation: restoreShoppingPurchase
-- DB authority: public.restore_shopping_purchase
-
-No client-side UPDATE+INSERT split is allowed for partial purchase.
-The database RPC owns the transaction atomically.
+The active row must not show a pre-purchase `Zmień ilość` action for this use case.
+No client-side UPDATE + INSERT split is allowed; the database owns the correction atomically.
