@@ -1,5 +1,5 @@
 import { supabase } from '../../lib/supabase/client'
-import { compareExpiryDates } from './expiry'
+import { compareExpiryDates, getEffectiveExpiryDate } from './expiry'
 import type {
   InventoryLocation,
   InventoryLocationGroup,
@@ -39,6 +39,9 @@ type RawInventoryItem = {
   quantity: number | string
   unit_code: string
   expiry_date: string | null
+  after_open_days: number | null
+  opened_at: string | null
+  opened_use_by_date: string | null
 }
 
 function assertNoQueryError(error: { message: string } | null, resource: string) {
@@ -53,6 +56,14 @@ function toFiniteQuantity(value: number | string) {
     throw new Error('Inventory read returned an invalid stock quantity.')
   }
   return quantity
+}
+
+function toAfterOpenDays(value: number | null) {
+  if (value === null) return null
+  if (!Number.isInteger(value) || value < 1 || value > 3650) {
+    throw new Error('Inventory read returned an invalid after-open shelf-life value.')
+  }
+  return value
 }
 
 export async function loadInventoryReadModel(ownerId: string): Promise<InventoryReadModel> {
@@ -78,7 +89,7 @@ export async function loadInventoryReadModel(ownerId: string): Promise<Inventory
       .order('sort_order', { ascending: true }),
     supabase
       .from('inventory_items')
-      .select('id, product_id, storage_location_id, quantity, unit_code, expiry_date')
+      .select('id, product_id, storage_location_id, quantity, unit_code, expiry_date, after_open_days, opened_at, opened_use_by_date')
       .eq('owner_id', ownerId)
       .order('created_at', { ascending: true }),
   ])
@@ -136,11 +147,17 @@ export async function loadInventoryReadModel(ownerId: string): Promise<Inventory
       unitCode: unit.code,
       unitSymbol: unit.symbol,
       expiryDate: row.expiry_date,
+      afterOpenDays: toAfterOpenDays(row.after_open_days),
+      openedAt: row.opened_at,
+      openedUseByDate: row.opened_use_by_date,
     }
   })
 
   lots.sort((a, b) => {
-    const byExpiry = compareExpiryDates(a.expiryDate, b.expiryDate)
+    const byExpiry = compareExpiryDates(
+      getEffectiveExpiryDate(a.expiryDate, a.openedUseByDate),
+      getEffectiveExpiryDate(b.expiryDate, b.openedUseByDate),
+    )
     if (byExpiry !== 0) return byExpiry
     return a.productName.localeCompare(b.productName, 'pl', { sensitivity: 'base' })
   })

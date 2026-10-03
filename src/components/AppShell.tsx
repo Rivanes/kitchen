@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { User } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase/client'
 import { HomePage } from '../features/home/HomePage'
+import { ExpiryPage } from '../features/inventory/ExpiryPage'
 import { InventoryPage } from '../features/inventory/InventoryPage'
 import { KitchenIcon } from './KitchenIcon'
 
@@ -9,7 +10,7 @@ type AppShellProps = {
   user: User
 }
 
-type AppView = 'home' | 'inventory'
+type AppView = 'home' | 'inventory' | 'expiry'
 
 export function AppShell({ user }: AppShellProps) {
   const [view, setView] = useState<AppView>('home')
@@ -38,6 +39,8 @@ export function AppShell({ user }: AppShellProps) {
     setInventoryCreateRequest((currentToken) => (currentToken === requestToken ? 0 : currentToken))
   }
 
+  const startSectionActive = view === 'home' || view === 'expiry'
+
   return (
     <main className="app-layout">
       <header className="app-header">
@@ -53,9 +56,19 @@ export function AppShell({ user }: AppShellProps) {
         </button>
       </header>
 
-      {view === 'home' ? (
-        <HomePage ownerId={user.id} onAddProduct={openInventoryCreate} onOpenInventory={() => changeView('inventory')} />
-      ) : (
+      {view === 'home' && (
+        <HomePage
+          ownerId={user.id}
+          onAddProduct={openInventoryCreate}
+          onOpenExpiry={() => changeView('expiry')}
+        />
+      )}
+
+      {view === 'expiry' && (
+        <ExpiryPage ownerId={user.id} onBack={() => changeView('home')} />
+      )}
+
+      {view === 'inventory' && (
         <InventoryPage
           ownerId={user.id}
           createRequestToken={inventoryCreateRequest}
@@ -65,7 +78,7 @@ export function AppShell({ user }: AppShellProps) {
       )}
 
       <nav className="bottom-nav" aria-label="Główna nawigacja Kitchen">
-        <button className={`nav-item${view === 'home' ? ' is-active' : ''}`} type="button" onClick={() => changeView('home')} aria-current={view === 'home' ? 'page' : undefined}>
+        <button className={`nav-item${startSectionActive ? ' is-active' : ''}`} type="button" onClick={() => changeView('home')} aria-current={startSectionActive ? 'page' : undefined}>
           <KitchenIcon name="home" />
           <span>Start</span>
         </button>

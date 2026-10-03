@@ -1,4 +1,5 @@
-export type ExpiryTone = 'overdue' | 'today' | 'soon' | 'later' | 'none'
+export type ExpiryTone = 'critical' | 'warning' | 'good' | 'none'
+export type EffectiveExpirySource = 'declared' | 'opened' | 'none'
 
 export type ExpiryMeta = {
   date: string | null
@@ -7,6 +8,13 @@ export type ExpiryMeta = {
   label: string
   exactLabel: string
   needsAttention: boolean
+  isMissing: boolean
+}
+
+export type InventoryExpiryMeta = ExpiryMeta & {
+  declaredDate: string | null
+  openedUseByDate: string | null
+  effectiveSource: EffectiveExpirySource
 }
 
 const DAY_MS = 86_400_000
@@ -46,10 +54,23 @@ export function formatDateOnly(value: string) {
   return `${String(parts.day).padStart(2, '0')}.${String(parts.month).padStart(2, '0')}.${parts.year}`
 }
 
+export function addDaysDateOnly(value: string, days: number) {
+  const parts = dateParts(value)
+  if (!parts || !Number.isInteger(days)) return null
+  const next = new Date(parts.utc + days * DAY_MS)
+  return `${next.getUTCFullYear()}-${String(next.getUTCMonth() + 1).padStart(2, '0')}-${String(next.getUTCDate()).padStart(2, '0')}`
+}
+
 export function daysUntilDate(value: string, now = new Date()) {
   const parts = dateParts(value)
   if (!parts) return null
   return Math.round((parts.utc - todayUtc(now)) / DAY_MS)
+}
+
+export function getEffectiveExpiryDate(expiryDate: string | null, openedUseByDate: string | null) {
+  if (!expiryDate) return openedUseByDate
+  if (!openedUseByDate) return expiryDate
+  return expiryDate.localeCompare(openedUseByDate) <= 0 ? expiryDate : openedUseByDate
 }
 
 export function getExpiryMeta(value: string | null, now = new Date()): ExpiryMeta {
@@ -58,22 +79,25 @@ export function getExpiryMeta(value: string | null, now = new Date()): ExpiryMet
       date: null,
       daysUntil: null,
       tone: 'none',
-      label: '',
+      label: 'Nie podano',
       exactLabel: '',
       needsAttention: false,
+      isMissing: true,
     }
   }
 
   const daysUntil = daysUntilDate(value, now)
   const exactLabel = formatDateOnly(value)
+
   if (daysUntil === null) {
     return {
       date: value,
       daysUntil: null,
-      tone: 'later',
-      label: `Do ${exactLabel}`,
+      tone: 'none',
+      label: 'Nieprawidłowa data',
       exactLabel,
-      needsAttention: false,
+      needsAttention: true,
+      isMissing: false,
     }
   }
 
@@ -81,39 +105,77 @@ export function getExpiryMeta(value: string | null, now = new Date()): ExpiryMet
     return {
       date: value,
       daysUntil,
-      tone: 'overdue',
+      tone: 'critical',
       label: daysUntil === -1 ? '1 dzień po terminie' : `${Math.abs(daysUntil)} dni po terminie`,
       exactLabel,
       needsAttention: true,
+      isMissing: false,
     }
   }
 
   if (daysUntil === 0) {
-    return { date: value, daysUntil, tone: 'today', label: 'Dzisiaj', exactLabel, needsAttention: true }
+    return { date: value, daysUntil, tone: 'critical', label: 'Dzisiaj', exactLabel, needsAttention: true, isMissing: false }
   }
 
   if (daysUntil === 1) {
-    return { date: value, daysUntil, tone: 'today', label: 'Jutro', exactLabel, needsAttention: true }
+    return { date: value, daysUntil, tone: 'critical', label: 'Jutro', exactLabel, needsAttention: true, isMissing: false }
   }
 
-  if (daysUntil <= 7) {
+  if (daysUntil <= 3) {
     return {
       date: value,
       daysUntil,
-      tone: 'soon',
+      tone: 'critical',
       label: `Za ${daysUntil} dni`,
       exactLabel,
       needsAttention: true,
+      isMissing: false,
+    }
+  }
+
+  if (daysUntil <= 10) {
+    return {
+      date: value,
+      daysUntil,
+      tone: 'warning',
+      label: `Za ${daysUntil} dni`,
+      exactLabel,
+      needsAttention: true,
+      isMissing: false,
     }
   }
 
   return {
     date: value,
     daysUntil,
-    tone: 'later',
+    tone: 'good',
     label: `Do ${exactLabel}`,
     exactLabel,
     needsAttention: false,
+    isMissing: false,
+  }
+}
+
+export function getInventoryExpiryMeta(
+  expiryDate: string | null,
+  openedUseByDate: string | null,
+  now = new Date(),
+): InventoryExpiryMeta {
+  const effectiveDate = getEffectiveExpiryDate(expiryDate, openedUseByDate)
+  const meta = getExpiryMeta(effectiveDate, now)
+
+  let effectiveSource: EffectiveExpirySource = 'none'
+  if (effectiveDate && openedUseByDate && effectiveDate === openedUseByDate && (!expiryDate || openedUseByDate.localeCompare(expiryDate) < 0)) {
+    effectiveSource = 'opened'
+  } else if (effectiveDate) {
+    effectiveSource = 'declared'
+  }
+
+  return {
+    ...meta,
+    declaredDate: expiryDate,
+    openedUseByDate,
+    effectiveSource,
   }
 }
 

@@ -31,7 +31,11 @@ export function InventoryConsumeSheet({ ownerId, lot, onClose, onSaved }: Invent
   useEffect(() => {
     const previousOverflow = document.body.style.overflow
     document.body.style.overflow = 'hidden'
-    const timer = window.setTimeout(() => inputRef.current?.focus(), 20)
+
+    let focusTimer: number | undefined
+    if (window.matchMedia('(hover: hover) and (pointer: fine)').matches) {
+      focusTimer = window.setTimeout(() => inputRef.current?.focus(), 20)
+    }
 
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key === 'Escape' && !saving) onClose()
@@ -39,7 +43,7 @@ export function InventoryConsumeSheet({ ownerId, lot, onClose, onSaved }: Invent
 
     window.addEventListener('keydown', handleKeyDown)
     return () => {
-      window.clearTimeout(timer)
+      if (focusTimer !== undefined) window.clearTimeout(focusTimer)
       window.removeEventListener('keydown', handleKeyDown)
       document.body.style.overflow = previousOverflow
     }
@@ -112,6 +116,20 @@ export function InventoryConsumeSheet({ ownerId, lot, onClose, onSaved }: Invent
           <span>Masz</span>
           <strong>{formatQuantity(lot.quantity)} {lot.unitSymbol}</strong>
         </div>
+
+        {lot.afterOpenDays && !lot.openedAt && (
+          <div className="consume-open-rule">
+            <KitchenIcon name="calendar" size={16} />
+            <span>Po częściowym zużyciu: otwarty · {lot.afterOpenDays} dni</span>
+          </div>
+        )}
+
+        {lot.openedAt && (
+          <div className="consume-open-rule is-opened">
+            <KitchenIcon name="check" size={16} />
+            <span>Produkt jest otwarty</span>
+          </div>
+        )}
 
         <form className="inventory-form" onSubmit={handleSubmit}>
           <div className="form-field">

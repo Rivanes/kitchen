@@ -12,6 +12,7 @@ const requiredFiles = [
   'src/components/KitchenIcon.tsx',
   'src/features/home/HomePage.tsx',
   'src/features/inventory/InventoryPage.tsx',
+  'src/features/inventory/ExpiryPage.tsx',
   'src/features/inventory/InventoryEditor.tsx',
   'src/features/inventory/InventoryConsumeSheet.tsx',
   'src/features/inventory/expiry.ts',
@@ -28,6 +29,9 @@ const requiredFiles = [
   'tests/INVENTORY_CONSUME_CONTRACT.md',
   'tests/INVENTORY_LOCATION_CONTRACT.md',
   'tests/INVENTORY_EXPIRY_CONTRACT.md',
+  'tests/INVENTORY_EDITOR_MOBILE_CONTRACT.md',
+  'tests/INVENTORY_EXPIRY_CENTER_CONTRACT.md',
+  'tests/INVENTORY_OPENED_PRODUCT_CONTRACT.md',
   'vite.config.ts',
 ]
 
@@ -76,7 +80,7 @@ if (!viteConfig.includes("theme_color: '#f7f7f2'")) {
 }
 
 const globalCss = await readFile('src/styles/global.css', 'utf8')
-for (const marker of ['--color-bg: #f7f7f2', '--touch-min: 48px', '.home-quick-action', '.home-coming-card', '.home-attention', '.home-expiry-row', '.inventory-sheet', '.primary-icon-button', '.inventory-search', '.inventory-stock-actions', '.inventory-consume-sheet', '.danger-button', '.inventory-location-entry', '.inventory-location-page', '.inventory-back-button', '.expiry-status', '.date-input-row']) {
+for (const marker of ['--color-bg: #f7f7f2', '--touch-min: 48px', '.home-quick-action', '.home-coming-card', '.home-expiry-hub', '.expiry-page', '.expiry-filter', '.expiry-row', '.after-open-details', '.consume-open-rule', '.inventory-sheet', '.primary-icon-button', '.inventory-search', '.inventory-stock-actions', '.inventory-consume-sheet', '.danger-button', '.inventory-location-entry', '.inventory-location-page', '.inventory-back-button', '.expiry-status', '.date-input-row', 'max-height: calc(100dvh - 8px)', 'grid-template-columns: repeat(2, minmax(0, 1fr))']) {
   if (!globalCss.includes(marker)) {
     throw new Error(`V1.3 UI contract marker missing: ${marker}`)
   }
@@ -86,8 +90,8 @@ const shell = await readFile('src/components/AppShell.tsx', 'utf8')
 if (!shell.includes('aria-label="Główna nawigacja Kitchen"')) {
   throw new Error('Mobile application navigation is missing.')
 }
-if (!shell.includes("<HomePage ownerId={user.id} onAddProduct={openInventoryCreate} onOpenInventory={() => changeView('inventory')} />")) {
-  throw new Error('Start must use the contextual V1.6 HomePage and keep an Inventory action.')
+if (!shell.includes("onOpenExpiry={() => changeView('expiry')}") || !shell.includes("<ExpiryPage ownerId={user.id} onBack={() => changeView('home')} />")) {
+  throw new Error('V1.6.2 Start must provide a dedicated Expiry Center view and return path.')
 }
 if (shell.includes('futureModules') || shell.includes('module-grid')) {
   throw new Error('Start must not duplicate bottom-navigation modules.')
@@ -114,14 +118,19 @@ if (!inventoryReadModel.includes(".eq('owner_id', ownerId)")) {
 if (/\.(insert|update|upsert|delete)\s*\(/.test(inventoryReadModel)) {
   throw new Error('Inventory read model itself must remain read-only.')
 }
-if (!inventoryReadModel.includes('compareExpiryDates') || !inventoryReadModel.includes('a.expiryDate')) {
-  throw new Error('V1.6 Inventory read model must sort dated lots by expiry before undated lots.')
+if (!inventoryReadModel.includes('compareExpiryDates') || !inventoryReadModel.includes('getEffectiveExpiryDate')) {
+  throw new Error('V1.6.2 Inventory read model must sort by the effective declared/opened expiry date.')
+}
+for (const marker of ['after_open_days', 'opened_at', 'opened_use_by_date']) {
+  if (!inventoryReadModel.includes(marker)) {
+    throw new Error(`V1.6.2 opened-product read marker missing: ${marker}`)
+  }
 }
 
 const expiry = await readFile('src/features/inventory/expiry.ts', 'utf8')
-for (const marker of ['Date.UTC', 'needsAttention', 'daysUntilDate', 'compareExpiryDates', 'daysUntil <= 7']) {
+for (const marker of ['Date.UTC', 'needsAttention', 'daysUntilDate', 'compareExpiryDates', 'daysUntil <= 3', 'daysUntil <= 10', 'getEffectiveExpiryDate', 'getInventoryExpiryMeta']) {
   if (!expiry.includes(marker)) {
-    throw new Error(`V1.6 expiry contract marker missing: ${marker}`)
+    throw new Error(`V1.6.2 expiry contract marker missing: ${marker}`)
   }
 }
 if (/new Date\(value\)/.test(expiry)) {
@@ -141,11 +150,14 @@ if (!mutations.includes(".eq('owner_id', input.ownerId)")) {
 if (!mutations.includes("productResult.error.code === '23505'")) {
   throw new Error('V1.3 must handle database duplicate Product identity safely.')
 }
-if (!mutations.includes('findMergeableInventoryLot') || !mutations.includes(".is('expiry_date', null)") || !mutations.includes(".eq('expiry_date', expiryDate)")) {
-  throw new Error('V1.6 merge behavior must only combine lots with the same expiry semantics.')
+if (!mutations.includes('findMergeableInventoryLot') || !mutations.includes(".is('expiry_date', null)") || !mutations.includes(".eq('expiry_date', expiryDate)") || !mutations.includes(".is('opened_at', null)")) {
+  throw new Error('V1.6.2 merge behavior must only combine unopened lots with identical expiry semantics.')
 }
 if (!mutations.includes('expiryDate: string | null') || !mutations.includes('expiry_date: input.expiryDate')) {
   throw new Error('V1.6 create/edit mutations must persist optional expiry dates.')
+}
+if (!mutations.includes('afterOpenDays: number | null') || !mutations.includes('after_open_days: afterOpenDays') || !mutations.includes(".rpc('consume_inventory_item'")) {
+  throw new Error('V1.6.2 must persist after-open rules and use the authoritative consume RPC.')
 }
 if (!mutations.includes('consumeInventoryLot') || !mutations.includes('consumeAllInventoryLot') || !mutations.includes('removeInventoryLot')) {
   throw new Error('V1.4 must provide explicit consume and remove mutations.')
@@ -153,8 +165,8 @@ if (!mutations.includes('consumeInventoryLot') || !mutations.includes('consumeAl
 if (!mutations.includes(".from('inventory_items')") || !mutations.includes('.delete()')) {
   throw new Error('V1.4 depletion/removal must delete depleted or explicitly removed Inventory lots.')
 }
-if (!mutations.includes('consumeMilli === currentMilli') || !mutations.includes('consumeMilli > currentMilli')) {
-  throw new Error('V1.4 consume logic must reject over-consumption and delete exact depletion.')
+if (!mutations.includes(".rpc('consume_inventory_item'") || !mutations.includes('remaining_quantity')) {
+  throw new Error('V1.6.2 partial consumption must be delegated to the owner-scoped database RPC.')
 }
 
 const editor = await readFile('src/features/inventory/InventoryEditor.tsx', 'utf8')
@@ -174,6 +186,15 @@ if (!/type=["']date["']/.test(editor) || !editor.includes('inventory-expiry') ||
 }
 if (!editor.includes('isValidDateOnly')) {
   throw new Error('V1.6 editor must validate the optional calendar date before mutation.')
+}
+if (!editor.includes("matchMedia('(hover: hover) and (pointer: fine)')")) {
+  throw new Error('V1.6.1 mobile editor must not force autofocus on coarse-pointer phones.')
+}
+if (!editor.includes('aria-label="Wyczyść termin ważności"')) {
+  throw new Error('V1.6.1 expiry clear action must remain compact and accessible.')
+}
+if (!editor.includes('inventory-after-open-days') || !editor.includes('afterOpenDays: parsedAfterOpenDays') || !editor.includes('Otwarty od')) {
+  throw new Error('V1.6.2 editor must support compact after-open shelf-life configuration and opened state.')
 }
 if (!editor.includes('onConsumeRequested') || !editor.includes('Usuń z zapasów') || !editor.includes('removeInventoryLot')) {
   throw new Error('V1.4 edit flow must expose consume and explicit removal actions.')
@@ -204,8 +225,8 @@ if (!inventoryPage.includes('onCreateRequestHandled?.(createRequestToken)')) {
 if (!inventoryPage.includes('<InventoryConsumeSheet') || !inventoryPage.includes('consumeLot')) {
   throw new Error('V1.4 Inventory page must wire the consume flow into the current stock lot.')
 }
-if (!inventoryPage.includes('getExpiryMeta') || !inventoryPage.includes('expiry-status')) {
-  throw new Error('V1.6 location pages must render clear expiry status for dated stock lots.')
+if (!inventoryPage.includes('getInventoryExpiryMeta') || !inventoryPage.includes('openedUseByDate') || !inventoryPage.includes('expiry-status')) {
+  throw new Error('V1.6.2 location pages must render the effective declared/opened expiry status.')
 }
 if (inventoryPage.includes('inventory-overview-summary') || /pozycj/i.test(inventoryPage)) {
   throw new Error('V1.6 SMART cleanup must remove technical overview counters and the term pozycja from everyday Inventory UI.')
@@ -221,19 +242,29 @@ if (!consumeSheet.includes('Ile zużyto?') || !consumeSheet.includes('Zużyj wsz
 if (!consumeSheet.includes('quantityToUse > lot.quantity')) {
   throw new Error('V1.4 UI must reject consuming more than the visible lot quantity before mutation.')
 }
+if (!consumeSheet.includes('lot.afterOpenDays') || !consumeSheet.includes('Po częściowym zużyciu')) {
+  throw new Error('V1.6.2 consume UI must explain automatic opening when an after-open rule exists.')
+}
 
 const homePage = await readFile('src/features/home/HomePage.tsx', 'utf8')
-if (!homePage.includes('Kitchen podpowie więcej') || !homePage.includes('Do zużycia') || !homePage.includes('Co ugotować')) {
-  throw new Error('V1.6 Start must keep the SMART dashboard and future module previews.')
+if (!homePage.includes('Kitchen podpowie więcej') || !homePage.includes('Terminy ważności') || !homePage.includes('Co ugotować')) {
+  throw new Error('V1.6.2 Start must keep SMART future previews and provide quick access to the Expiry Center.')
 }
-if (!homePage.includes('getExpiryMeta') || !homePage.includes('needsAttention') || !homePage.includes('Sprawdź najpierw')) {
-  throw new Error('V1.6 Start must activate a contextual expiry-attention section for due/overdue stock.')
+if (!homePage.includes('getInventoryExpiryMeta') || !homePage.includes('bez terminu') || !homePage.includes('onOpenExpiry')) {
+  throw new Error('V1.6.2 Start must summarize urgent/missing expiry data and open the Expiry Center.')
 }
 if (/pozycj|occupiedLocations/.test(homePage)) {
   throw new Error('V1.6 Home must not expose technical Inventory counters such as positions or occupied locations.')
 }
 if (!homePage.includes('stockedProducts')) {
   throw new Error('V1.6 Home may keep one natural product-count summary.')
+}
+
+const expiryPage = await readFile('src/features/inventory/ExpiryPage.tsx', 'utf8')
+for (const marker of ['Wszystkie', 'Z terminem', 'Bez terminu', 'Termin: nie podano', 'getInventoryExpiryMeta', 'InventoryEditor']) {
+  if (!expiryPage.includes(marker)) {
+    throw new Error(`V1.6.2 Expiry Center contract marker missing: ${marker}`)
+  }
 }
 
 console.log('Kitchen project contract verification: PASS')

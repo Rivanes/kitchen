@@ -1,33 +1,27 @@
-# Inventory Expiry Contract — V1.6
+# Inventory Expiry Contract — V1.6 / V1.6.2
 
-V1.6 activates the already-existing `inventory_items.expiry_date` field without changing the database schema.
+## Declared expiry
+- `expiry_date` remains optional and date-only (`YYYY-MM-DD`).
+- Date-only values use explicit calendar/UTC arithmetic, never ambiguous `new Date(value)` parsing.
+- Create and edit persist expiry.
+- Lots with different declared expiry dates remain separate.
 
-## Data rules
+## Effective expiry
+V1.6.2 introduces opened-product semantics.
+The effective deadline is the earlier non-null value of:
+- declared `expiry_date`
+- opened `opened_use_by_date`
 
-- expiry is optional
-- browser sends a date-only `YYYY-MM-DD` string or `null`
-- date-only values are parsed with explicit calendar parts / UTC arithmetic, never ambiguous timezone parsing
-- create and edit both persist expiry
-- SMART create-merge may combine lots only when Product + Location + Unit + Expiry are identical
-- different expiry dates always remain separate lots
+## Status thresholds
+- overdue through <=3 days: critical / red
+- 4–10 days: warning / orange
+- >10 days: good / green
+- no effective date: neutral / `Nie podano`
 
-## UX rules
+## Expiry Center
+- Start exposes direct access to all expiry records.
+- Missing declared expiry remains visible and filterable as `Bez terminu`.
+- The user can edit a row directly to complete/correct expiry metadata.
 
-- editor exposes optional `Termin ważności`
-- location lists sort dated lots by nearest expiry first, undated lots last
-- overdue / today / soon / later states are visually distinct but restrained
-- Home activates `Do zużycia` only when an expiry needs attention
-- attention means overdue or due within 7 calendar days
-- no notifications or background reminders are introduced in V1.6
-
-## SMART density cleanup
-
-- Home shows one natural product-count summary, not Product/Position/Location database counters
-- Zapasy overview does not repeat large Product/Position counters
-- everyday UI does not use the technical word `pozycja`
-- when multiple stock lots for one Product must be distinguished, the natural term `partia` may be used
-
-## Security
-
-Expiry is only another field on the existing owner-scoped `inventory_items` table.
-Supabase Auth, owner authority and RLS remain the authorization boundary.
+## Merge
+SMART create-merge requires same Product + Location + Unit + Declared Expiry + After-open rule and only merges into an unopened lot.

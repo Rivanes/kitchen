@@ -1,6 +1,6 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react'
 import { KitchenIcon } from '../../components/KitchenIcon'
-import { isValidDateOnly } from './expiry'
+import { formatDateOnly, isValidDateOnly } from './expiry'
 import { createInventoryLot, normalizeProductName, removeInventoryLot, updateInventoryLot } from './inventoryMutations'
 import type { InventoryLot, InventoryReadModel } from './types'
 
@@ -39,6 +39,7 @@ export function InventoryEditor({ ownerId, model, mode, onClose, onSaved, onCons
   const [unitCode, setUnitCode] = useState(initialUnitCode)
   const [locationId, setLocationId] = useState(initialLocationId)
   const [expiryDate, setExpiryDate] = useState(mode.kind === 'edit' ? (mode.lot.expiryDate ?? '') : '')
+  const [afterOpenDays, setAfterOpenDays] = useState(mode.kind === 'edit' && mode.lot.afterOpenDays ? String(mode.lot.afterOpenDays) : '')
   const [unitTouched, setUnitTouched] = useState(mode.kind === 'edit')
   const [saving, setSaving] = useState(false)
   const [removing, setRemoving] = useState(false)
@@ -67,7 +68,11 @@ export function InventoryEditor({ ownerId, model, mode, onClose, onSaved, onCons
   useEffect(() => {
     const previousOverflow = document.body.style.overflow
     document.body.style.overflow = 'hidden'
-    const timer = window.setTimeout(() => firstInputRef.current?.focus(), 20)
+
+    let focusTimer: number | undefined
+    if (window.matchMedia('(hover: hover) and (pointer: fine)').matches) {
+      focusTimer = window.setTimeout(() => firstInputRef.current?.focus(), 20)
+    }
 
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key === 'Escape' && !busy) onClose()
@@ -75,7 +80,7 @@ export function InventoryEditor({ ownerId, model, mode, onClose, onSaved, onCons
 
     window.addEventListener('keydown', handleKeyDown)
     return () => {
-      window.clearTimeout(timer)
+      if (focusTimer !== undefined) window.clearTimeout(focusTimer)
       window.removeEventListener('keydown', handleKeyDown)
       document.body.style.overflow = previousOverflow
     }
@@ -118,6 +123,16 @@ export function InventoryEditor({ ownerId, model, mode, onClose, onSaved, onCons
       return
     }
 
+    let parsedAfterOpenDays: number | null = null
+    if (afterOpenDays.trim()) {
+      const parsed = Number(afterOpenDays)
+      if (!Number.isInteger(parsed) || parsed < 1 || parsed > 3650) {
+        setErrorMessage('Termin po otwarciu musi mieć od 1 do 3650 dni.')
+        return
+      }
+      parsedAfterOpenDays = parsed
+    }
+
     if (mode.kind === 'create') {
       const cleanName = productName.trim().replace(/\s+/g, ' ')
       if (!cleanName || cleanName.length > 120) {
@@ -139,6 +154,7 @@ export function InventoryEditor({ ownerId, model, mode, onClose, onSaved, onCons
           quantity: parsedQuantity,
           unitCode,
           expiryDate: expiryDate || null,
+          afterOpenDays: parsedAfterOpenDays,
         })
       } else {
         await updateInventoryLot({
@@ -148,6 +164,7 @@ export function InventoryEditor({ ownerId, model, mode, onClose, onSaved, onCons
           quantity: parsedQuantity,
           unitCode,
           expiryDate: expiryDate || null,
+          afterOpenDays: parsedAfterOpenDays,
         })
       }
       onSaved()
@@ -291,13 +308,62 @@ export function InventoryEditor({ ownerId, model, mode, onClose, onSaved, onCons
                 disabled={busy}
               />
               {expiryDate && (
-                <button className="date-clear-button" type="button" onClick={() => setExpiryDate('')} disabled={busy}>
-                  Wyczyść
+                <button
+                  className="date-clear-button"
+                  type="button"
+                  onClick={() => setExpiryDate('')}
+                  disabled={busy}
+                  aria-label="Wyczyść termin ważności"
+                  title="Wyczyść termin ważności"
+                >
+                  <KitchenIcon name="close" size={18} />
                 </button>
               )}
             </div>
-            <p className="field-hint">Kitchen użyje tej daty do podpowiedzi „Do zużycia”.</p>
           </div>
+
+          <details className="after-open-details" open={mode.kind === 'edit' && Boolean(mode.lot.openedAt) ? true : undefined}>
+            <summary>
+              <span>Po otwarciu</span>
+              <strong>{afterOpenDays ? `${afterOpenDays} dni` : 'Nie ustawiono'}</strong>
+            </summary>
+            <div className="after-open-config">
+              <label htmlFor="inventory-after-open-days">Zużyć w</label>
+              <div className="after-open-input-row">
+                <input
+                  id="inventory-after-open-days"
+                  type="number"
+                  inputMode="numeric"
+                  min="1"
+                  max="3650"
+                  step="1"
+                  value={afterOpenDays}
+                  onChange={(event) => {
+                    setAfterOpenDays(event.target.value)
+                    setErrorMessage('')
+                  }}
+                  placeholder="np. 3"
+                  disabled={busy}
+                />
+                <span>dni</span>
+                {afterOpenDays && (
+                  <button
+                    className="after-open-clear"
+                    type="button"
+                    onClick={() => setAfterOpenDays('')}
+                    disabled={busy}
+                    aria-label="Wyczyść termin po otwarciu"
+                    title="Wyczyść termin po otwarciu"
+                  >
+                    <KitchenIcon name="close" size={17} />
+                  </button>
+                )}
+              </div>
+              {mode.kind === 'edit' && mode.lot.openedAt && (
+                <p className="after-open-state">Otwarty od {formatDateOnly(mode.lot.openedAt)}</p>
+              )}
+            </div>
+          </details>
 
           {errorMessage && <p className="form-error" role="alert">{errorMessage}</p>}
 
@@ -311,22 +377,28 @@ export function InventoryEditor({ ownerId, model, mode, onClose, onSaved, onCons
 
         {mode.kind === 'edit' && (
           <section className="inventory-stock-actions" aria-label="Akcje zapasu">
-            <div className="stock-action-heading">
-              <strong>Zapas</strong>
-              <span>Zmień stan bez ręcznego liczenia.</span>
-            </div>
-
             {!confirmingRemove ? (
               <div className="stock-action-buttons">
-                <button className="stock-action-button" type="button" onClick={() => onConsumeRequested(mode.lot)} disabled={busy}>
-                  <span className="stock-action-icon" aria-hidden="true"><KitchenIcon name="minus" size={19} /></span>
-                  <span><strong>Zużyj</strong><small>Odejmij część lub całość</small></span>
-                  <KitchenIcon name="chevronRight" size={18} />
+                <button
+                  className="stock-action-button"
+                  type="button"
+                  onClick={() => onConsumeRequested(mode.lot)}
+                  disabled={busy}
+                  aria-label={`Zużyj ${mode.lot.productName}`}
+                >
+                  <span className="stock-action-icon" aria-hidden="true"><KitchenIcon name="minus" size={18} /></span>
+                  <strong>Zużyj</strong>
                 </button>
-                <button className="stock-action-button stock-action-danger" type="button" onClick={() => setConfirmingRemove(true)} disabled={busy}>
-                  <span className="stock-action-icon" aria-hidden="true"><KitchenIcon name="trash" size={18} /></span>
-                  <span><strong>Usuń z zapasów</strong><small>Usuń ten wpis</small></span>
-                  <KitchenIcon name="chevronRight" size={18} />
+                <button
+                  className="stock-action-button stock-action-danger"
+                  type="button"
+                  onClick={() => setConfirmingRemove(true)}
+                  disabled={busy}
+                  aria-label={`Usuń ${mode.lot.productName} z zapasów`}
+                  title="Usuń z zapasów"
+                >
+                  <span className="stock-action-icon" aria-hidden="true"><KitchenIcon name="trash" size={17} /></span>
+                  <strong>Usuń</strong>
                 </button>
               </div>
             ) : (

@@ -31,6 +31,9 @@ export type InventoryLot = {
   unitCode: string
   unitSymbol: string
   expiryDate: string | null
+  afterOpenDays: number | null
+  openedAt: string | null
+  openedUseByDate: string | null
 }
 
 export type InventoryLocationGroup = {

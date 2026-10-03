@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { KitchenIcon } from '../../components/KitchenIcon'
 import { InventoryConsumeSheet } from './InventoryConsumeSheet'
-import { getExpiryMeta } from './expiry'
+import { getInventoryExpiryMeta } from './expiry'
 import { InventoryEditor } from './InventoryEditor'
 import { loadInventoryReadModel } from './inventoryReadModel'
 import type { InventoryLocation, InventoryLocationGroup, InventoryLot, InventoryReadModel, StorageLocationKind } from './types'
@@ -201,13 +201,13 @@ function InventoryLocationView({
                 <button className="inventory-row inventory-row-action" type="button" onClick={() => onEdit(lot)}>
                   <div className="inventory-product-copy">
                     <strong>{lot.productName}</strong>
-                    {lot.expiryDate && (() => {
-                      const expiry = getExpiryMeta(lot.expiryDate)
-                      const label = expiry.tone === 'later' ? expiry.label : `${expiry.label} · ${expiry.exactLabel}`
+                    {(lot.expiryDate || lot.openedUseByDate) && (() => {
+                      const expiry = getInventoryExpiryMeta(lot.expiryDate, lot.openedUseByDate)
+                      const openedPrefix = expiry.effectiveSource === 'opened' ? 'Otwarty · ' : ''
                       return (
-                        <span className={`expiry-status expiry-${expiry.tone}`} title={`Termin ważności: ${expiry.exactLabel}`}>
+                        <span className={`expiry-status expiry-${expiry.tone}`} title={expiry.exactLabel ? `Termin: ${expiry.exactLabel}` : undefined}>
                           <KitchenIcon name="calendar" size={13} />
-                          {label}
+                          {openedPrefix}{expiry.label}
                         </span>
                       )
                     })()}

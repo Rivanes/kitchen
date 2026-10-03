@@ -1,4 +1,5 @@
 import { supabase } from '../../lib/supabase/client'
+import { addDaysDateOnly } from './expiry'
 
 export type CreateInventoryLotInput = {
   ownerId: string
@@ -8,6 +9,7 @@ export type CreateInventoryLotInput = {
   quantity: number
   unitCode: string
   expiryDate: string | null
+  afterOpenDays: number | null
 }
 
 export type UpdateInventoryLotInput = {
@@ -17,6 +19,7 @@ export type UpdateInventoryLotInput = {
   quantity: number
   unitCode: string
   expiryDate: string | null
+  afterOpenDays: number | null
 }
 
 export type ConsumeInventoryLotInput = {
@@ -44,6 +47,14 @@ type MergeableInventoryLot = {
 type CurrentInventoryLot = {
   id: string
   quantity: number | string
+  opened_at: string | null
+}
+
+type ConsumeRpcRow = {
+  depleted: boolean
+  remaining_quantity: number | string
+  opened_at: string | null
+  opened_use_by_date: string | null
 }
 
 function normalizeStoredQuantity(value: number | string) {
@@ -54,8 +65,12 @@ function normalizeStoredQuantity(value: number | string) {
   return quantity
 }
 
-function toMilliUnits(value: number) {
-  return Math.round(value * 1000)
+function normalizeAfterOpenDays(value: number | null) {
+  if (value === null) return null
+  if (!Number.isInteger(value) || value < 1 || value > 3650) {
+    throw new Error('Termin po otwarciu musi mieć od 1 do 3650 dni.')
+  }
+  return value
 }
 
 export function normalizeProductName(value: string) {
@@ -86,6 +101,7 @@ async function findMergeableInventoryLot(
   storageLocationId: string,
   unitCode: string,
   expiryDate: string | null,
+  afterOpenDays: number | null,
 ): Promise<MergeableInventoryLot | null> {
   if (!supabase) {
     throw new Error('Supabase is not configured.')
@@ -98,8 +114,12 @@ async function findMergeableInventoryLot(
     .eq('product_id', productId)
     .eq('storage_location_id', storageLocationId)
     .eq('unit_code', unitCode)
+    .is('opened_at', null)
 
   query = expiryDate ? query.eq('expiry_date', expiryDate) : query.is('expiry_date', null)
+  query = afterOpenDays === null
+    ? query.is('after_open_days', null)
+    : query.eq('after_open_days', afterOpenDays)
 
   const result = await query
     .order('created_at', { ascending: true })
@@ -120,7 +140,7 @@ async function getCurrentInventoryLot(ownerId: string, lotId: string): Promise<C
 
   const result = await supabase
     .from('inventory_items')
-    .select('id, quantity')
+    .select('id, quantity, opened_at')
     .eq('id', lotId)
     .eq('owner_id', ownerId)
     .maybeSingle()
@@ -146,6 +166,7 @@ export async function createInventoryLot(input: CreateInventoryLotInput) {
     throw new Error('Podaj nazwę produktu.')
   }
 
+  const afterOpenDays = normalizeAfterOpenDays(input.afterOpenDays)
   let productId = input.existingProductId
   let createdProductId: string | null = null
 
@@ -191,6 +212,7 @@ export async function createInventoryLot(input: CreateInventoryLotInput) {
     input.storageLocationId,
     input.unitCode,
     input.expiryDate,
+    afterOpenDays,
   )
 
   if (mergeableLot) {
@@ -225,6 +247,7 @@ export async function createInventoryLot(input: CreateInventoryLotInput) {
       quantity: input.quantity,
       unit_code: input.unitCode,
       expiry_date: input.expiryDate,
+      after_open_days: afterOpenDays,
     })
     .select('id')
     .single()
@@ -248,6 +271,16 @@ export async function updateInventoryLot(input: UpdateInventoryLotInput) {
     throw new Error('Supabase is not configured.')
   }
 
+  const afterOpenDays = normalizeAfterOpenDays(input.afterOpenDays)
+  const currentLot = await getCurrentInventoryLot(input.ownerId, input.lotId)
+  const openedUseByDate = currentLot.opened_at && afterOpenDays
+    ? addDaysDateOnly(currentLot.opened_at, afterOpenDays)
+    : null
+
+  if (currentLot.opened_at && afterOpenDays && !openedUseByDate) {
+    throw new Error('Nie udało się przeliczyć terminu po otwarciu.')
+  }
+
   const result = await supabase
     .from('inventory_items')
     .update({
@@ -255,6 +288,8 @@ export async function updateInventoryLot(input: UpdateInventoryLotInput) {
       quantity: input.quantity,
       unit_code: input.unitCode,
       expiry_date: input.expiryDate,
+      after_open_days: afterOpenDays,
+      opened_use_by_date: openedUseByDate,
     })
     .eq('id', input.lotId)
     .eq('owner_id', input.ownerId)
@@ -279,49 +314,36 @@ export async function consumeInventoryLot(input: ConsumeInventoryLotInput) {
     throw new Error('Podaj ilość większą od 0.')
   }
 
-  const currentLot = await getCurrentInventoryLot(input.ownerId, input.lotId)
-  const currentQuantity = normalizeStoredQuantity(currentLot.quantity)
-  const currentMilli = toMilliUnits(currentQuantity)
-  const consumeMilli = toMilliUnits(input.quantity)
-
-  if (consumeMilli <= 0) {
-    throw new Error('Podaj ilość większą od 0.')
-  }
-
-  if (consumeMilli > currentMilli) {
-    throw new Error('Nie możesz zużyć więcej niż masz w zapasach.')
-  }
-
-  if (consumeMilli === currentMilli) {
-    const deleteResult = await supabase
-      .from('inventory_items')
-      .delete()
-      .eq('id', input.lotId)
-      .eq('owner_id', input.ownerId)
-      .select('id')
-      .maybeSingle()
-
-    if (deleteResult.error || !deleteResult.data) {
-      throw new Error(`Nie udało się zużyć całego zapasu: ${deleteResult.error?.message ?? 'brak zapisu'}`)
-    }
-
-    return { depleted: true, remainingQuantity: 0 }
-  }
-
-  const remainingQuantity = (currentMilli - consumeMilli) / 1000
-  const updateResult = await supabase
-    .from('inventory_items')
-    .update({ quantity: remainingQuantity })
-    .eq('id', input.lotId)
-    .eq('owner_id', input.ownerId)
-    .select('id')
+  const result = await supabase
+    .rpc('consume_inventory_item', {
+      p_item_id: input.lotId,
+      p_quantity: input.quantity,
+    })
     .maybeSingle()
 
-  if (updateResult.error || !updateResult.data) {
-    throw new Error(`Nie udało się zaktualizować zapasu: ${updateResult.error?.message ?? 'brak zapisu'}`)
+  if (result.error) {
+    throw new Error(`Nie udało się zaktualizować zapasu: ${result.error.message}`)
   }
 
-  return { depleted: false, remainingQuantity }
+  if (!result.data) {
+    throw new Error('Nie udało się potwierdzić zmiany zapasu.')
+  }
+
+  const row = result.data as ConsumeRpcRow
+  const remainingQuantity = typeof row.remaining_quantity === 'number'
+    ? row.remaining_quantity
+    : Number(row.remaining_quantity)
+
+  if (!Number.isFinite(remainingQuantity) || remainingQuantity < 0) {
+    throw new Error('Baza zwróciła nieprawidłową ilość po zużyciu.')
+  }
+
+  return {
+    depleted: row.depleted,
+    remainingQuantity,
+    openedAt: row.opened_at,
+    openedUseByDate: row.opened_use_by_date,
+  }
 }
 
 export async function removeInventoryLot(input: RemoveInventoryLotInput) {
