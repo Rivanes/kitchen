@@ -1,16 +1,8 @@
-export type MeasurementUnit = {
-  code: string
-  labelPl: string
-  symbol: string
-  family: string
-  sortOrder: number
-}
+import type { MeasurementUnit as SharedMeasurementUnit } from '../measurements/measurementUnits'
+import type { ProductIdentityOption } from '../products/productIdentity'
 
-export type InventoryProduct = {
-  id: string
-  name: string
-  defaultUnitCode: string
-}
+export type MeasurementUnit = SharedMeasurementUnit
+export type InventoryProduct = ProductIdentityOption
 
 export type StorageLocationKind = 'fridge' | 'freezer' | 'pantry' | 'custom'
 

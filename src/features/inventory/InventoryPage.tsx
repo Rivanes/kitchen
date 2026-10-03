@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { KitchenIcon } from '../../components/KitchenIcon'
+import { formatQuantity } from '../quantity/quantity'
 import { InventoryConsumeSheet } from './InventoryConsumeSheet'
 import { getInventoryExpiryMeta } from './expiry'
 import { InventoryEditor } from './InventoryEditor'
@@ -23,9 +24,6 @@ type EditorState =
   | { kind: 'edit'; lot: InventoryLot }
   | null
 
-function formatQuantity(value: number) {
-  return new Intl.NumberFormat('pl-PL', { maximumFractionDigits: 3 }).format(value)
-}
 
 function locationIcon(kind: StorageLocationKind) {
   if (kind === 'fridge') return 'fridge' as const

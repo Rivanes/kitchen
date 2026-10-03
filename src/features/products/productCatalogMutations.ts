@@ -1,17 +1,27 @@
 import { supabase } from '../../lib/supabase/client'
-import { normalizeProductName } from './productIdentity'
+import { normalizeProductName, ProductIdentityOption } from './productIdentity'
 
-export type CanonicalProductIdentity = {
-  id: string
-  name: string
-  defaultUnitCode: string
-}
+export type CanonicalProductIdentity = ProductIdentityOption
 
 export type ResolveCanonicalProductInput = {
   ownerId: string
   name: string
   existingProductId: string | null
   defaultUnitCode: string
+}
+
+export type ResolveCanonicalProductForEditInput = {
+  ownerId: string
+  name: string
+  currentProductId: string | null
+  selectedProductId: string | null
+  defaultUnitCode: string
+}
+
+export type RenameCanonicalProductInput = {
+  ownerId: string
+  productId: string
+  nextName: string
 }
 
 export type ResolvedCanonicalProduct = CanonicalProductIdentity & {
@@ -47,6 +57,7 @@ export async function loadOwnerProductCatalog(ownerId: string): Promise<Canonica
     .from('products')
     .select('id, name, default_unit_code')
     .eq('owner_id', ownerId)
+    .order('name', { ascending: true })
 
   if (result.error) {
     throw new Error(`Nie udało się sprawdzić katalogu produktów: ${result.error.message}`)
@@ -61,6 +72,52 @@ export async function findOwnerProductByName(ownerId: string, name: string) {
 
   const products = await loadOwnerProductCatalog(ownerId)
   return products.find((product) => normalizeProductName(product.name) === normalized) ?? null
+}
+
+export async function renameCanonicalProduct(input: RenameCanonicalProductInput) {
+  if (!supabase) throw new Error('Supabase is not configured.')
+
+  const cleanName = cleanCanonicalProductName(input.nextName)
+  const existing = await findOwnerProductByName(input.ownerId, cleanName)
+
+  if (existing && existing.id !== input.productId) {
+    throw new Error('Taki produkt już istnieje. Wybierz inną nazwę.')
+  }
+
+  if (existing && existing.id === input.productId && existing.name === cleanName) {
+    return existing
+  }
+
+  const result = await supabase
+    .from('products')
+    .update({ name: cleanName })
+    .eq('id', input.productId)
+    .eq('owner_id', input.ownerId)
+    .select('id, name, default_unit_code')
+    .maybeSingle()
+
+  if (result.error) {
+    if (result.error.code === '23505') {
+      throw new Error('Taki produkt już istnieje. Wybierz inną nazwę.')
+    }
+    throw new Error(`Nie udało się zmienić nazwy produktu: ${result.error.message}`)
+  }
+
+  if (!result.data) {
+    throw new Error('Nie znaleziono produktu do zmiany nazwy.')
+  }
+
+  return mapProduct(result.data as RawProductIdentity)
+}
+
+export async function cleanupCreatedCanonicalProduct(ownerId: string, productId: string) {
+  if (!supabase) return
+
+  await supabase
+    .from('products')
+    .delete()
+    .eq('id', productId)
+    .eq('owner_id', ownerId)
 }
 
 export async function resolveOrCreateCanonicalProduct(
@@ -103,4 +160,52 @@ export async function resolveOrCreateCanonicalProduct(
 
   const created = mapProduct(insertResult.data as RawProductIdentity)
   return { ...created, created: true }
+}
+
+export async function resolveCanonicalProductForEdit(
+  input: ResolveCanonicalProductForEditInput,
+): Promise<ResolvedCanonicalProduct> {
+  const cleanName = cleanCanonicalProductName(input.name)
+  const normalized = normalizeProductName(cleanName)
+  const products = await loadOwnerProductCatalog(input.ownerId)
+
+  if (input.selectedProductId) {
+    const selected = products.find((product) => product.id === input.selectedProductId) ?? null
+    if (selected && normalizeProductName(selected.name) === normalized) {
+      return { ...selected, created: false }
+    }
+  }
+
+  if (input.currentProductId) {
+    const current = products.find((product) => product.id === input.currentProductId) ?? null
+    if (current) {
+      if (normalizeProductName(current.name) === normalized) {
+        return { ...current, created: false }
+      }
+
+      const collision = products.find((product) => (
+        product.id !== current.id
+        && normalizeProductName(product.name) === normalized
+      )) ?? null
+
+      if (collision) {
+        return { ...collision, created: false }
+      }
+
+      const renamed = await renameCanonicalProduct({
+        ownerId: input.ownerId,
+        productId: current.id,
+        nextName: cleanName,
+      })
+
+      return { ...renamed, created: false }
+    }
+  }
+
+  return resolveOrCreateCanonicalProduct({
+    ownerId: input.ownerId,
+    name: cleanName,
+    existingProductId: input.selectedProductId,
+    defaultUnitCode: input.defaultUnitCode,
+  })
 }

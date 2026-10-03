@@ -1,5 +1,13 @@
 import { supabase } from '../../lib/supabase/client'
-import { findOwnerProductByName, resolveOrCreateCanonicalProduct } from '../products/productCatalogMutations'
+import {
+  cleanupCreatedCanonicalProduct,
+  resolveOrCreateCanonicalProduct,
+} from '../products/productCatalogMutations'
+import {
+  addQuantities,
+  assertValidQuantity,
+  readStoredQuantity,
+} from '../quantity/quantity'
 import { addDaysDateOnly } from './expiry'
 
 export type CreateInventoryLotInput = {
@@ -34,13 +42,6 @@ export type RemoveInventoryLotInput = {
   lotId: string
 }
 
-export type RenameProductInput = {
-  ownerId: string
-  productId: string
-  nextName: string
-}
-
-
 type MergeableInventoryLot = {
   id: string
   quantity: number | string
@@ -59,61 +60,12 @@ type ConsumeRpcRow = {
   opened_use_by_date: string | null
 }
 
-function normalizeStoredQuantity(value: number | string) {
-  const quantity = typeof value === 'number' ? value : Number(value)
-  if (!Number.isFinite(quantity) || quantity <= 0) {
-    throw new Error('Zapisana ilość produktu jest nieprawidłowa.')
-  }
-  return quantity
-}
-
 function normalizeAfterOpenDays(value: number | null) {
   if (value === null) return null
   if (!Number.isInteger(value) || value < 1 || value > 3650) {
     throw new Error('Termin po otwarciu musi mieć od 1 do 3650 dni.')
   }
   return value
-}
-
-export async function renameProduct(input: RenameProductInput) {
-  if (!supabase) {
-    throw new Error('Supabase is not configured.')
-  }
-
-  const cleanName = input.nextName.trim().replace(/\s+/g, ' ')
-  if (!cleanName || cleanName.length > 120) {
-    throw new Error('Podaj nazwę produktu do 120 znaków.')
-  }
-
-  const existing = await findOwnerProductByName(input.ownerId, cleanName)
-  if (existing && existing.id !== input.productId) {
-    throw new Error('Taki produkt już istnieje. Wybierz inną nazwę.')
-  }
-
-  if (existing && existing.id === input.productId && existing.name === cleanName) {
-    return existing.name
-  }
-
-  const result = await supabase
-    .from('products')
-    .update({ name: cleanName })
-    .eq('id', input.productId)
-    .eq('owner_id', input.ownerId)
-    .select('id, name')
-    .maybeSingle()
-
-  if (result.error) {
-    if (result.error.code === '23505') {
-      throw new Error('Taki produkt już istnieje. Wybierz inną nazwę.')
-    }
-    throw new Error(`Nie udało się zmienić nazwy produktu: ${result.error.message}`)
-  }
-
-  if (!result.data) {
-    throw new Error('Nie znaleziono produktu do zmiany nazwy.')
-  }
-
-  return result.data.name as string
 }
 
 async function findMergeableInventoryLot(
@@ -124,9 +76,7 @@ async function findMergeableInventoryLot(
   expiryDate: string | null,
   afterOpenDays: number | null,
 ): Promise<MergeableInventoryLot | null> {
-  if (!supabase) {
-    throw new Error('Supabase is not configured.')
-  }
+  if (!supabase) throw new Error('Supabase is not configured.')
 
   let query = supabase
     .from('inventory_items')
@@ -155,9 +105,7 @@ async function findMergeableInventoryLot(
 }
 
 async function getCurrentInventoryLot(ownerId: string, lotId: string): Promise<CurrentInventoryLot> {
-  if (!supabase) {
-    throw new Error('Supabase is not configured.')
-  }
+  if (!supabase) throw new Error('Supabase is not configured.')
 
   const result = await supabase
     .from('inventory_items')
@@ -178,10 +126,9 @@ async function getCurrentInventoryLot(ownerId: string, lotId: string): Promise<C
 }
 
 export async function createInventoryLot(input: CreateInventoryLotInput) {
-  if (!supabase) {
-    throw new Error('Supabase is not configured.')
-  }
+  if (!supabase) throw new Error('Supabase is not configured.')
 
+  assertValidQuantity(input.quantity)
   const afterOpenDays = normalizeAfterOpenDays(input.afterOpenDays)
   const product = await resolveOrCreateCanonicalProduct({
     ownerId: input.ownerId,
@@ -189,74 +136,74 @@ export async function createInventoryLot(input: CreateInventoryLotInput) {
     existingProductId: input.existingProductId,
     defaultUnitCode: input.unitCode,
   })
-  const productId = product.id
-  const createdProductId = product.created ? product.id : null
 
-  const mergeableLot = await findMergeableInventoryLot(
-    input.ownerId,
-    productId,
-    input.storageLocationId,
-    input.unitCode,
-    input.expiryDate,
-    afterOpenDays,
-  )
+  try {
+    const mergeableLot = await findMergeableInventoryLot(
+      input.ownerId,
+      product.id,
+      input.storageLocationId,
+      input.unitCode,
+      input.expiryDate,
+      afterOpenDays,
+    )
 
-  if (mergeableLot) {
-    const currentQuantity = normalizeStoredQuantity(mergeableLot.quantity)
-    const nextQuantity = currentQuantity + input.quantity
+    if (mergeableLot) {
+      const currentQuantity = readStoredQuantity(
+        mergeableLot.quantity,
+        'Zapisana ilość produktu jest nieprawidłowa.',
+      )
+      const nextQuantity = addQuantities(
+        currentQuantity,
+        input.quantity,
+        'Łączna ilość produktu przekracza dozwolony zakres.',
+      )
 
-    if (!Number.isFinite(nextQuantity) || nextQuantity > 999999999.999) {
-      throw new Error('Łączna ilość produktu przekracza dozwolony zakres.')
-    }
-
-    const mergeResult = await supabase
-      .from('inventory_items')
-      .update({ quantity: nextQuantity })
-      .eq('id', mergeableLot.id)
-      .eq('owner_id', input.ownerId)
-      .select('id')
-      .maybeSingle()
-
-    if (mergeResult.error || !mergeResult.data) {
-      throw new Error(`Nie udało się połączyć zapasu: ${mergeResult.error?.message ?? 'brak zapisu'}`)
-    }
-
-    return mergeResult.data.id
-  }
-
-  const itemResult = await supabase
-    .from('inventory_items')
-    .insert({
-      owner_id: input.ownerId,
-      product_id: productId,
-      storage_location_id: input.storageLocationId,
-      quantity: input.quantity,
-      unit_code: input.unitCode,
-      expiry_date: input.expiryDate,
-      after_open_days: afterOpenDays,
-    })
-    .select('id')
-    .single()
-
-  if (itemResult.error) {
-    if (createdProductId) {
-      await supabase
-        .from('products')
-        .delete()
-        .eq('id', createdProductId)
+      const mergeResult = await supabase
+        .from('inventory_items')
+        .update({ quantity: nextQuantity })
+        .eq('id', mergeableLot.id)
         .eq('owner_id', input.ownerId)
-    }
-    throw new Error(`Nie udało się dodać zapasu: ${itemResult.error.message}`)
-  }
+        .select('id')
+        .maybeSingle()
 
-  return itemResult.data.id
+      if (mergeResult.error || !mergeResult.data) {
+        throw new Error(`Nie udało się połączyć zapasu: ${mergeResult.error?.message ?? 'brak zapisu'}`)
+      }
+
+      return mergeResult.data.id
+    }
+
+    const itemResult = await supabase
+      .from('inventory_items')
+      .insert({
+        owner_id: input.ownerId,
+        product_id: product.id,
+        storage_location_id: input.storageLocationId,
+        quantity: input.quantity,
+        unit_code: input.unitCode,
+        expiry_date: input.expiryDate,
+        after_open_days: afterOpenDays,
+      })
+      .select('id')
+      .single()
+
+    if (itemResult.error) {
+      throw new Error(`Nie udało się dodać zapasu: ${itemResult.error.message}`)
+    }
+
+    return itemResult.data.id
+  } catch (error) {
+    if (product.created) {
+      await cleanupCreatedCanonicalProduct(input.ownerId, product.id)
+    }
+    throw error
+  }
 }
 
 export async function updateInventoryLot(input: UpdateInventoryLotInput) {
-  if (!supabase) {
-    throw new Error('Supabase is not configured.')
-  }
+  if (!supabase) throw new Error('Supabase is not configured.')
 
+  assertValidQuantity(input.quantity)
   const afterOpenDays = normalizeAfterOpenDays(input.afterOpenDays)
   const currentLot = await getCurrentInventoryLot(input.ownerId, input.lotId)
   const openedUseByDate = currentLot.opened_at && afterOpenDays
@@ -292,13 +239,9 @@ export async function updateInventoryLot(input: UpdateInventoryLotInput) {
 }
 
 export async function consumeInventoryLot(input: ConsumeInventoryLotInput) {
-  if (!supabase) {
-    throw new Error('Supabase is not configured.')
-  }
+  if (!supabase) throw new Error('Supabase is not configured.')
 
-  if (!Number.isFinite(input.quantity) || input.quantity <= 0) {
-    throw new Error('Podaj ilość większą od 0.')
-  }
+  assertValidQuantity(input.quantity)
 
   const result = await supabase
     .rpc('consume_inventory_item', {
@@ -332,10 +275,22 @@ export async function consumeInventoryLot(input: ConsumeInventoryLotInput) {
   }
 }
 
+export async function consumeAllInventoryLot(input: RemoveInventoryLotInput) {
+  const currentLot = await getCurrentInventoryLot(input.ownerId, input.lotId)
+  const quantity = readStoredQuantity(
+    currentLot.quantity,
+    'Zapisana ilość produktu jest nieprawidłowa.',
+  )
+
+  return consumeInventoryLot({
+    ownerId: input.ownerId,
+    lotId: input.lotId,
+    quantity,
+  })
+}
+
 export async function removeInventoryLot(input: RemoveInventoryLotInput) {
-  if (!supabase) {
-    throw new Error('Supabase is not configured.')
-  }
+  if (!supabase) throw new Error('Supabase is not configured.')
 
   const result = await supabase
     .from('inventory_items')
@@ -352,8 +307,4 @@ export async function removeInventoryLot(input: RemoveInventoryLotInput) {
   if (!result.data) {
     throw new Error('Nie znaleziono zapasu do usunięcia.')
   }
-}
-
-export async function consumeAllInventoryLot(input: RemoveInventoryLotInput) {
-  await removeInventoryLot(input)
 }

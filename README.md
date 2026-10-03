@@ -123,3 +123,25 @@ No SQL/schema/RLS/Auth changes.
 - Shopping stores product_id, enabling later purchased -> Inventory without recreating Product
 - legacy custom_name stays readable for compatibility
 - no SQL/schema/RLS/Auth changes
+
+
+## V2.3.3 — Shared Core Consistency Corrective
+
+V2.3.3 applies the Kitchen architectural rule: the same business operation has one shared authority.
+
+Unified in this corrective:
+- Product catalog read/create/rename/cleanup authority
+- Product edit semantics across Inventory and Shopping
+- Quantity parse/validate/read/add/format rules
+- Measurement Unit loading/types/default-unit rules
+- Product and Measurement Unit read models
+- full-consume semantics through `consume_inventory_item()` rather than direct removal
+
+Key effects:
+- `pcs` is the single default count-unit code; Shopping no longer searches for the display symbol `szt` as a code.
+- Shopping quantity accepts the same numeric grammar and 3-decimal limit as Inventory.
+- Editing a Product-backed Shopping row to a new unmatched name renames the same canonical Product UUID rather than creating an orphan replacement Product.
+- `Zużyj wszystko` is consumption, not explicit removal; it uses the same consume RPC path as partial consumption.
+- explicit `Usuń z zapasów` remains a separate delete operation.
+
+No SQL/schema/RLS/Auth migration is required.

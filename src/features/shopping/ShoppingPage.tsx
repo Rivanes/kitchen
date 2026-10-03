@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { KitchenIcon } from '../../components/KitchenIcon'
+import { formatQuantity } from '../quantity/quantity'
 import { ShoppingEditor } from './ShoppingEditor'
 import { loadShoppingReadModel } from './shoppingReadModel'
 import type { ShoppingItem, ShoppingReadModel } from './types'
@@ -18,9 +19,6 @@ type EditorState =
   | { kind: 'edit'; item: ShoppingItem }
   | null
 
-function formatQuantity(value: number) {
-  return new Intl.NumberFormat('pl-PL', { maximumFractionDigits: 3 }).format(value)
-}
 
 function thingsLabel(count: number) {
   if (count === 1) return '1 rzecz'

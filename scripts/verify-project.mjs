@@ -42,9 +42,12 @@ const requiredFiles = [
   'src/features/products/ProductAutocomplete.tsx',
   'src/features/products/productIdentity.ts',
   'src/features/products/productCatalogMutations.ts',
+  'src/features/measurements/measurementUnits.ts',
+  'src/features/quantity/quantity.ts',
   'tests/SHOPPING_LIST_CONTRACT.md',
   'tests/PRODUCT_AUTOCOMPLETE_CONTRACT.md',
   'tests/PRODUCT_IDENTITY_CONTRACT.md',
+  'tests/SHARED_CORE_CONSISTENCY_CONTRACT.md',
   'vite.config.ts',
 ]
 
@@ -130,9 +133,14 @@ if (shell.includes('Zakupy — moduł w przygotowaniu')) {
 }
 
 const inventoryReadModel = await readFile('src/features/inventory/inventoryReadModel.ts', 'utf8')
-for (const table of ['storage_locations', 'products', 'measurement_units', 'inventory_items']) {
+for (const table of ['storage_locations', 'inventory_items']) {
   if (!inventoryReadModel.includes(`.from('${table}')`)) {
     throw new Error(`Inventory read model must read ${table}.`)
+  }
+}
+for (const marker of ['loadOwnerProductCatalog(ownerId)', 'loadMeasurementUnits()', 'readStoredQuantity']) {
+  if (!inventoryReadModel.includes(marker)) {
+    throw new Error(`V2.3.3 Inventory read model must reuse shared core authority: ${marker}`)
   }
 }
 if (!inventoryReadModel.includes(".eq('owner_id', ownerId)")) {
@@ -188,23 +196,24 @@ if (!mutations.includes(".from('inventory_items')") || !mutations.includes('.del
 if (!mutations.includes(".rpc('consume_inventory_item'") || !mutations.includes('remaining_quantity')) {
   throw new Error('V1.6.2 partial consumption must be delegated to the owner-scoped database RPC.')
 }
-
-if (!mutations.includes('export async function renameProduct') || !mutations.includes(".update({ name: cleanName })")) {
-  throw new Error('V2.1 must rename the existing canonical Product row in place.')
+if (!mutations.includes('return consumeInventoryLot({') || !mutations.includes('const currentLot = await getCurrentInventoryLot')) {
+  throw new Error('V2.3.3 full consumption must reuse the authoritative consume path.')
 }
-if (!mutations.includes('existing.id !== input.productId') || !mutations.includes("result.error.code === '23505'")) {
-  throw new Error('V2.1 Product rename must guard normalized collisions and database uniqueness races.')
-}
-if (!mutations.includes(".eq('id', input.productId)") || !mutations.includes(".eq('owner_id', input.ownerId)")) {
-  throw new Error('V2.1 Product rename must scope both Product id and owner_id.')
-}
-
-const renameProductBlock = mutations.slice(
-  mutations.indexOf('export async function renameProduct'),
-  mutations.indexOf('async function findMergeableInventoryLot'),
+const consumeAllBlock = mutations.slice(
+  mutations.indexOf('export async function consumeAllInventoryLot'),
+  mutations.indexOf('export async function removeInventoryLot'),
 )
-if (/\.(insert|delete|upsert)\s*\(/.test(renameProductBlock)) {
-  throw new Error('V2.1 Product rename must update identity in place, never recreate or delete the Product.')
+if (consumeAllBlock.includes('removeInventoryLot(') || consumeAllBlock.includes('.delete()')) {
+  throw new Error('V2.3.3 full consumption must not be implemented as explicit removal.')
+}
+for (const marker of ['assertValidQuantity', 'readStoredQuantity', 'addQuantities', 'cleanupCreatedCanonicalProduct']) {
+  if (!mutations.includes(marker)) {
+    throw new Error(`V2.3.3 Inventory mutation must reuse shared core: ${marker}`)
+  }
+}
+
+if (mutations.includes('export async function renameProduct') || mutations.includes(".from('products')")) {
+  throw new Error('V2.3.3 Inventory must not keep a module-specific Product rename/create authority.')
 }
 
 const editor = await readFile('src/features/inventory/InventoryEditor.tsx', 'utf8')
@@ -238,7 +247,7 @@ if (!editor.includes('onConsumeRequested') || !editor.includes('Usuń z zapasów
   throw new Error('V1.4 edit flow must expose consume and explicit removal actions.')
 }
 
-for (const marker of ['renameProduct', 'product-rename-trigger', 'Zmień nazwę', 'Zapisz nazwę', 'Zmiana obejmie wszystkie partie tego produktu.']) {
+for (const marker of ['renameCanonicalProduct', 'product-rename-trigger', 'Zmień nazwę', 'Zapisz nazwę', 'Zmiana obejmie wszystkie partie tego produktu.', 'parseQuantityInput', 'getDefaultUnitCode']) {
   if (!editor.includes(marker)) {
     throw new Error(`V2.1 Product rename UI marker missing: ${marker}`)
   }
@@ -266,9 +275,26 @@ for (const marker of ['useProductAutocomplete', 'ProductAutocompleteField', 'pro
 }
 
 const sharedProductCatalog = await readFile('src/features/products/productCatalogMutations.ts', 'utf8')
-for (const marker of ['resolveOrCreateCanonicalProduct', 'loadOwnerProductCatalog', ".from('products')", ".eq('owner_id', ownerId)", "insertResult.error.code === '23505'"]) {
+for (const marker of ['resolveOrCreateCanonicalProduct', 'resolveCanonicalProductForEdit', 'renameCanonicalProduct', 'cleanupCreatedCanonicalProduct', 'loadOwnerProductCatalog', ".from('products')", ".eq('owner_id', ownerId)", "insertResult.error.code === '23505'"]) {
   if (!sharedProductCatalog.includes(marker)) {
-    throw new Error(`V2.3.2 shared Product authority marker missing: ${marker}`)
+    throw new Error(`V2.3.3 shared Product authority marker missing: ${marker}`)
+  }
+}
+if (!sharedProductCatalog.includes(".update({ name: cleanName })") || !sharedProductCatalog.includes("result.error.code === '23505'")) {
+  throw new Error('V2.3.3 shared Product rename must update the existing UUID in place and guard uniqueness races.')
+}
+
+const sharedQuantity = await readFile('src/features/quantity/quantity.ts', 'utf8')
+for (const marker of ['parseQuantityInput', 'assertValidQuantity', 'readStoredQuantity', 'addQuantities', 'formatQuantity', 'MAX_QUANTITY', 'QUANTITY_DECIMAL_PLACES']) {
+  if (!sharedQuantity.includes(marker)) {
+    throw new Error(`V2.3.3 shared quantity authority marker missing: ${marker}`)
+  }
+}
+
+const sharedUnits = await readFile('src/features/measurements/measurementUnits.ts', 'utf8')
+for (const marker of ['DEFAULT_UNIT_CODE', "'pcs'", 'loadMeasurementUnits', 'getDefaultUnitCode', ".from('measurement_units')"]) {
+  if (!sharedUnits.includes(marker)) {
+    throw new Error(`V2.3.3 shared Measurement Unit authority marker missing: ${marker}`)
   }
 }
 
@@ -350,9 +376,12 @@ if (!expiryPage.includes('counts.critical > 0') || !expiryPage.includes('Wszystk
 
 
 const shoppingReadModel = await readFile('src/features/shopping/shoppingReadModel.ts', 'utf8')
-for (const table of ['shopping_items', 'products', 'measurement_units']) {
-  if (!shoppingReadModel.includes(`.from('${table}')`)) {
-    throw new Error(`V2.3 Shopping read model must read ${table}.`)
+if (!shoppingReadModel.includes(".from('shopping_items')")) {
+  throw new Error('V2.3 Shopping read model must read shopping_items.')
+}
+for (const marker of ['loadOwnerProductCatalog(ownerId)', 'loadMeasurementUnits()', 'readStoredQuantity']) {
+  if (!shoppingReadModel.includes(marker)) {
+    throw new Error(`V2.3.3 Shopping read model must reuse shared core authority: ${marker}`)
   }
 }
 if (!shoppingReadModel.includes(".eq('owner_id', ownerId)") || !shoppingReadModel.includes(".eq('is_purchased', false)")) {
@@ -366,7 +395,7 @@ if (!shoppingReadModel.includes('loadActiveShoppingCount')) {
 }
 
 const shoppingMutations = await readFile('src/features/shopping/shoppingMutations.ts', 'utf8')
-for (const marker of ['createShoppingItem', 'updateShoppingItem', 'removeShoppingItem', 'normalizeProductName', 'resolveOrCreateCanonicalProduct', 'product_id: product.id', 'custom_name: null', ".eq('owner_id', input.ownerId)", ".eq('is_purchased', false)"]) {
+for (const marker of ['createShoppingItem', 'updateShoppingItem', 'removeShoppingItem', 'normalizeProductName', 'resolveOrCreateCanonicalProduct', 'resolveCanonicalProductForEdit', 'currentProductId', 'cleanupCreatedCanonicalProduct', 'assertValidQuantity', 'readStoredQuantity', 'addQuantities', 'product_id: product.id', 'custom_name: null', ".eq('owner_id', input.ownerId)", ".eq('is_purchased', false)"]) {
   if (!shoppingMutations.includes(marker)) {
     throw new Error(`V2.3.2 Shopping mutation marker missing: ${marker}`)
   }
@@ -382,7 +411,7 @@ if (shoppingMutations.includes('normalizeShoppingName') || shoppingMutations.inc
 }
 
 const shoppingEditor = await readFile('src/features/shopping/ShoppingEditor.tsx', 'utf8')
-for (const marker of ['Co kupić?', 'ProductAutocompleteField', 'useProductAutocomplete', 'model.units.map', 'createShoppingItem', 'updateShoppingItem', 'removeShoppingItem', 'Usuń z listy', 'existingProductId: exactProduct?.id ?? null']) {
+for (const marker of ['Co kupić?', 'ProductAutocompleteField', 'useProductAutocomplete', 'model.units.map', 'createShoppingItem', 'updateShoppingItem', 'removeShoppingItem', 'Usuń z listy', 'existingProductId: exactProduct?.id ?? null', 'currentProductId: mode.item.productId', 'parseQuantityInput', 'getDefaultUnitCode']) {
   if (!shoppingEditor.includes(marker)) {
     throw new Error(`V2.3.1 Shopping editor marker missing: ${marker}`)
   }
@@ -397,8 +426,11 @@ if (!shoppingEditor.includes("matchMedia('(hover: hover) and (pointer: fine)')")
 if (shoppingEditor.includes('products={model.products}')) {
   throw new Error('V2.3.2 must not pass unsupported props to ProductAutocompleteField.')
 }
-if (!shoppingEditor.includes('unmatchedHint="Powstanie nowy produkt."')) {
-  throw new Error('V2.3.2 Shopping must communicate canonical Product creation for unknown names.')
+if (!shoppingEditor.includes("'Zmiana nazwy zaktualizuje ten produkt wszędzie.'") || !shoppingEditor.includes("'Powstanie nowy produkt.'")) {
+  throw new Error('V2.3.3 Shopping must distinguish shared Product rename from new Product creation.')
+}
+if (shoppingEditor.includes("unit.code === 'szt'")) {
+  throw new Error('V2.3.3 Shopping must never treat the display symbol szt. as a Measurement Unit code.')
 }
 
 const shoppingPage = await readFile('src/features/shopping/ShoppingPage.tsx', 'utf8')
@@ -418,5 +450,21 @@ if (homePage.includes('<strong>Do kupienia</strong>') && homePage.includes('comi
   throw new Error('V2.3 must remove Shopping from disabled future previews once the module is active.')
 }
 
+
+const inventoryTypes = await readFile('src/features/inventory/types.ts', 'utf8')
+const shoppingTypes = await readFile('src/features/shopping/types.ts', 'utf8')
+if (!inventoryTypes.includes("ProductIdentityOption") || !shoppingTypes.includes("ProductIdentityOption")) {
+  throw new Error('V2.3.3 Inventory and Shopping must share the canonical Product type.')
+}
+if (!inventoryTypes.includes("MeasurementUnit as SharedMeasurementUnit") || !shoppingTypes.includes("MeasurementUnit")) {
+  throw new Error('V2.3.3 Inventory and Shopping must share the Measurement Unit type.')
+}
+
+for (const file of ['src/features/inventory/InventoryPage.tsx', 'src/features/inventory/ExpiryPage.tsx', 'src/features/inventory/InventoryConsumeSheet.tsx', 'src/features/shopping/ShoppingPage.tsx']) {
+  const content = await readFile(file, 'utf8')
+  if (!content.includes("from '../quantity/quantity'") || !content.includes('formatQuantity')) {
+    throw new Error(`V2.3.3 quantity formatting must come from the shared authority: ${file}`)
+  }
+}
 
 console.log('Kitchen project contract verification: PASS')

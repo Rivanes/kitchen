@@ -1,32 +1,32 @@
-# Product Rename Contract — V2.1
+# Product Rename Contract — shared authority (V2.1 + V2.3.3)
 
-V2.1 introduces safe editing of the canonical Product name before Shopping List work begins.
+Canonical Product rename is a Kitchen-wide operation.
 
 ## Identity
+- Rename updates the existing `public.products` row.
+- Product UUID never changes.
+- Inventory, Shopping and future Recipe references keep the same identity.
+- Rename must never be delete + recreate.
 
-- Renaming updates the existing `public.products` row.
-- The Product UUID must not change.
-- Existing Inventory lots therefore keep their `product_id` references.
-- Renaming must never be implemented as delete + recreate.
+## Shared authority
+- Product rename lives in `src/features/products/productCatalogMutations.ts`.
+- Inventory must not own a private rename implementation.
+- Shopping must not create a replacement Product merely to correct an unmatched typo on a Product-backed row.
+- Editing a Product-backed Shopping row to an unmatched name renames the same canonical Product.
+- Selecting another existing Product rebinds that Shopping row instead of renaming either Product.
 
-## Validation and collisions
-
-- Product names are trimmed and repeated whitespace is collapsed before persistence.
-- Name length remains 1–120 characters.
-- A case-insensitive / normalized collision with another Product is rejected.
-- Database unique-constraint race (`23505`) is translated into a useful user-facing collision message.
-- Renaming a Product to the same identity is allowed as a no-op; display casing may still be corrected.
+## Validation/collisions
+- trim + repeated-whitespace collapse
+- 1–120 characters
+- normalized collision with another Product is rejected
+- database `23505` remains the race-authority
+- same identity may no-op; casing may be corrected
 
 ## UI
-
-- Rename is available only from edit mode through a compact pencil action next to the Product title.
-- Opening rename switches the sheet into a dedicated rename state rather than adding another permanent row to the already dense mobile editor.
-- Rename has its own save/cancel actions and is intentionally separate from the Inventory-lot save transaction.
-- The UI explains that the canonical name applies to every stock lot of that Product.
-- A successful rename closes the editor and reloads the Inventory read model.
+- Inventory keeps an explicit compact rename sub-flow.
+- Product rename remains visibly distinct from stock-lot fields.
+- Shopping communicates when changing an unmatched Product name will update that Product everywhere.
 
 ## Security
-
-No SQL/schema/RLS/Auth change is required for V2.1.
-The existing `products_update_owner` RLS policy and authenticated UPDATE grant remain the authority.
-Every browser mutation still scopes both Product `id` and `owner_id`.
+No SQL/schema/RLS/Auth change is required.
+All Product writes scope Product id + owner_id and remain under RLS.

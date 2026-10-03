@@ -1,5 +1,6 @@
 import { FormEvent, useEffect, useRef, useState } from 'react'
 import { KitchenIcon } from '../../components/KitchenIcon'
+import { formatQuantity, parseQuantityInput, QUANTITY_INPUT_ERROR } from '../quantity/quantity'
 import { consumeAllInventoryLot, consumeInventoryLot } from './inventoryMutations'
 import type { InventoryLot } from './types'
 
@@ -10,17 +11,6 @@ type InventoryConsumeSheetProps = {
   onSaved: () => void
 }
 
-function formatQuantity(value: number) {
-  return new Intl.NumberFormat('pl-PL', { maximumFractionDigits: 3 }).format(value)
-}
-
-function parseConsumeQuantity(value: string) {
-  const normalized = value.trim().replace(',', '.')
-  if (!/^\d{1,9}(?:\.\d{1,3})?$/.test(normalized)) return null
-  const parsed = Number(normalized)
-  if (!Number.isFinite(parsed) || parsed <= 0 || parsed > 999999999.999) return null
-  return parsed
-}
 
 export function InventoryConsumeSheet({ ownerId, lot, onClose, onSaved }: InventoryConsumeSheetProps) {
   const [quantity, setQuantity] = useState('')
@@ -88,9 +78,9 @@ export function InventoryConsumeSheet({ ownerId, lot, onClose, onSaved }: Invent
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    const parsed = parseConsumeQuantity(quantity)
+    const parsed = parseQuantityInput(quantity)
     if (!parsed) {
-      setErrorMessage('Podaj ilość większą od 0, maksymalnie do 3 miejsc po przecinku.')
+      setErrorMessage(QUANTITY_INPUT_ERROR)
       return
     }
     await consume(parsed)

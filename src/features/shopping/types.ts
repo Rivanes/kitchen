@@ -1,16 +1,8 @@
-export type ShoppingUnit = {
-  code: string
-  labelPl: string
-  symbol: string
-  family: string
-  sortOrder: number
-}
+import type { MeasurementUnit } from '../measurements/measurementUnits'
+import type { ProductIdentityOption } from '../products/productIdentity'
 
-export type ShoppingProduct = {
-  id: string
-  name: string
-  defaultUnitCode: string
-}
+export type ShoppingUnit = MeasurementUnit
+export type ShoppingProduct = ProductIdentityOption
 
 export type ShoppingItem = {
   id: string

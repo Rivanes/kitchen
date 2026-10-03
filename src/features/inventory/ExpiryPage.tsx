@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { KitchenIcon } from '../../components/KitchenIcon'
+import { formatQuantity } from '../quantity/quantity'
 import { getInventoryExpiryMeta } from './expiry'
 import { InventoryConsumeSheet } from './InventoryConsumeSheet'
 import { InventoryEditor } from './InventoryEditor'
@@ -18,9 +19,6 @@ type LoadState =
 
 type ExpiryFilter = 'all' | 'with-date' | 'without-date'
 
-function formatQuantity(value: number) {
-  return new Intl.NumberFormat('pl-PL', { maximumFractionDigits: 3 }).format(value)
-}
 
 function filterLabel(filter: ExpiryFilter) {
   if (filter === 'with-date') return 'Z terminem'

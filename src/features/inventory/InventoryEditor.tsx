@@ -1,9 +1,12 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react'
 import { KitchenIcon } from '../../components/KitchenIcon'
 import { ProductAutocompleteField, useProductAutocomplete } from '../products/ProductAutocomplete'
+import { getDefaultUnitCode } from '../measurements/measurementUnits'
+import { cleanCanonicalProductName, renameCanonicalProduct } from '../products/productCatalogMutations'
 import { findExactProduct } from '../products/productIdentity'
+import { parseQuantityInput, QUANTITY_INPUT_ERROR } from '../quantity/quantity'
 import { formatDateOnly, isValidDateOnly } from './expiry'
-import { createInventoryLot, removeInventoryLot, renameProduct, updateInventoryLot } from './inventoryMutations'
+import { createInventoryLot, removeInventoryLot, updateInventoryLot } from './inventoryMutations'
 import type { InventoryLot, InventoryReadModel } from './types'
 
 type InventoryEditorMode =
@@ -23,19 +26,12 @@ function initialQuantity(mode: InventoryEditorMode) {
   return mode.kind === 'edit' ? String(mode.lot.quantity).replace('.', ',') : '1'
 }
 
-function parseQuantity(value: string) {
-  const normalized = value.trim().replace(',', '.')
-  if (!/^\d{1,9}(?:\.\d{1,3})?$/.test(normalized)) return null
-  const parsed = Number(normalized)
-  if (!Number.isFinite(parsed) || parsed <= 0 || parsed > 999999999.999) return null
-  return parsed
-}
 
 export function InventoryEditor({ ownerId, model, mode, onClose, onSaved, onConsumeRequested }: InventoryEditorProps) {
   const initialLocationId = mode.kind === 'edit'
     ? mode.lot.storageLocationId
     : (mode.initialLocationId ?? model.locations[0]?.id ?? '')
-  const initialUnitCode = mode.kind === 'edit' ? mode.lot.unitCode : 'pcs'
+  const initialUnitCode = mode.kind === 'edit' ? mode.lot.unitCode : getDefaultUnitCode(model.units)
   const [productName, setProductName] = useState(mode.kind === 'edit' ? mode.lot.productName : '')
   const currentProductName = mode.kind === 'edit' ? mode.lot.productName : ''
   const [renameOpen, setRenameOpen] = useState(false)
@@ -100,9 +96,9 @@ export function InventoryEditor({ ownerId, model, mode, onClose, onSaved, onCons
     if (exactProduct) {
       setUnitCode(exactProduct.defaultUnitCode)
     } else {
-      setUnitCode('pcs')
+      setUnitCode(getDefaultUnitCode(model.units))
     }
-  }, [mode.kind, exactProduct, unitTouched])
+  }, [mode.kind, exactProduct, model.units, unitTouched])
 
   function chooseProduct(product: (typeof model.products)[number]) {
     setProductName(product.name)
@@ -129,9 +125,11 @@ export function InventoryEditor({ ownerId, model, mode, onClose, onSaved, onCons
     event.preventDefault()
     if (mode.kind !== 'edit' || busy) return
 
-    const cleanName = renameName.trim().replace(/\s+/g, ' ')
-    if (!cleanName || cleanName.length > 120) {
-      setRenameError('Podaj nazwę produktu do 120 znaków.')
+    let cleanName: string
+    try {
+      cleanName = cleanCanonicalProductName(renameName)
+    } catch (error) {
+      setRenameError(error instanceof Error ? error.message : 'Podaj prawidłową nazwę produktu.')
       return
     }
 
@@ -144,7 +142,7 @@ export function InventoryEditor({ ownerId, model, mode, onClose, onSaved, onCons
     setRenameError('')
 
     try {
-      await renameProduct({
+      await renameCanonicalProduct({
         ownerId,
         productId: mode.lot.productId,
         nextName: cleanName,
@@ -160,9 +158,9 @@ export function InventoryEditor({ ownerId, model, mode, onClose, onSaved, onCons
     event.preventDefault()
     if (busy) return
 
-    const parsedQuantity = parseQuantity(quantity)
+    const parsedQuantity = parseQuantityInput(quantity)
     if (!parsedQuantity) {
-      setErrorMessage('Podaj ilość większą od 0, maksymalnie do 3 miejsc po przecinku.')
+      setErrorMessage(QUANTITY_INPUT_ERROR)
       return
     }
     if (!locationId || !unitCode) {
@@ -186,9 +184,10 @@ export function InventoryEditor({ ownerId, model, mode, onClose, onSaved, onCons
     }
 
     if (mode.kind === 'create') {
-      const cleanName = productName.trim().replace(/\s+/g, ' ')
-      if (!cleanName || cleanName.length > 120) {
-        setErrorMessage('Podaj nazwę produktu do 120 znaków.')
+      try {
+        cleanCanonicalProductName(productName)
+      } catch (error) {
+        setErrorMessage(error instanceof Error ? error.message : 'Podaj prawidłową nazwę produktu.')
         return
       }
     }

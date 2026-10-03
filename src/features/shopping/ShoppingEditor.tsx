@@ -1,6 +1,9 @@
 import { FormEvent, useEffect, useRef, useState } from 'react'
 import { KitchenIcon } from '../../components/KitchenIcon'
+import { getDefaultUnitCode } from '../measurements/measurementUnits'
 import { ProductAutocompleteField, useProductAutocomplete } from '../products/ProductAutocomplete'
+import { cleanCanonicalProductName } from '../products/productCatalogMutations'
+import { parseQuantityInput, QUANTITY_INPUT_ERROR } from '../quantity/quantity'
 import { createShoppingItem, removeShoppingItem, updateShoppingItem } from './shoppingMutations'
 import type { ShoppingItem, ShoppingReadModel } from './types'
 
@@ -16,19 +19,11 @@ type ShoppingEditorProps = {
   onSaved: () => void
 }
 
-function parseQuantity(value: string) {
-  const normalized = value.trim().replace(',', '.')
-  const parsed = Number(normalized)
-  return Number.isFinite(parsed) ? parsed : Number.NaN
-}
 
 export function ShoppingEditor({ ownerId, model, mode, onClose, onSaved }: ShoppingEditorProps) {
   const firstInputRef = useRef<HTMLInputElement>(null)
   const initialItem = mode.kind === 'edit' ? mode.item : null
-  const defaultUnit = initialItem?.unitCode
-    ?? model.units.find((unit) => unit.code === 'szt')?.code
-    ?? model.units[0]?.code
-    ?? ''
+  const defaultUnit = getDefaultUnitCode(model.units, initialItem?.unitCode)
 
   const [name, setName] = useState(initialItem?.name ?? '')
   const [quantity, setQuantity] = useState(initialItem ? String(initialItem.quantity) : '1')
@@ -76,21 +71,24 @@ export function ShoppingEditor({ ownerId, model, mode, onClose, onSaved }: Shopp
   }
 
   useEffect(() => {
-    if (unitTouched || !exactProduct) return
-    setUnitCode(exactProduct.defaultUnitCode)
-  }, [exactProduct, unitTouched])
+    if (unitTouched) return
+    setUnitCode(exactProduct?.defaultUnitCode ?? getDefaultUnitCode(model.units))
+  }, [exactProduct, model.units, unitTouched])
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     setErrorMessage('')
 
-    const parsedQuantity = parseQuantity(quantity)
-    if (!name.trim()) {
-      setErrorMessage('Podaj, co chcesz kupić.')
+    try {
+      cleanCanonicalProductName(name)
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : 'Podaj prawidłową nazwę produktu.')
       return
     }
-    if (!Number.isFinite(parsedQuantity) || parsedQuantity <= 0) {
-      setErrorMessage('Podaj ilość większą od 0.')
+
+    const parsedQuantity = parseQuantityInput(quantity)
+    if (!parsedQuantity) {
+      setErrorMessage(QUANTITY_INPUT_ERROR)
       return
     }
     if (!unitCode) {
@@ -113,6 +111,7 @@ export function ShoppingEditor({ ownerId, model, mode, onClose, onSaved }: Shopp
           ownerId,
           itemId: mode.item.id,
           name,
+          currentProductId: mode.item.productId,
           existingProductId: exactProduct?.id ?? null,
           quantity: parsedQuantity,
           unitCode,
@@ -165,7 +164,11 @@ export function ShoppingEditor({ ownerId, model, mode, onClose, onSaved }: Shopp
             exactProduct={exactProduct}
             suggestions={suggestions}
             exactHint="Użyję istniejącego produktu."
-            unmatchedHint="Powstanie nowy produkt."
+            unmatchedHint={
+              mode.kind === 'edit' && mode.item.productId
+                ? 'Zmiana nazwy zaktualizuje ten produkt wszędzie.'
+                : 'Powstanie nowy produkt.'
+            }
             placeholder="np. Mleko"
             disabled={busy}
             onChange={handleNameChange}

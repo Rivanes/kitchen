@@ -1,6 +1,17 @@
 import { supabase } from '../../lib/supabase/client'
-import { resolveOrCreateCanonicalProduct } from '../products/productCatalogMutations'
+import {
+  cleanCanonicalProductName,
+  cleanupCreatedCanonicalProduct,
+  findOwnerProductByName,
+  resolveCanonicalProductForEdit,
+  resolveOrCreateCanonicalProduct,
+} from '../products/productCatalogMutations'
 import { normalizeProductName } from '../products/productIdentity'
+import {
+  addQuantities,
+  assertValidQuantity,
+  readStoredQuantity,
+} from '../quantity/quantity'
 
 export type CreateShoppingItemInput = {
   ownerId: string
@@ -14,6 +25,7 @@ export type UpdateShoppingItemInput = {
   ownerId: string
   itemId: string
   name: string
+  currentProductId: string | null
   existingProductId: string | null
   quantity: number
   unitCode: string
@@ -24,7 +36,6 @@ export type RemoveShoppingItemInput = {
   itemId: string
 }
 
-
 type ActiveShoppingItem = {
   id: string
   product_id: string | null
@@ -33,26 +44,8 @@ type ActiveShoppingItem = {
   unit_code: string
 }
 
-
-function validateQuantity(quantity: number) {
-  if (!Number.isFinite(quantity) || quantity <= 0 || quantity > 999999999.999) {
-    throw new Error('Podaj prawidłową ilość większą od 0.')
-  }
-}
-
-function normalizeStoredQuantity(value: number | string) {
-  const quantity = typeof value === 'number' ? value : Number(value)
-  if (!Number.isFinite(quantity) || quantity <= 0) {
-    throw new Error('Zapisana ilość na liście jest nieprawidłowa.')
-  }
-  return quantity
-}
-
-
 async function loadActiveShoppingItems(ownerId: string): Promise<ActiveShoppingItem[]> {
-  if (!supabase) {
-    throw new Error('Supabase is not configured.')
-  }
+  if (!supabase) throw new Error('Supabase is not configured.')
 
   const result = await supabase
     .from('shopping_items')
@@ -79,134 +72,143 @@ function isSameIdentity(
     && normalizeProductName(item.custom_name) === normalizeProductName(canonicalName)
 }
 
-async function removeNewCanonicalProduct(ownerId: string, productId: string) {
-  if (!supabase) return
-  await supabase
-    .from('products')
-    .delete()
-    .eq('id', productId)
-    .eq('owner_id', ownerId)
-}
-
 export async function createShoppingItem(input: CreateShoppingItemInput) {
   if (!supabase) throw new Error('Supabase is not configured.')
 
-  validateQuantity(input.quantity)
+  assertValidQuantity(input.quantity)
   const product = await resolveOrCreateCanonicalProduct({
     ownerId: input.ownerId,
     name: input.name,
     existingProductId: input.existingProductId,
     defaultUnitCode: input.unitCode,
   })
-  const activeItems = await loadActiveShoppingItems(input.ownerId)
 
-  const mergeTarget = activeItems.find((item) =>
-    item.unit_code === input.unitCode
-    && isSameIdentity(item, product.id, product.name),
-  )
+  try {
+    const activeItems = await loadActiveShoppingItems(input.ownerId)
+    const mergeTarget = activeItems.find((item) =>
+      item.unit_code === input.unitCode
+      && isSameIdentity(item, product.id, product.name),
+    )
 
-  if (mergeTarget) {
-    const nextQuantity = normalizeStoredQuantity(mergeTarget.quantity) + input.quantity
-    if (!Number.isFinite(nextQuantity) || nextQuantity > 999999999.999) {
-      if (product.created) await removeNewCanonicalProduct(input.ownerId, product.id)
-      throw new Error('Łączna ilość na liście przekracza dozwolony zakres.')
+    if (mergeTarget) {
+      const currentQuantity = readStoredQuantity(
+        mergeTarget.quantity,
+        'Zapisana ilość na liście jest nieprawidłowa.',
+      )
+      const nextQuantity = addQuantities(
+        currentQuantity,
+        input.quantity,
+        'Łączna ilość na liście przekracza dozwolony zakres.',
+      )
+
+      const mergeResult = await supabase
+        .from('shopping_items')
+        .update({
+          product_id: product.id,
+          custom_name: null,
+          quantity: nextQuantity,
+        })
+        .eq('id', mergeTarget.id)
+        .eq('owner_id', input.ownerId)
+        .eq('is_purchased', false)
+        .select('id')
+        .maybeSingle()
+
+      if (mergeResult.error || !mergeResult.data) {
+        throw new Error(`Nie udało się połączyć wpisu na liście: ${mergeResult.error?.message ?? 'brak zapisu'}`)
+      }
+
+      return mergeResult.data.id as string
     }
 
-    const mergeResult = await supabase
+    const insertResult = await supabase
       .from('shopping_items')
-      .update({
+      .insert({
+        owner_id: input.ownerId,
         product_id: product.id,
         custom_name: null,
-        quantity: nextQuantity,
+        quantity: input.quantity,
+        unit_code: input.unitCode,
+        is_purchased: false,
+        purchased_at: null,
       })
-      .eq('id', mergeTarget.id)
-      .eq('owner_id', input.ownerId)
-      .eq('is_purchased', false)
       .select('id')
-      .maybeSingle()
+      .single()
 
-    if (mergeResult.error || !mergeResult.data) {
-      if (product.created) await removeNewCanonicalProduct(input.ownerId, product.id)
-      throw new Error(`Nie udało się połączyć wpisu na liście: ${mergeResult.error?.message ?? 'brak zapisu'}`)
+    if (insertResult.error) {
+      throw new Error(`Nie udało się dodać do listy: ${insertResult.error.message}`)
     }
 
-    return mergeResult.data.id as string
+    return insertResult.data.id as string
+  } catch (error) {
+    if (product.created) {
+      await cleanupCreatedCanonicalProduct(input.ownerId, product.id)
+    }
+    throw error
   }
-
-  const insertResult = await supabase
-    .from('shopping_items')
-    .insert({
-      owner_id: input.ownerId,
-      product_id: product.id,
-      custom_name: null,
-      quantity: input.quantity,
-      unit_code: input.unitCode,
-      is_purchased: false,
-      purchased_at: null,
-    })
-    .select('id')
-    .single()
-
-  if (insertResult.error) {
-    if (product.created) await removeNewCanonicalProduct(input.ownerId, product.id)
-    throw new Error(`Nie udało się dodać do listy: ${insertResult.error.message}`)
-  }
-
-  return insertResult.data.id as string
 }
 
 export async function updateShoppingItem(input: UpdateShoppingItemInput) {
   if (!supabase) throw new Error('Supabase is not configured.')
 
-  validateQuantity(input.quantity)
-  const product = await resolveOrCreateCanonicalProduct({
-    ownerId: input.ownerId,
-    name: input.name,
-    existingProductId: input.existingProductId,
-    defaultUnitCode: input.unitCode,
-  })
+  assertValidQuantity(input.quantity)
+  const cleanName = cleanCanonicalProductName(input.name)
+  const existingByName = await findOwnerProductByName(input.ownerId, cleanName)
   const activeItems = await loadActiveShoppingItems(input.ownerId)
+  const preflightProductId = existingByName?.id ?? input.currentProductId
 
-  const conflict = activeItems.find((item) =>
-    item.id !== input.itemId
-    && item.unit_code === input.unitCode
-    && isSameIdentity(item, product.id, product.name),
-  )
+  const conflict = activeItems.find((item) => {
+    if (item.id === input.itemId || item.unit_code !== input.unitCode) return false
+    if (preflightProductId && item.product_id === preflightProductId) return true
+    return item.product_id === null
+      && item.custom_name !== null
+      && normalizeProductName(item.custom_name) === normalizeProductName(cleanName)
+  })
 
   if (conflict) {
-    if (product.created) await removeNewCanonicalProduct(input.ownerId, product.id)
     throw new Error('Taka rzecz jest już na liście w tej samej jednostce.')
   }
 
-  const result = await supabase
-    .from('shopping_items')
-    .update({
-      product_id: product.id,
-      custom_name: null,
-      quantity: input.quantity,
-      unit_code: input.unitCode,
-    })
-    .eq('id', input.itemId)
-    .eq('owner_id', input.ownerId)
-    .eq('is_purchased', false)
-    .select('id')
-    .maybeSingle()
+  const product = await resolveCanonicalProductForEdit({
+    ownerId: input.ownerId,
+    name: cleanName,
+    currentProductId: input.currentProductId,
+    selectedProductId: input.existingProductId,
+    defaultUnitCode: input.unitCode,
+  })
 
-  if (result.error) {
-    if (product.created) await removeNewCanonicalProduct(input.ownerId, product.id)
-    throw new Error(`Nie udało się zapisać zmian: ${result.error.message}`)
-  }
+  try {
+    const result = await supabase
+      .from('shopping_items')
+      .update({
+        product_id: product.id,
+        custom_name: null,
+        quantity: input.quantity,
+        unit_code: input.unitCode,
+      })
+      .eq('id', input.itemId)
+      .eq('owner_id', input.ownerId)
+      .eq('is_purchased', false)
+      .select('id')
+      .maybeSingle()
 
-  if (!result.data) {
-    if (product.created) await removeNewCanonicalProduct(input.ownerId, product.id)
-    throw new Error('Nie znaleziono rzeczy do edycji.')
+    if (result.error) {
+      throw new Error(`Nie udało się zapisać zmian: ${result.error.message}`)
+    }
+
+    if (!result.data) {
+      throw new Error('Nie znaleziono rzeczy do edycji.')
+    }
+  } catch (error) {
+    if (product.created) {
+      await cleanupCreatedCanonicalProduct(input.ownerId, product.id)
+    }
+    throw error
   }
 }
 
 export async function removeShoppingItem(input: RemoveShoppingItemInput) {
-  if (!supabase) {
-    throw new Error('Supabase is not configured.')
-  }
+  if (!supabase) throw new Error('Supabase is not configured.')
 
   const result = await supabase
     .from('shopping_items')
