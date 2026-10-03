@@ -2133,3 +2133,46 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
   font-size: 11px;
   text-align: center;
 }
+
+
+/* V2.5.1 — partial Shopping purchase */
+.shopping-purchase-sheet {
+  max-height: calc(100dvh - 8px);
+}
+.shopping-purchase-form {
+  gap: 13px;
+}
+.shopping-purchase-summary {
+  display: grid;
+  gap: 3px;
+  margin-bottom: 14px;
+  padding: 12px 13px;
+  border: 1px solid var(--color-border);
+  border-radius: 15px;
+  background: #f8faf7;
+}
+.shopping-purchase-summary strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-size: 14px;
+}
+.shopping-purchase-summary span {
+  color: var(--color-muted);
+  font-size: 12px;
+}
+.shopping-purchase-remaining {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 9px 11px;
+  border-radius: 13px;
+  background: #fff8e8;
+  color: #74581d;
+  font-size: 12px;
+  font-weight: 700;
+}
+.shopping-purchase-remaining.is-complete {
+  background: #eef7ed;
+  color: #345f39;
+}

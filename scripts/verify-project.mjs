@@ -36,6 +36,7 @@ const requiredFiles = [
   'tests/INVENTORY_V1_CLOSEOUT_CONTRACT.md',
   'tests/PRODUCT_RENAME_CONTRACT.md',
   'src/features/shopping/ShoppingPage.tsx',
+  'src/features/shopping/ShoppingPurchaseSheet.tsx',
   'src/features/shopping/ShoppingEditor.tsx',
   'src/features/shopping/shoppingReadModel.ts',
   'src/features/shopping/shoppingMutations.ts',
@@ -53,6 +54,7 @@ const requiredFiles = [
   'tests/INVENTORY_TO_SHOPPING_CONTRACT.md',
   'tests/QUANTITY_STEPPER_CONTRACT.md',
   'tests/SHOPPING_PURCHASED_STATE_CONTRACT.md',
+  'tests/SHOPPING_PARTIAL_PURCHASE_CONTRACT.md',
   'vite.config.ts',
 ]
 
@@ -443,10 +445,13 @@ for (const marker of ['createShoppingItem', 'updateShoppingItem', 'removeShoppin
     throw new Error(`V2.3.2 Shopping mutation marker missing: ${marker}`)
   }
 }
-for (const marker of ['setShoppingItemPurchased', 'loadShoppingStateItem', 'hasSameShoppingIdentity', 'is_purchased: input.purchased', 'purchased_at: nextPurchasedAt', 'Ta rzecz jest już na aktywnej liście w tej samej jednostce.', ".eq('is_purchased', current.is_purchased)"]) {
+for (const marker of ['purchaseShoppingQuantity', 'restoreShoppingPurchase', "rpc('purchase_shopping_item'", "rpc('restore_shopping_purchase'", 'assertValidQuantity(input.quantity)', 'p_owner_id: input.ownerId']) {
   if (!shoppingMutations.includes(marker)) {
-    throw new Error(`V2.5 Shopping purchased-state mutation marker missing: ${marker}`)
+    throw new Error(`V2.5.1 Shopping purchase mutation marker missing: ${marker}`)
   }
+}
+if (shoppingMutations.includes('setShoppingItemPurchased')) {
+  throw new Error('V2.5.1 must not retain a second boolean-only Shopping completion mutation authority.')
 }
 if (!shoppingMutations.includes('mergeTarget') || !shoppingMutations.includes('item.unit_code === input.unitCode')) {
   throw new Error('V2.3 create must merge only the same active identity in the same unit.')
@@ -487,13 +492,21 @@ for (const marker of ['Zakupy', 'Lista jest pusta', 'loadShoppingReadModel', 'to
     throw new Error(`Shopping page marker missing: ${marker}`)
   }
 }
-for (const marker of ['setShoppingItemPurchased', 'Do kupienia', 'Kupione', 'Wszystko kupione', 'shopping-purchase-toggle', 'model.activeItems', 'model.purchasedItems', 'Przywróć ${item.name} do listy zakupów']) {
+for (const marker of ['ShoppingPurchaseSheet', 'restoreShoppingPurchase', 'purchaseTarget', 'Do kupienia', 'Kupione', 'Wszystko kupione', 'shopping-purchase-toggle', 'model.activeItems', 'model.purchasedItems', 'Przywróć ${item.name} do listy zakupów']) {
   if (!shoppingPage.includes(marker)) {
-    throw new Error(`V2.5 Shopping purchased-state UI marker missing: ${marker}`)
+    throw new Error(`V2.5.1 Shopping purchased-state UI marker missing: ${marker}`)
   }
 }
 if (!shoppingPage.includes('visibleActiveItems') || !shoppingPage.includes('visiblePurchasedItems')) {
   throw new Error('V2.5 shared Shopping search must filter both active and purchased groups.')
+}
+
+
+const shoppingPurchaseSheet = await readFile('src/features/shopping/ShoppingPurchaseSheet.tsx', 'utf8')
+for (const marker of ['Ile kupiono?', 'QuantityStepperInput', 'max={item.quantity}', 'purchaseShoppingQuantity', 'Zostanie do kupienia:', 'Cała pozycja trafi do „Kupione”.']) {
+  if (!shoppingPurchaseSheet.includes(marker)) {
+    throw new Error(`V2.5.1 partial-purchase sheet marker missing: ${marker}`)
+  }
 }
 
 if (!homePage.includes('onOpenShopping') || !homePage.includes('home-shopping-hub') || !homePage.includes('loadActiveShoppingCount')) {
@@ -553,9 +566,9 @@ for (const marker of ['.quantity-stepper', '.quantity-stepper-button', 'grid-tem
     throw new Error(`V2.4.1 quantity stepper style marker missing: ${marker}`)
   }
 }
-for (const marker of ['.shopping-purchase-toggle', '.shopping-completed-section', '.shopping-completed-heading', '.shopping-item-completed', '.shopping-all-done-card']) {
+for (const marker of ['.shopping-purchase-toggle', '.shopping-completed-section', '.shopping-completed-heading', '.shopping-item-completed', '.shopping-all-done-card', '.shopping-purchase-sheet', '.shopping-purchase-remaining']) {
   if (!quantityStepperStyles.includes(marker)) {
-    throw new Error(`V2.5 purchased-state style marker missing: ${marker}`)
+    throw new Error(`V2.5.1 purchased-state style marker missing: ${marker}`)
   }
 }
 

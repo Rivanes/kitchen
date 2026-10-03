@@ -1,30 +1,39 @@
-# Shopping Purchased State Contract — V2.5
+# Shopping Purchased State Contract — V2.5.1
 
 ## State authority
-- `shopping_items.is_purchased` and `shopping_items.purchased_at` remain the database source of truth.
-- Bought transition updates both fields together.
-- Restore transition updates both fields together.
-- The database coherence constraint remains unchanged.
-- No separate completion table or second shopping-state system is introduced.
+- `shopping_items.is_purchased`, `shopping_items.purchased_at` and `shopping_items.quantity` remain the database source of truth.
+- No separate completion table or second Shopping state model is introduced.
+- Purchased quantity transitions are atomic database operations.
+
+## Partial purchase
+- Marking an active row bought opens one shared quantity sheet.
+- The purchased amount defaults to the full requested quantity.
+- The existing shared `QuantityStepperInput` controls +/- and manual input.
+- Purchased amount must be > 0 and <= the currently active quantity.
+- Full purchase marks the existing row purchased.
+- Partial purchase keeps the remainder active and creates a purchased sibling row for the exact bought amount.
+- Example: planned 4, bought 3 -> active 1 + purchased 3.
+
+## Restore / undo
+- Restore is atomic.
+- If no equivalent active row exists, the purchased row becomes active again.
+- If an equivalent active Product/custom identity + unit exists, restore adds the purchased quantity back to that active row and removes the purchased fragment.
+- Restore must never create a duplicate equivalent active row.
 
 ## Presentation
-- Shopping read model returns active and purchased rows from the same `shopping_items` authority.
-- Active rows remain editable.
-- Purchased rows move into a dedicated `Kupione` section and are not edited as active rows.
-- Purchased rows are ordered newest purchased first.
-- Start/Home active Shopping count remains active-only.
-- When no active rows remain but purchased rows exist, the UI says `Wszystko kupione` rather than treating the whole list as empty.
-
-## Interaction
-- Active row has an explicit approximately 44–48px bought toggle.
-- Marking bought does not delete the row.
-- Purchased row can be restored to active state.
-- Restore is fail-closed when the same Product/custom identity + unit already exists on the active list; it must not create duplicate active rows.
-- Purchased state mutations are owner-scoped and guarded by expected current state.
+- Active rows remain in `Do kupienia`.
+- Purchased rows remain in `Kupione`.
+- Purchased rows are newest-first.
+- Home/Start count remains active-row-only.
+- `Wszystko kupione` appears only when no active remainder remains.
 
 ## Future V2.6
-- Purchased rows remain available for Purchased -> Inventory transfer.
-- V2.5 does not create Inventory lots and does not recreate Product identity.
+- Purchased rows preserve the exact quantity actually bought for Purchased -> Inventory transfer.
+- V2.5.1 does not create Inventory lots.
 
-## Database
-No SQL/schema/RLS/Auth migration is required. V2.2 already introduced the purchased-state columns, constraint, RLS and indexes.
+## Security
+- purchase/restore RPCs are `SECURITY INVOKER`
+- explicit owner id must equal `auth.uid()`
+- RLS + `public.is_kitchen_owner()` remain authoritative
+- anon has no execute privilege
+- authenticated has execute privilege

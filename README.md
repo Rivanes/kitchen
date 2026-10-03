@@ -187,3 +187,27 @@ Shopping now has one coherent active/completed lifecycle over the existing `shop
 - active Home count remains active-only
 
 No SQL/schema/RLS/Auth changes are required because V2.2 already prepared purchased state.
+
+
+## V2.5.1 — Partial purchase corrective
+
+Shopping completion now records how much was actually bought.
+
+Example:
+- planned: 4 szt.
+- bought: 3 szt.
+- `Kupione`: 3 szt.
+- `Do kupienia`: 1 szt.
+
+Tapping the bought control opens one shared quantity sheet with the existing +/- quantity stepper.
+The full requested amount is prefilled, so a full purchase is one confirmation; partial purchase can
+be adjusted before save.
+
+Database operations are atomic through owner-scoped SECURITY INVOKER RPCs:
+- `purchase_shopping_item(...)`
+- `restore_shopping_purchase(...)`
+
+Restore merges a purchased fragment back into an equivalent active remainder instead of creating
+a duplicate row.
+
+V2.5.1 adds no table/column/schema-model change, but it does require the supplied SQL function migration.

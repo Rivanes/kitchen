@@ -2,7 +2,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { KitchenIcon } from '../../components/KitchenIcon'
 import { formatQuantity } from '../quantity/quantity'
 import { ShoppingEditor } from './ShoppingEditor'
-import { setShoppingItemPurchased } from './shoppingMutations'
+import { ShoppingPurchaseSheet } from './ShoppingPurchaseSheet'
+import { restoreShoppingPurchase } from './shoppingMutations'
 import { loadShoppingReadModel } from './shoppingReadModel'
 import type { ShoppingItem, ShoppingReadModel } from './types'
 
@@ -40,6 +41,7 @@ export function ShoppingPage({ ownerId }: ShoppingPageProps) {
   const [editor, setEditor] = useState<EditorState>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [completedOpen, setCompletedOpen] = useState(true)
+  const [purchaseTarget, setPurchaseTarget] = useState<ShoppingItem | null>(null)
   const [updatingItemId, setUpdatingItemId] = useState<string | null>(null)
   const [actionError, setActionError] = useState('')
 
@@ -77,18 +79,25 @@ export function ShoppingPage({ ownerId }: ShoppingPageProps) {
     await load()
   }
 
-  async function handlePurchasedState(item: ShoppingItem, purchased: boolean) {
+  async function handlePurchasedSaved() {
+    setPurchaseTarget(null)
+    setActionError('')
+    const nextModel = await loadShoppingReadModel(ownerId)
+    setShoppingStatus({ status: 'ready', model: nextModel })
+    setCompletedOpen(true)
+  }
+
+  async function handleRestorePurchased(item: ShoppingItem) {
     if (updatingItemId) return
 
     setUpdatingItemId(item.id)
     setActionError('')
     try {
-      await setShoppingItemPurchased({ ownerId, itemId: item.id, purchased })
+      await restoreShoppingPurchase({ ownerId, itemId: item.id })
       const nextModel = await loadShoppingReadModel(ownerId)
       setShoppingStatus({ status: 'ready', model: nextModel })
-      if (purchased) setCompletedOpen(true)
     } catch (error) {
-      setActionError(error instanceof Error ? error.message : 'Nie udało się zmienić stanu zakupu.')
+      setActionError(error instanceof Error ? error.message : 'Nie udało się przywrócić rzeczy do listy.')
     } finally {
       setUpdatingItemId(null)
     }
@@ -191,7 +200,7 @@ export function ShoppingPage({ ownerId }: ShoppingPageProps) {
                     <button
                       className="shopping-purchase-toggle"
                       type="button"
-                      onClick={() => void handlePurchasedState(item, true)}
+                      onClick={() => setPurchaseTarget(item)}
                       disabled={Boolean(updatingItemId)}
                       aria-label={`Oznacz ${item.name} jako kupione`}
                       title="Oznacz jako kupione"
@@ -238,7 +247,7 @@ export function ShoppingPage({ ownerId }: ShoppingPageProps) {
                       <button
                         className="shopping-purchase-toggle is-checked"
                         type="button"
-                        onClick={() => void handlePurchasedState(item, false)}
+                        onClick={() => void handleRestorePurchased(item)}
                         disabled={Boolean(updatingItemId)}
                         aria-label={`Przywróć ${item.name} do listy zakupów`}
                         title="Przywróć do kupienia"
@@ -270,6 +279,15 @@ export function ShoppingPage({ ownerId }: ShoppingPageProps) {
           <KitchenIcon name="plus" size={18} />
           Dodaj do listy
         </button>
+      )}
+
+      {purchaseTarget && (
+        <ShoppingPurchaseSheet
+          ownerId={ownerId}
+          item={purchaseTarget}
+          onClose={() => setPurchaseTarget(null)}
+          onPurchased={() => void handlePurchasedSaved()}
+        />
       )}
 
       {editor && model && (
