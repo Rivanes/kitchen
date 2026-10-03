@@ -39,7 +39,10 @@ const requiredFiles = [
   'src/features/shopping/shoppingReadModel.ts',
   'src/features/shopping/shoppingMutations.ts',
   'src/features/shopping/types.ts',
+  'src/features/products/ProductAutocomplete.tsx',
+  'src/features/products/productIdentity.ts',
   'tests/SHOPPING_LIST_CONTRACT.md',
+  'tests/PRODUCT_AUTOCOMPLETE_CONTRACT.md',
   'vite.config.ts',
 ]
 
@@ -88,7 +91,7 @@ if (!viteConfig.includes("theme_color: '#f7f7f2'")) {
 }
 
 const globalCss = await readFile('src/styles/global.css', 'utf8')
-for (const marker of ['--color-bg: #f7f7f2', '--touch-min: 48px', '.home-quick-action', '.home-coming-card', '.home-expiry-hub', '.expiry-page', '.expiry-filter', '.expiry-row', '.after-open-details', '.consume-open-rule', '.inventory-sheet', '.primary-icon-button', '.inventory-search', '.inventory-stock-actions', '.inventory-consume-sheet', '.danger-button', '.inventory-location-entry', '.inventory-location-page', '.inventory-back-button', '.expiry-status', '.date-input-row', 'max-height: calc(100dvh - 8px)', 'grid-template-columns: repeat(2, minmax(0, 1fr))', '.inventory-editor-title-row', '.product-rename-trigger', '.product-rename-form', '.home-shopping-hub', '.shopping-page', '.shopping-list-card', '.shopping-row', '.shopping-remove-zone']) {
+for (const marker of ['--color-bg: #f7f7f2', '--touch-min: 48px', '.home-quick-action', '.home-coming-card', '.home-expiry-hub', '.expiry-page', '.expiry-filter', '.expiry-row', '.after-open-details', '.consume-open-rule', '.inventory-sheet', '.primary-icon-button', '.inventory-search', '.inventory-stock-actions', '.inventory-consume-sheet', '.danger-button', '.inventory-location-entry', '.inventory-location-page', '.inventory-back-button', '.expiry-status', '.date-input-row', 'max-height: calc(100dvh - 8px)', 'grid-template-columns: repeat(2, minmax(0, 1fr))', '.inventory-editor-title-row', '.product-rename-trigger', '.product-rename-form', '.home-shopping-hub', '.shopping-page', '.shopping-list-card', '.shopping-row', '.shopping-remove-zone', '.product-autocomplete-status']) {
   if (!globalCss.includes(marker)) {
     throw new Error(`V1.3 UI contract marker missing: ${marker}`)
   }
@@ -245,6 +248,24 @@ if (!editor.includes("mode.kind === 'edit' && !renameOpen") || !editor.includes(
   throw new Error('V2.1 rename must remain an explicit edit-only sub-flow, separate from Inventory-lot save.')
 }
 
+if (!editor.includes('ProductAutocompleteField') || !editor.includes('useProductAutocomplete')) {
+  throw new Error('V2.3.1 Inventory create must use the shared Product autocomplete surface.')
+}
+
+const sharedProductIdentity = await readFile('src/features/products/productIdentity.ts', 'utf8')
+for (const marker of ['normalizeProductName', 'findExactProduct', 'findProductSuggestions', '.slice(0, limit)']) {
+  if (!sharedProductIdentity.includes(marker)) {
+    throw new Error(`V2.3.1 shared Product identity marker missing: ${marker}`)
+  }
+}
+
+const sharedProductAutocomplete = await readFile('src/features/products/ProductAutocomplete.tsx', 'utf8')
+for (const marker of ['useProductAutocomplete', 'ProductAutocompleteField', 'product-suggestions', 'Pasujące produkty']) {
+  if (!sharedProductAutocomplete.includes(marker)) {
+    throw new Error(`V2.3.1 shared Product autocomplete marker missing: ${marker}`)
+  }
+}
+
 const inventoryPage = await readFile('src/features/inventory/InventoryPage.tsx', 'utf8')
 if (!inventoryPage.includes("status: 'loading'") || !inventoryPage.includes("status: 'error'") || !inventoryPage.includes("status: 'ready'")) {
   throw new Error('Inventory page must retain loading, error and ready states.')
@@ -339,7 +360,7 @@ if (!shoppingReadModel.includes('loadActiveShoppingCount')) {
 }
 
 const shoppingMutations = await readFile('src/features/shopping/shoppingMutations.ts', 'utf8')
-for (const marker of ['createShoppingItem', 'updateShoppingItem', 'removeShoppingItem', 'normalizeShoppingName', "product_id: identity.productId", "custom_name: identity.productId ? null : identity.cleanName", ".eq('owner_id', input.ownerId)", ".eq('is_purchased', false)"]) {
+for (const marker of ['createShoppingItem', 'updateShoppingItem', 'removeShoppingItem', 'normalizeProductName', "product_id: identity.productId", "custom_name: identity.productId ? null : identity.cleanName", ".eq('owner_id', input.ownerId)", ".eq('is_purchased', false)"]) {
   if (!shoppingMutations.includes(marker)) {
     throw new Error(`V2.3 Shopping mutation marker missing: ${marker}`)
   }
@@ -351,11 +372,21 @@ if (!shoppingMutations.includes('Taka rzecz jest już na liście w tej samej jed
   throw new Error('V2.3 edit must guard collisions instead of silently creating duplicate active identities.')
 }
 
+if (!shoppingMutations.includes("from '../products/productIdentity'") || !shoppingMutations.includes('existingProductId: string | null') || !shoppingMutations.includes('selectedProduct')) {
+  throw new Error('V2.3.1 Shopping mutations must reuse shared Product normalization and owner-catalog canonical identity resolution.')
+}
+if (shoppingMutations.includes('normalizeShoppingName')) {
+  throw new Error('V2.3.1 must remove the duplicate Shopping-only Product normalizer.')
+}
+
 const shoppingEditor = await readFile('src/features/shopping/ShoppingEditor.tsx', 'utf8')
-for (const marker of ['Co kupić?', 'shopping-product-suggestions', 'model.units.map', 'createShoppingItem', 'updateShoppingItem', 'removeShoppingItem', 'Usuń z listy']) {
+for (const marker of ['Co kupić?', 'ProductAutocompleteField', 'useProductAutocomplete', 'model.units.map', 'createShoppingItem', 'updateShoppingItem', 'removeShoppingItem', 'Usuń z listy', 'existingProductId: exactProduct?.id ?? null']) {
   if (!shoppingEditor.includes(marker)) {
-    throw new Error(`V2.3 Shopping editor marker missing: ${marker}`)
+    throw new Error(`V2.3.1 Shopping editor marker missing: ${marker}`)
   }
+}
+if (shoppingEditor.includes('<datalist') || shoppingEditor.includes('shopping-product-suggestions') || /\slist=["']/.test(shoppingEditor)) {
+  throw new Error('V2.3.1 Shopping must not keep a second browser-native datalist suggestion system.')
 }
 if (!shoppingEditor.includes("matchMedia('(hover: hover) and (pointer: fine)')")) {
   throw new Error('V2.3 Shopping editor must keep the no-forced-mobile-keyboard contract.')

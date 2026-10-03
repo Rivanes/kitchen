@@ -1,4 +1,5 @@
 import { supabase } from '../../lib/supabase/client'
+import { normalizeProductName } from '../products/productIdentity'
 import { addDaysDateOnly } from './expiry'
 
 export type CreateInventoryLotInput = {
@@ -77,10 +78,6 @@ function normalizeAfterOpenDays(value: number | null) {
     throw new Error('Termin po otwarciu musi mieć od 1 do 3650 dni.')
   }
   return value
-}
-
-export function normalizeProductName(value: string) {
-  return value.trim().replace(/\s+/g, ' ').toLocaleLowerCase('pl-PL')
 }
 
 async function findProductByName(ownerId: string, productName: string): Promise<ProductIdentity | null> {

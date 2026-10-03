@@ -1,6 +1,7 @@
-import { FormEvent, useEffect, useMemo, useRef, useState } from 'react'
+import { FormEvent, useEffect, useRef, useState } from 'react'
 import { KitchenIcon } from '../../components/KitchenIcon'
-import { createShoppingItem, normalizeShoppingName, removeShoppingItem, updateShoppingItem } from './shoppingMutations'
+import { ProductAutocompleteField, useProductAutocomplete } from '../products/ProductAutocomplete'
+import { createShoppingItem, removeShoppingItem, updateShoppingItem } from './shoppingMutations'
 import type { ShoppingItem, ShoppingReadModel } from './types'
 
 type ShoppingEditorMode =
@@ -37,10 +38,9 @@ export function ShoppingEditor({ ownerId, model, mode, onClose, onSaved }: Shopp
   const [confirmingRemove, setConfirmingRemove] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
 
-  const normalizedProductMap = useMemo(
-    () => new Map(model.products.map((product) => [normalizeShoppingName(product.name), product])),
-    [model.products],
-  )
+  const productAutocomplete = useProductAutocomplete(model.products, name)
+  const exactProduct = productAutocomplete.exactProduct
+  const suggestions = productAutocomplete.suggestions
 
   useEffect(() => {
     const previousOverflow = document.body.style.overflow
@@ -66,12 +66,19 @@ export function ShoppingEditor({ ownerId, model, mode, onClose, onSaved }: Shopp
   function handleNameChange(nextName: string) {
     setName(nextName)
     setErrorMessage('')
-
-    if (!unitTouched) {
-      const product = normalizedProductMap.get(normalizeShoppingName(nextName))
-      if (product) setUnitCode(product.defaultUnitCode)
-    }
   }
+
+  function chooseProduct(product: (typeof model.products)[number]) {
+    setName(product.name)
+    setUnitCode(product.defaultUnitCode)
+    setUnitTouched(false)
+    setErrorMessage('')
+  }
+
+  useEffect(() => {
+    if (unitTouched || !exactProduct) return
+    setUnitCode(exactProduct.defaultUnitCode)
+  }, [exactProduct, unitTouched])
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -97,6 +104,7 @@ export function ShoppingEditor({ ownerId, model, mode, onClose, onSaved }: Shopp
         await createShoppingItem({
           ownerId,
           name,
+          existingProductId: exactProduct?.id ?? null,
           quantity: parsedQuantity,
           unitCode,
         })
@@ -105,6 +113,7 @@ export function ShoppingEditor({ ownerId, model, mode, onClose, onSaved }: Shopp
           ownerId,
           itemId: mode.item.id,
           name,
+          existingProductId: exactProduct?.id ?? null,
           quantity: parsedQuantity,
           unitCode,
         })
@@ -148,24 +157,21 @@ export function ShoppingEditor({ ownerId, model, mode, onClose, onSaved }: Shopp
         </header>
 
         <form className="inventory-form shopping-form" onSubmit={handleSubmit}>
-          <label className="form-field" htmlFor="shopping-name">
-            <span>Co kupić?</span>
-            <input
-              ref={firstInputRef}
-              id="shopping-name"
-              type="text"
-              value={name}
-              maxLength={120}
-              list="shopping-product-suggestions"
-              autoComplete="off"
-              onChange={(event) => handleNameChange(event.target.value)}
-              disabled={busy}
-              placeholder="np. Mleko"
-            />
-            <datalist id="shopping-product-suggestions">
-              {model.products.map((product) => <option key={product.id} value={product.name} />)}
-            </datalist>
-          </label>
+          <ProductAutocompleteField
+            inputRef={firstInputRef}
+            inputId="shopping-name"
+            label="Co kupić?"
+            value={name}
+            products={model.products}
+            exactProduct={exactProduct}
+            suggestions={suggestions}
+            exactHint="Użyję istniejącego produktu."
+            unmatchedHint="Na liście zapiszę własną nazwę."
+            placeholder="np. Mleko"
+            disabled={busy}
+            onChange={handleNameChange}
+            onChoose={chooseProduct}
+          />
 
           <div className="form-split">
             <label className="form-field" htmlFor="shopping-quantity">
@@ -201,10 +207,6 @@ export function ShoppingEditor({ ownerId, model, mode, onClose, onSaved }: Shopp
               </select>
             </label>
           </div>
-
-          <p className="shopping-editor-hint">
-            Jeśli nazwa pasuje do produktu z Zapasy, Kitchen zachowa jego wspólną tożsamość.
-          </p>
 
           {errorMessage && <p className="form-error" role="alert">{errorMessage}</p>}
 

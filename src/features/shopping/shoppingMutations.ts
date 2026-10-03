@@ -1,8 +1,10 @@
 import { supabase } from '../../lib/supabase/client'
+import { normalizeProductName } from '../products/productIdentity'
 
 export type CreateShoppingItemInput = {
   ownerId: string
   name: string
+  existingProductId: string | null
   quantity: number
   unitCode: string
 }
@@ -11,6 +13,7 @@ export type UpdateShoppingItemInput = {
   ownerId: string
   itemId: string
   name: string
+  existingProductId: string | null
   quantity: number
   unitCode: string
 }
@@ -32,10 +35,6 @@ type ActiveShoppingItem = {
   custom_name: string | null
   quantity: number | string
   unit_code: string
-}
-
-export function normalizeShoppingName(value: string) {
-  return value.trim().replace(/\s+/g, ' ').toLocaleLowerCase('pl-PL')
 }
 
 function cleanShoppingName(value: string) {
@@ -77,15 +76,22 @@ async function loadProductCatalog(ownerId: string): Promise<ProductIdentity[]> {
   return (result.data ?? []) as ProductIdentity[]
 }
 
-async function resolveIdentity(ownerId: string, name: string) {
+async function resolveIdentity(ownerId: string, name: string, existingProductId: string | null) {
   const cleanName = cleanShoppingName(name)
-  const normalized = normalizeShoppingName(cleanName)
+  const normalized = normalizeProductName(cleanName)
   const products = await loadProductCatalog(ownerId)
-  const product = products.find((candidate) => normalizeShoppingName(candidate.name) === normalized) ?? null
 
+  if (existingProductId) {
+    const selectedProduct = products.find((candidate) => candidate.id === existingProductId) ?? null
+    if (selectedProduct && normalizeProductName(selectedProduct.name) === normalized) {
+      return { cleanName: selectedProduct.name, productId: selectedProduct.id }
+    }
+  }
+
+  const exactProduct = products.find((candidate) => normalizeProductName(candidate.name) === normalized) ?? null
   return {
-    cleanName,
-    productId: product?.id ?? null,
+    cleanName: exactProduct?.name ?? cleanName,
+    productId: exactProduct?.id ?? null,
   }
 }
 
@@ -116,7 +122,7 @@ function isSameIdentity(
 
   return item.product_id === null
     && item.custom_name !== null
-    && normalizeShoppingName(item.custom_name) === normalizeShoppingName(cleanName)
+    && normalizeProductName(item.custom_name) === normalizeProductName(cleanName)
 }
 
 export async function createShoppingItem(input: CreateShoppingItemInput) {
@@ -125,7 +131,7 @@ export async function createShoppingItem(input: CreateShoppingItemInput) {
   }
 
   validateQuantity(input.quantity)
-  const identity = await resolveIdentity(input.ownerId, input.name)
+  const identity = await resolveIdentity(input.ownerId, input.name, input.existingProductId)
   const activeItems = await loadActiveShoppingItems(input.ownerId)
 
   const mergeTarget = activeItems.find((item) =>
@@ -182,7 +188,7 @@ export async function updateShoppingItem(input: UpdateShoppingItemInput) {
   }
 
   validateQuantity(input.quantity)
-  const identity = await resolveIdentity(input.ownerId, input.name)
+  const identity = await resolveIdentity(input.ownerId, input.name, input.existingProductId)
   const activeItems = await loadActiveShoppingItems(input.ownerId)
 
   const conflict = activeItems.find((item) =>

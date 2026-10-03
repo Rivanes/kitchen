@@ -1,7 +1,9 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react'
 import { KitchenIcon } from '../../components/KitchenIcon'
+import { ProductAutocompleteField, useProductAutocomplete } from '../products/ProductAutocomplete'
+import { findExactProduct } from '../products/productIdentity'
 import { formatDateOnly, isValidDateOnly } from './expiry'
-import { createInventoryLot, normalizeProductName, removeInventoryLot, renameProduct, updateInventoryLot } from './inventoryMutations'
+import { createInventoryLot, removeInventoryLot, renameProduct, updateInventoryLot } from './inventoryMutations'
 import type { InventoryLot, InventoryReadModel } from './types'
 
 type InventoryEditorMode =
@@ -53,31 +55,16 @@ export function InventoryEditor({ ownerId, model, mode, onClose, onSaved, onCons
   const firstInputRef = useRef<HTMLInputElement>(null)
   const busy = saving || removing || renaming
 
-  const exactProduct = useMemo(() => {
-    if (mode.kind === 'edit') return null
-    const normalized = normalizeProductName(productName)
-    if (!normalized) return null
-    return model.products.find((product) => normalizeProductName(product.name) === normalized) ?? null
-  }, [mode.kind, model.products, productName])
-
-  const suggestions = useMemo(() => {
-    if (mode.kind === 'edit') return []
-    const normalized = normalizeProductName(productName)
-    if (normalized.length < 1) return []
-    return model.products
-      .filter((product) => normalizeProductName(product.name).includes(normalized))
-      .filter((product) => product.id !== exactProduct?.id)
-      .slice(0, 5)
-  }, [mode.kind, model.products, productName, exactProduct?.id])
+  const productAutocomplete = useProductAutocomplete(
+    model.products,
+    mode.kind === 'create' ? productName : '',
+  )
+  const exactProduct = mode.kind === 'create' ? productAutocomplete.exactProduct : null
+  const suggestions = mode.kind === 'create' ? productAutocomplete.suggestions : []
 
   const renameCollision = useMemo(() => {
     if (mode.kind !== 'edit') return null
-    const normalized = normalizeProductName(renameName)
-    if (!normalized) return null
-    return model.products.find((product) => (
-      product.id !== mode.lot.productId
-      && normalizeProductName(product.name) === normalized
-    )) ?? null
+    return findExactProduct(model.products, renameName, mode.lot.productId)
   }, [mode, model.products, renameName])
 
   useEffect(() => {
@@ -117,9 +104,7 @@ export function InventoryEditor({ ownerId, model, mode, onClose, onSaved, onCons
     }
   }, [mode.kind, exactProduct, unitTouched])
 
-  function chooseProduct(productId: string) {
-    const product = model.products.find((item) => item.id === productId)
-    if (!product) return
+  function chooseProduct(product: (typeof model.products)[number]) {
     setProductName(product.name)
     setUnitCode(product.defaultUnitCode)
     setUnitTouched(false)
@@ -323,34 +308,23 @@ export function InventoryEditor({ ownerId, model, mode, onClose, onSaved, onCons
           <>
         <form className="inventory-form" onSubmit={handleSubmit}>
           {mode.kind === 'create' && (
-            <div className="form-field">
-              <label htmlFor="inventory-product-name">Produkt</label>
-              <input
-                ref={firstInputRef}
-                id="inventory-product-name"
-                type="text"
-                value={productName}
-                onChange={(event) => {
-                  setProductName(event.target.value)
-                  setErrorMessage('')
-                }}
-                autoComplete="off"
-                maxLength={120}
-                placeholder="np. Mleko"
-                disabled={busy}
-              />
-              {exactProduct && <p className="field-hint">Użyję istniejącego produktu.</p>}
-              {!exactProduct && productName.trim() && <p className="field-hint">Powstanie nowy produkt.</p>}
-              {suggestions.length > 0 && (
-                <div className="product-suggestions" aria-label="Pasujące produkty">
-                  {suggestions.map((product) => (
-                    <button type="button" key={product.id} onClick={() => chooseProduct(product.id)} disabled={busy}>
-                      {product.name}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
+            <ProductAutocompleteField
+              inputRef={firstInputRef}
+              inputId="inventory-product-name"
+              label="Produkt"
+              value={productName}
+              exactProduct={exactProduct}
+              suggestions={suggestions}
+              exactHint="Użyję istniejącego produktu."
+              unmatchedHint="Powstanie nowy produkt."
+              placeholder="np. Mleko"
+              disabled={busy}
+              onChange={(nextName) => {
+                setProductName(nextName)
+                setErrorMessage('')
+              }}
+              onChoose={chooseProduct}
+            />
           )}
 
           <div className="form-split">

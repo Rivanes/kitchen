@@ -97,3 +97,19 @@ V2.3 adds:
 
 Purchased-state behavior remains reserved for the next Shopping stage.
 No SQL/schema/RLS/Auth changes in V2.3; it uses the V2.2 shopping data foundation.
+
+## V2.3.1 — Shared Product Autocomplete Corrective
+
+V2.3.1 removes the second, browser-native Shopping suggestion system introduced in V2.3.
+
+Inventory and Shopping now share one Product identity/autocomplete layer:
+- the same Polish case-insensitive normalization
+- the same exact canonical Product match
+- the same substring suggestions
+- the same maximum of 5 suggestions
+- the same suggestion chips/UI
+- explicit canonical Product id reuse after an exact match or selection
+
+Shopping keeps its intentional semantic difference: text that does not match a canonical Product is stored as an ad-hoc Shopping name rather than creating a Product.
+
+No SQL/schema/RLS/Auth changes.

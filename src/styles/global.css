@@ -1807,3 +1807,6 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
   grid-template-columns: 1fr 1fr;
   gap: 8px;
 }
+
+/* V2.3.1 shared Product autocomplete: Inventory, Shopping and future Product-entry flows use one surface. */
+.product-autocomplete-status { min-height: 15px; }
