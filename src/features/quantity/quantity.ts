@@ -67,3 +67,45 @@ export function formatQuantity(value: number) {
     maximumFractionDigits: QUANTITY_DECIMAL_PLACES,
   }).format(value)
 }
+export const DEFAULT_QUANTITY_STEP = 1
+
+export function formatQuantityInput(value: number) {
+  return String(normalizeQuantityPrecision(value)).replace('.', ',')
+}
+
+export function stepQuantityInput(
+  rawValue: string,
+  direction: 'decrement' | 'increment',
+  options?: { step?: number; max?: number },
+): string | null {
+  const step = assertValidQuantity(options?.step ?? DEFAULT_QUANTITY_STEP, 'Nieprawidłowy krok ilości.')
+  const max = options?.max === undefined ? MAX_QUANTITY : assertValidQuantity(options.max, 'Nieprawidłowy limit ilości.')
+  const trimmed = rawValue.trim()
+
+  if (!trimmed) {
+    if (direction === 'decrement') return null
+    return formatQuantityInput(Math.min(step, max))
+  }
+
+  const current = parseQuantityInput(trimmed)
+  if (!current) return null
+
+  if (direction === 'increment') {
+    if (current >= max) return null
+    const next = normalizeQuantityPrecision(Math.min(current + step, max))
+    return formatQuantityInput(next)
+  }
+
+  const next = normalizeQuantityPrecision(current - step)
+  if (next <= 0) return null
+  return formatQuantityInput(next)
+}
+
+export function canStepQuantityInput(
+  rawValue: string,
+  direction: 'decrement' | 'increment',
+  options?: { step?: number; max?: number },
+) {
+  return stepQuantityInput(rawValue, direction, options) !== null
+}
+

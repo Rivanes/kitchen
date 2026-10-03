@@ -4,6 +4,7 @@ import { getDefaultUnitCode } from '../measurements/measurementUnits'
 import { ProductAutocompleteField, useProductAutocomplete } from '../products/ProductAutocomplete'
 import { normalizeProductName } from '../products/productIdentity'
 import { cleanCanonicalProductName } from '../products/productCatalogMutations'
+import { QuantityStepperInput } from '../quantity/QuantityStepperInput'
 import { parseQuantityInput, QUANTITY_INPUT_ERROR } from '../quantity/quantity'
 import { createShoppingItem, removeShoppingItem, updateShoppingItem } from './shoppingMutations'
 import type { ShoppingCatalogModel, ShoppingCreateSeed, ShoppingItem } from './types'
@@ -191,16 +192,15 @@ export function ShoppingEditor({ ownerId, model, mode, onClose, onSaved }: Shopp
           <div className="form-split">
             <label className="form-field" htmlFor="shopping-quantity">
               <span>Ilość</span>
-              <input
-                id="shopping-quantity"
-                inputMode="decimal"
-                type="text"
+              <QuantityStepperInput
+                inputId="shopping-quantity"
                 value={quantity}
-                onChange={(event) => {
-                  setQuantity(event.target.value)
+                onChange={(nextQuantity) => {
+                  setQuantity(nextQuantity)
                   setErrorMessage('')
                 }}
                 disabled={busy}
+                ariaLabel="Ilość na liście zakupów"
               />
             </label>
 

@@ -4,6 +4,7 @@ import { ProductAutocompleteField, useProductAutocomplete } from '../products/Pr
 import { getDefaultUnitCode } from '../measurements/measurementUnits'
 import { cleanCanonicalProductName, renameCanonicalProduct } from '../products/productCatalogMutations'
 import { findExactProduct } from '../products/productIdentity'
+import { QuantityStepperInput } from '../quantity/QuantityStepperInput'
 import { parseQuantityInput, QUANTITY_INPUT_ERROR } from '../quantity/quantity'
 import { formatDateOnly, isValidDateOnly } from './expiry'
 import { createInventoryLot, removeInventoryLot, updateInventoryLot } from './inventoryMutations'
@@ -329,18 +330,16 @@ export function InventoryEditor({ ownerId, model, mode, onClose, onSaved, onCons
           <div className="form-split">
             <div className="form-field">
               <label htmlFor="inventory-quantity">Ilość</label>
-              <input
-                ref={mode.kind === 'edit' ? firstInputRef : undefined}
-                id="inventory-quantity"
-                type="text"
-                inputMode="decimal"
+              <QuantityStepperInput
+                inputRef={mode.kind === 'edit' ? firstInputRef : undefined}
+                inputId="inventory-quantity"
                 value={quantity}
-                onChange={(event) => {
-                  setQuantity(event.target.value)
+                onChange={(nextQuantity) => {
+                  setQuantity(nextQuantity)
                   setErrorMessage('')
                 }}
-                autoComplete="off"
                 disabled={busy}
+                ariaLabel="Ilość zapasu"
               />
             </div>
 

@@ -1,5 +1,6 @@
 import { FormEvent, useEffect, useRef, useState } from 'react'
 import { KitchenIcon } from '../../components/KitchenIcon'
+import { QuantityStepperInput } from '../quantity/QuantityStepperInput'
 import { formatQuantity, parseQuantityInput, QUANTITY_INPUT_ERROR } from '../quantity/quantity'
 import { consumeAllInventoryLot, consumeInventoryLot } from './inventoryMutations'
 import type { ConsumeInventoryResult } from './inventoryMutations'
@@ -125,23 +126,20 @@ export function InventoryConsumeSheet({ ownerId, lot, onClose, onConsumed }: Inv
         <form className="inventory-form" onSubmit={handleSubmit}>
           <div className="form-field">
             <label htmlFor="inventory-consume-quantity">Ile zużyto?</label>
-            <div className="quantity-input-with-unit">
-              <input
-                ref={inputRef}
-                id="inventory-consume-quantity"
-                type="text"
-                inputMode="decimal"
-                value={quantity}
-                onChange={(event) => {
-                  setQuantity(event.target.value)
-                  setErrorMessage('')
-                }}
-                placeholder="0"
-                autoComplete="off"
-                disabled={saving}
-              />
-              <span>{lot.unitSymbol}</span>
-            </div>
+            <QuantityStepperInput
+              inputRef={inputRef}
+              inputId="inventory-consume-quantity"
+              value={quantity}
+              onChange={(nextQuantity) => {
+                setQuantity(nextQuantity)
+                setErrorMessage('')
+              }}
+              max={lot.quantity}
+              suffix={lot.unitSymbol}
+              placeholder="0"
+              disabled={saving}
+              ariaLabel={`Ilość zużyta w ${lot.unitSymbol}`}
+            />
           </div>
 
           {errorMessage && <p className="form-error" role="alert">{errorMessage}</p>}

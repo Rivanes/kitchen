@@ -45,11 +45,13 @@ const requiredFiles = [
   'src/features/products/productCatalogMutations.ts',
   'src/features/measurements/measurementUnits.ts',
   'src/features/quantity/quantity.ts',
+  'src/features/quantity/QuantityStepperInput.tsx',
   'tests/SHOPPING_LIST_CONTRACT.md',
   'tests/PRODUCT_AUTOCOMPLETE_CONTRACT.md',
   'tests/PRODUCT_IDENTITY_CONTRACT.md',
   'tests/SHARED_CORE_CONSISTENCY_CONTRACT.md',
   'tests/INVENTORY_TO_SHOPPING_CONTRACT.md',
+  'tests/QUANTITY_STEPPER_CONTRACT.md',
   'vite.config.ts',
 ]
 
@@ -222,8 +224,8 @@ const editor = await readFile('src/features/inventory/InventoryEditor.tsx', 'utf
 if (!editor.includes("mode.kind === 'create'") || !editor.includes("mode.kind === 'edit'")) {
   throw new Error('Inventory editor must support explicit create and edit modes.')
 }
-if (!editor.includes('inputMode="decimal"') || !editor.includes('model.units.map') || !editor.includes('model.locations.map')) {
-  throw new Error('V1.3 editor must use validated quantity, controlled units and owner locations.')
+if (!editor.includes('<QuantityStepperInput') || !editor.includes('model.units.map') || !editor.includes('model.locations.map')) {
+  throw new Error('V1.3/V2.4.1 editor must use the shared validated quantity input, controlled units and owner locations.')
 }
 
 if (!editor.includes('mode.initialLocationId ?? model.locations[0]?.id')) {
@@ -287,7 +289,7 @@ if (!sharedProductCatalog.includes(".update({ name: cleanName })") || !sharedPro
 }
 
 const sharedQuantity = await readFile('src/features/quantity/quantity.ts', 'utf8')
-for (const marker of ['parseQuantityInput', 'assertValidQuantity', 'readStoredQuantity', 'addQuantities', 'formatQuantity', 'MAX_QUANTITY', 'QUANTITY_DECIMAL_PLACES']) {
+for (const marker of ['parseQuantityInput', 'assertValidQuantity', 'readStoredQuantity', 'addQuantities', 'formatQuantity', 'MAX_QUANTITY', 'QUANTITY_DECIMAL_PLACES', 'DEFAULT_QUANTITY_STEP', 'stepQuantityInput', 'canStepQuantityInput', 'formatQuantityInput']) {
   if (!sharedQuantity.includes(marker)) {
     throw new Error(`V2.3.3 shared quantity authority marker missing: ${marker}`)
   }
@@ -505,6 +507,29 @@ for (const file of ['src/features/inventory/InventoryPage.tsx', 'src/features/in
   const content = await readFile(file, 'utf8')
   if (!content.includes("from '../quantity/quantity'") || !content.includes('formatQuantity')) {
     throw new Error(`V2.3.3 quantity formatting must come from the shared authority: ${file}`)
+  }
+}
+
+
+const quantityStepper = await readFile('src/features/quantity/QuantityStepperInput.tsx', 'utf8')
+for (const marker of ['stepQuantityInput', 'canStepQuantityInput', 'quantity-stepper', 'Zmniejsz ilość o 1', 'Zwiększ ilość o 1']) {
+  if (!quantityStepper.includes(marker)) {
+    throw new Error(`V2.4.1 shared QuantityStepper marker missing: ${marker}`)
+  }
+}
+for (const file of ['src/features/inventory/InventoryEditor.tsx', 'src/features/shopping/ShoppingEditor.tsx', 'src/features/inventory/InventoryConsumeSheet.tsx']) {
+  const content = await readFile(file, 'utf8')
+  if (!content.includes("from '../quantity/QuantityStepperInput'") || !content.includes('<QuantityStepperInput')) {
+    throw new Error(`V2.4.1 quantity +/- must reuse the shared QuantityStepperInput: ${file}`)
+  }
+}
+if (!consumeSheet.includes('max={lot.quantity}')) {
+  throw new Error('V2.4.1 Consume quantity stepper must be bounded by the current lot quantity.')
+}
+const quantityStepperStyles = await readFile('src/styles/global.css', 'utf8')
+for (const marker of ['.quantity-stepper', '.quantity-stepper-button', 'grid-template-columns: 44px minmax(0, 1fr) 44px']) {
+  if (!quantityStepperStyles.includes(marker)) {
+    throw new Error(`V2.4.1 quantity stepper style marker missing: ${marker}`)
   }
 }
 

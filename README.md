@@ -160,3 +160,16 @@ Inventory now reuses the existing Shopping create/merge flow instead of implemen
 - if the same Product + unit is already active in Shopping, existing merge semantics apply
 
 No SQL/schema/RLS/Auth changes.
+
+
+## V2.4.1 — Shared Quantity Stepper
+
+Added one reusable `QuantityStepperInput` around the existing shared Quantity authority.
+
+- Inventory add/edit, Shopping add/edit and Consume use the same +/- control.
+- each tap changes quantity by 1 in the currently selected unit
+- manual entry remains available
+- Consume clamps increment to the visible lot quantity
+- no separate module-specific stepper logic was introduced
+
+No SQL/schema/RLS/Auth changes.
