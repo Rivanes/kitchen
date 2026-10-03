@@ -22,6 +22,7 @@ const requiredFiles = [
   'tests/UI_CONTRACT.md',
   'tests/INVENTORY_READ_CONTRACT.md',
   'tests/INVENTORY_EDIT_CONTRACT.md',
+  'tests/INVENTORY_BROWSE_CONTRACT.md',
   'vite.config.ts',
 ]
 
@@ -70,7 +71,7 @@ if (!viteConfig.includes("theme_color: '#f7f7f2'")) {
 }
 
 const globalCss = await readFile('src/styles/global.css', 'utf8')
-for (const marker of ['--color-bg: #f7f7f2', '--touch-min: 48px', '.home-quick-action', '.inventory-sheet', '.primary-icon-button']) {
+for (const marker of ['--color-bg: #f7f7f2', '--touch-min: 48px', '.home-quick-action', '.home-coming-card', '.inventory-sheet', '.primary-icon-button', '.inventory-location-button', '.inventory-search']) {
   if (!globalCss.includes(marker)) {
     throw new Error(`V1.3 UI contract marker missing: ${marker}`)
   }
@@ -138,11 +139,19 @@ const inventoryPage = await readFile('src/features/inventory/InventoryPage.tsx',
 if (!inventoryPage.includes("status: 'loading'") || !inventoryPage.includes("status: 'error'") || !inventoryPage.includes("status: 'ready'")) {
   throw new Error('Inventory page must retain loading, error and ready states.')
 }
-if (!inventoryPage.includes('occupiedGroups') || !inventoryPage.includes('<InventoryEditor')) {
-  throw new Error('V1.3 Inventory page must use SMART occupied-location rendering and the editor.')
+if (!inventoryPage.includes('expandedLocations') || !inventoryPage.includes('toggleLocation') || !inventoryPage.includes('<InventoryEditor')) {
+  throw new Error('V1.3.2 Inventory page must use scalable location accordion browsing and the editor.')
+}
+if (!inventoryPage.includes('shouldShowSearch') || !inventoryPage.includes('totalLots >= 8')) {
+  throw new Error('V1.3.2 must enable product search only when stock volume justifies the extra control.')
 }
 if (inventoryPage.includes('inventory-summary')) {
   throw new Error('V1.3 must not restore the redundant three-counter Inventory summary.')
+}
+
+const homePage = await readFile('src/features/home/HomePage.tsx', 'utf8')
+if (!homePage.includes('Kitchen podpowie więcej') || !homePage.includes('Do zużycia') || !homePage.includes('Co ugotować')) {
+  throw new Error('V1.3.2 Start must keep compact future SMART dashboard previews without duplicating navigation cards.')
 }
 
 console.log('Kitchen project contract verification: PASS')

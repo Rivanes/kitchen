@@ -9,9 +9,13 @@ Private single-user mobile-first PWA for home inventory, shopping and recipes.
 - V0.3 Mobile-First UI Foundation — PASS/CLOSED
 - V1.1 Inventory Data Foundation — PASS/CLOSED
 - V1.2 Inventory List / Read Model — PASS/CLOSED
-- V1.3 Inventory Add / Edit — implemented, QA/deploy/smoke pending
+- V1.3 Inventory Add / Edit — production smoke in progress
+- V1.3.1 TypeScript narrowing corrective — applied
+- V1.3.2 SMART Browse / Home Density corrective — ready for GitHub QA
 
-V1.3 adds owner-scoped Inventory creation and stock-lot editing while preserving the canonical Product model and database RLS. It also applies the SMART UI rule: bottom navigation owns module navigation; Start stays contextual and does not duplicate module cards.
+V1.3 adds owner-scoped Inventory creation and stock-lot editing while preserving the canonical Product model and database RLS.
+
+V1.3.2 improves scale without adding schema scope: Inventory is organized as location accordions, large inventories gain contextual product search, and Start becomes a richer SMART dashboard with compact previews of future contextual features rather than duplicate module navigation.
 
 ## Stack
 
