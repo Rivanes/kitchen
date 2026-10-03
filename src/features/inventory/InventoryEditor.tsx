@@ -1,6 +1,6 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react'
 import { KitchenIcon } from '../../components/KitchenIcon'
-import { createInventoryLot, normalizeProductName, updateInventoryLot } from './inventoryMutations'
+import { createInventoryLot, normalizeProductName, removeInventoryLot, updateInventoryLot } from './inventoryMutations'
 import type { InventoryLot, InventoryReadModel } from './types'
 
 type InventoryEditorMode =
@@ -13,6 +13,7 @@ type InventoryEditorProps = {
   mode: InventoryEditorMode
   onClose: () => void
   onSaved: () => void
+  onConsumeRequested: (lot: InventoryLot) => void
 }
 
 function initialQuantity(mode: InventoryEditorMode) {
@@ -27,7 +28,7 @@ function parseQuantity(value: string) {
   return parsed
 }
 
-export function InventoryEditor({ ownerId, model, mode, onClose, onSaved }: InventoryEditorProps) {
+export function InventoryEditor({ ownerId, model, mode, onClose, onSaved, onConsumeRequested }: InventoryEditorProps) {
   const initialLocationId = mode.kind === 'edit' ? mode.lot.storageLocationId : (model.locations[0]?.id ?? '')
   const initialUnitCode = mode.kind === 'edit' ? mode.lot.unitCode : 'pcs'
   const [productName, setProductName] = useState(mode.kind === 'edit' ? mode.lot.productName : '')
@@ -36,8 +37,11 @@ export function InventoryEditor({ ownerId, model, mode, onClose, onSaved }: Inve
   const [locationId, setLocationId] = useState(initialLocationId)
   const [unitTouched, setUnitTouched] = useState(mode.kind === 'edit')
   const [saving, setSaving] = useState(false)
+  const [removing, setRemoving] = useState(false)
+  const [confirmingRemove, setConfirmingRemove] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
   const firstInputRef = useRef<HTMLInputElement>(null)
+  const busy = saving || removing
 
   const exactProduct = useMemo(() => {
     if (mode.kind === 'edit') return null
@@ -62,7 +66,7 @@ export function InventoryEditor({ ownerId, model, mode, onClose, onSaved }: Inve
     const timer = window.setTimeout(() => firstInputRef.current?.focus(), 20)
 
     function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === 'Escape' && !saving) onClose()
+      if (event.key === 'Escape' && !busy) onClose()
     }
 
     window.addEventListener('keydown', handleKeyDown)
@@ -71,7 +75,7 @@ export function InventoryEditor({ ownerId, model, mode, onClose, onSaved }: Inve
       window.removeEventListener('keydown', handleKeyDown)
       document.body.style.overflow = previousOverflow
     }
-  }, [onClose, saving])
+  }, [onClose, busy])
 
   useEffect(() => {
     if (mode.kind !== 'create' || unitTouched) return
@@ -93,7 +97,7 @@ export function InventoryEditor({ ownerId, model, mode, onClose, onSaved }: Inve
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    if (saving) return
+    if (busy) return
 
     const parsedQuantity = parseQuantity(quantity)
     if (!parsedQuantity) {
@@ -142,9 +146,24 @@ export function InventoryEditor({ ownerId, model, mode, onClose, onSaved }: Inve
     }
   }
 
+  async function handleRemove() {
+    if (mode.kind !== 'edit' || busy) return
+    setRemoving(true)
+    setErrorMessage('')
+
+    try {
+      await removeInventoryLot({ ownerId, lotId: mode.lot.id })
+      onSaved()
+    } catch (error: unknown) {
+      setErrorMessage(error instanceof Error ? error.message : 'Nie udało się usunąć zapasu.')
+      setRemoving(false)
+      setConfirmingRemove(false)
+    }
+  }
+
   return (
     <div className="sheet-backdrop" role="presentation" onMouseDown={(event) => {
-      if (event.target === event.currentTarget && !saving) onClose()
+      if (event.target === event.currentTarget && !busy) onClose()
     }}>
       <section className="inventory-sheet" role="dialog" aria-modal="true" aria-labelledby="inventory-editor-title">
         <div className="sheet-handle" aria-hidden="true" />
@@ -153,7 +172,7 @@ export function InventoryEditor({ ownerId, model, mode, onClose, onSaved }: Inve
             <p className="eyebrow">{mode.kind === 'create' ? 'Nowy zapas' : 'Edycja'}</p>
             <h2 id="inventory-editor-title">{mode.kind === 'create' ? 'Dodaj produkt' : mode.lot.productName}</h2>
           </div>
-          <button className="icon-button icon-button-quiet" type="button" onClick={onClose} disabled={saving} aria-label="Zamknij">
+          <button className="icon-button icon-button-quiet" type="button" onClick={onClose} disabled={busy} aria-label="Zamknij">
             <KitchenIcon name="close" />
           </button>
         </div>
@@ -174,14 +193,14 @@ export function InventoryEditor({ ownerId, model, mode, onClose, onSaved }: Inve
                 autoComplete="off"
                 maxLength={120}
                 placeholder="np. Mleko"
-                disabled={saving}
+                disabled={busy}
               />
               {exactProduct && <p className="field-hint">Użyję istniejącego produktu.</p>}
               {!exactProduct && productName.trim() && <p className="field-hint">Powstanie nowy produkt.</p>}
               {suggestions.length > 0 && (
                 <div className="product-suggestions" aria-label="Pasujące produkty">
                   {suggestions.map((product) => (
-                    <button type="button" key={product.id} onClick={() => chooseProduct(product.id)} disabled={saving}>
+                    <button type="button" key={product.id} onClick={() => chooseProduct(product.id)} disabled={busy}>
                       {product.name}
                     </button>
                   ))}
@@ -204,7 +223,7 @@ export function InventoryEditor({ ownerId, model, mode, onClose, onSaved }: Inve
                   setErrorMessage('')
                 }}
                 autoComplete="off"
-                disabled={saving}
+                disabled={busy}
               />
             </div>
 
@@ -218,7 +237,7 @@ export function InventoryEditor({ ownerId, model, mode, onClose, onSaved }: Inve
                   setUnitTouched(true)
                   setErrorMessage('')
                 }}
-                disabled={saving}
+                disabled={busy}
               >
                 {model.units.map((unit) => (
                   <option value={unit.code} key={unit.code}>{unit.symbol}</option>
@@ -236,7 +255,7 @@ export function InventoryEditor({ ownerId, model, mode, onClose, onSaved }: Inve
                 setLocationId(event.target.value)
                 setErrorMessage('')
               }}
-              disabled={saving}
+              disabled={busy}
             >
               {model.locations.map((location) => (
                 <option value={location.id} key={location.id}>{location.name}</option>
@@ -247,12 +266,45 @@ export function InventoryEditor({ ownerId, model, mode, onClose, onSaved }: Inve
           {errorMessage && <p className="form-error" role="alert">{errorMessage}</p>}
 
           <div className="sheet-actions">
-            <button className="secondary-button" type="button" onClick={onClose} disabled={saving}>Anuluj</button>
-            <button className="primary-button" type="submit" disabled={saving}>
+            <button className="secondary-button" type="button" onClick={onClose} disabled={busy}>Anuluj</button>
+            <button className="primary-button" type="submit" disabled={busy}>
               {saving ? 'Zapisuję…' : 'Zapisz'}
             </button>
           </div>
         </form>
+
+        {mode.kind === 'edit' && (
+          <section className="inventory-stock-actions" aria-label="Akcje zapasu">
+            <div className="stock-action-heading">
+              <strong>Zapas</strong>
+              <span>Zmień stan bez ręcznego liczenia.</span>
+            </div>
+
+            {!confirmingRemove ? (
+              <div className="stock-action-buttons">
+                <button className="stock-action-button" type="button" onClick={() => onConsumeRequested(mode.lot)} disabled={busy}>
+                  <span className="stock-action-icon" aria-hidden="true"><KitchenIcon name="minus" size={19} /></span>
+                  <span><strong>Zużyj</strong><small>Odejmij część lub całość</small></span>
+                  <KitchenIcon name="chevronRight" size={18} />
+                </button>
+                <button className="stock-action-button stock-action-danger" type="button" onClick={() => setConfirmingRemove(true)} disabled={busy}>
+                  <span className="stock-action-icon" aria-hidden="true"><KitchenIcon name="trash" size={18} /></span>
+                  <span><strong>Usuń z zapasów</strong><small>Usuń ten wpis</small></span>
+                  <KitchenIcon name="chevronRight" size={18} />
+                </button>
+              </div>
+            ) : (
+              <div className="remove-confirm" role="alertdialog" aria-label={`Usuń ${mode.lot.productName} z zapasów`}>
+                <strong>Usunąć ten wpis?</strong>
+                <span>Produkt zostanie w katalogu i będzie można dodać go ponownie.</span>
+                <div className="remove-confirm-actions">
+                  <button className="secondary-button" type="button" onClick={() => setConfirmingRemove(false)} disabled={busy}>Zostaw</button>
+                  <button className="danger-button" type="button" onClick={handleRemove} disabled={busy}>{removing ? 'Usuwam…' : 'Usuń'}</button>
+                </div>
+              </div>
+            )}
+          </section>
+        )}
       </section>
     </div>
   )

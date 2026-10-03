@@ -13,6 +13,7 @@ const requiredFiles = [
   'src/features/home/HomePage.tsx',
   'src/features/inventory/InventoryPage.tsx',
   'src/features/inventory/InventoryEditor.tsx',
+  'src/features/inventory/InventoryConsumeSheet.tsx',
   'src/features/inventory/inventoryReadModel.ts',
   'src/features/inventory/inventoryMutations.ts',
   'src/features/inventory/types.ts',
@@ -23,6 +24,7 @@ const requiredFiles = [
   'tests/INVENTORY_READ_CONTRACT.md',
   'tests/INVENTORY_EDIT_CONTRACT.md',
   'tests/INVENTORY_BROWSE_CONTRACT.md',
+  'tests/INVENTORY_CONSUME_CONTRACT.md',
   'vite.config.ts',
 ]
 
@@ -71,7 +73,7 @@ if (!viteConfig.includes("theme_color: '#f7f7f2'")) {
 }
 
 const globalCss = await readFile('src/styles/global.css', 'utf8')
-for (const marker of ['--color-bg: #f7f7f2', '--touch-min: 48px', '.home-quick-action', '.home-coming-card', '.inventory-sheet', '.primary-icon-button', '.inventory-location-button', '.inventory-search']) {
+for (const marker of ['--color-bg: #f7f7f2', '--touch-min: 48px', '.home-quick-action', '.home-coming-card', '.inventory-sheet', '.primary-icon-button', '.inventory-location-button', '.inventory-search', '.inventory-stock-actions', '.inventory-consume-sheet', '.danger-button']) {
   if (!globalCss.includes(marker)) {
     throw new Error(`V1.3 UI contract marker missing: ${marker}`)
   }
@@ -114,14 +116,20 @@ if (!mutations.includes('.insert({') || !mutations.includes('.update({')) {
 if (!mutations.includes(".eq('owner_id', input.ownerId)")) {
   throw new Error('V1.3 mutations must explicitly scope owner_id.')
 }
-if (/\.from\(['"]inventory_items['"]\)[\s\S]{0,220}\.delete\s*\(/.test(mutations)) {
-  throw new Error('V1.3 must not delete Inventory rows; depletion/removal belongs to V1.4.')
-}
 if (!mutations.includes("productResult.error.code === '23505'")) {
   throw new Error('V1.3 must handle database duplicate Product identity safely.')
 }
 if (!mutations.includes('findMergeableInventoryLot') || !mutations.includes(".is('expiry_date', null)")) {
-  throw new Error('V1.3 must merge indistinguishable same-product/location/unit stock instead of creating duplicate null-expiry lots.')
+  throw new Error('V1.3 merge behavior must remain intact in V1.4.')
+}
+if (!mutations.includes('consumeInventoryLot') || !mutations.includes('consumeAllInventoryLot') || !mutations.includes('removeInventoryLot')) {
+  throw new Error('V1.4 must provide explicit consume and remove mutations.')
+}
+if (!mutations.includes(".from('inventory_items')") || !mutations.includes('.delete()')) {
+  throw new Error('V1.4 depletion/removal must delete depleted or explicitly removed Inventory lots.')
+}
+if (!mutations.includes('consumeMilli === currentMilli') || !mutations.includes('consumeMilli > currentMilli')) {
+  throw new Error('V1.4 consume logic must reject over-consumption and delete exact depletion.')
 }
 
 const editor = await readFile('src/features/inventory/InventoryEditor.tsx', 'utf8')
@@ -133,6 +141,9 @@ if (!editor.includes('inputMode="decimal"') || !editor.includes('model.units.map
 }
 if (/type=["']date["']/.test(editor) || /expiry/i.test(editor)) {
   throw new Error('Expiry input/semantics remain reserved for V1.6.')
+}
+if (!editor.includes('onConsumeRequested') || !editor.includes('Usuń z zapasów') || !editor.includes('removeInventoryLot')) {
+  throw new Error('V1.4 edit flow must expose consume and explicit removal actions.')
 }
 
 const inventoryPage = await readFile('src/features/inventory/InventoryPage.tsx', 'utf8')
@@ -146,7 +157,18 @@ if (!inventoryPage.includes('shouldShowSearch') || !inventoryPage.includes('tota
   throw new Error('V1.3.2 must enable product search only when stock volume justifies the extra control.')
 }
 if (inventoryPage.includes('inventory-summary')) {
-  throw new Error('V1.3 must not restore the redundant three-counter Inventory summary.')
+  throw new Error('V1.4 must not restore the redundant three-counter Inventory summary.')
+}
+if (!inventoryPage.includes('<InventoryConsumeSheet') || !inventoryPage.includes('consumeLot')) {
+  throw new Error('V1.4 Inventory page must wire the consume flow into the current stock lot.')
+}
+
+const consumeSheet = await readFile('src/features/inventory/InventoryConsumeSheet.tsx', 'utf8')
+if (!consumeSheet.includes('Ile zużyto?') || !consumeSheet.includes('Zużyj wszystko') || !consumeSheet.includes('consumeInventoryLot') || !consumeSheet.includes('consumeAllInventoryLot')) {
+  throw new Error('V1.4 consume sheet contract is incomplete.')
+}
+if (!consumeSheet.includes('quantityToUse > lot.quantity')) {
+  throw new Error('V1.4 UI must reject consuming more than the visible lot quantity before mutation.')
 }
 
 const homePage = await readFile('src/features/home/HomePage.tsx', 'utf8')

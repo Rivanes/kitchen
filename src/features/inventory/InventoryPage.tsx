@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { KitchenIcon } from '../../components/KitchenIcon'
+import { InventoryConsumeSheet } from './InventoryConsumeSheet'
 import { InventoryEditor } from './InventoryEditor'
 import { loadInventoryReadModel } from './inventoryReadModel'
 import type { InventoryLocation, InventoryLot, InventoryReadModel, StorageLocationKind } from './types'
@@ -67,6 +68,7 @@ export function InventoryPage({ ownerId, createRequestToken = 0 }: InventoryPage
   const [loadState, setLoadState] = useState<LoadState>({ status: 'loading', model: null })
   const [reloadVersion, setReloadVersion] = useState(0)
   const [editor, setEditor] = useState<EditorState>(null)
+  const [consumeLot, setConsumeLot] = useState<InventoryLot | null>(null)
   const [expandedLocations, setExpandedLocations] = useState<Set<string>>(() => new Set())
   const [searchQuery, setSearchQuery] = useState('')
   const handledCreateRequest = useRef(0)
@@ -108,7 +110,13 @@ export function InventoryPage({ ownerId, createRequestToken = 0 }: InventoryPage
 
   function handleSaved() {
     setEditor(null)
+    setConsumeLot(null)
     reload()
+  }
+
+  function openConsume(lot: InventoryLot) {
+    setEditor(null)
+    setConsumeLot(lot)
   }
 
   function toggleLocation(locationId: string, count: number) {
@@ -262,6 +270,16 @@ export function InventoryPage({ ownerId, createRequestToken = 0 }: InventoryPage
           model={loadState.model}
           mode={editor}
           onClose={() => setEditor(null)}
+          onSaved={handleSaved}
+          onConsumeRequested={openConsume}
+        />
+      )}
+
+      {loadState.status === 'ready' && consumeLot && (
+        <InventoryConsumeSheet
+          ownerId={ownerId}
+          lot={consumeLot}
+          onClose={() => setConsumeLot(null)}
           onSaved={handleSaved}
         />
       )}

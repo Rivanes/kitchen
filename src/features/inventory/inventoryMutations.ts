@@ -17,6 +17,17 @@ export type UpdateInventoryLotInput = {
   unitCode: string
 }
 
+export type ConsumeInventoryLotInput = {
+  ownerId: string
+  lotId: string
+  quantity: number
+}
+
+export type RemoveInventoryLotInput = {
+  ownerId: string
+  lotId: string
+}
+
 type ProductIdentity = {
   id: string
   name: string
@@ -26,6 +37,23 @@ type ProductIdentity = {
 type MergeableInventoryLot = {
   id: string
   quantity: number | string
+}
+
+type CurrentInventoryLot = {
+  id: string
+  quantity: number | string
+}
+
+function normalizeStoredQuantity(value: number | string) {
+  const quantity = typeof value === 'number' ? value : Number(value)
+  if (!Number.isFinite(quantity) || quantity <= 0) {
+    throw new Error('Zapisana ilość produktu jest nieprawidłowa.')
+  }
+  return quantity
+}
+
+function toMilliUnits(value: number) {
+  return Math.round(value * 1000)
 }
 
 export function normalizeProductName(value: string) {
@@ -77,6 +105,29 @@ async function findMergeableInventoryLot(
   }
 
   return (result.data as MergeableInventoryLot | null) ?? null
+}
+
+async function getCurrentInventoryLot(ownerId: string, lotId: string): Promise<CurrentInventoryLot> {
+  if (!supabase) {
+    throw new Error('Supabase is not configured.')
+  }
+
+  const result = await supabase
+    .from('inventory_items')
+    .select('id, quantity')
+    .eq('id', lotId)
+    .eq('owner_id', ownerId)
+    .maybeSingle()
+
+  if (result.error) {
+    throw new Error(`Nie udało się odczytać zapasu: ${result.error.message}`)
+  }
+
+  if (!result.data) {
+    throw new Error('Nie znaleziono zapasu.')
+  }
+
+  return result.data as CurrentInventoryLot
 }
 
 export async function createInventoryLot(input: CreateInventoryLotInput) {
@@ -136,9 +187,7 @@ export async function createInventoryLot(input: CreateInventoryLotInput) {
   )
 
   if (mergeableLot) {
-    const currentQuantity = typeof mergeableLot.quantity === 'number'
-      ? mergeableLot.quantity
-      : Number(mergeableLot.quantity)
+    const currentQuantity = normalizeStoredQuantity(mergeableLot.quantity)
     const nextQuantity = currentQuantity + input.quantity
 
     if (!Number.isFinite(nextQuantity) || nextQuantity > 999999999.999) {
@@ -211,4 +260,84 @@ export async function updateInventoryLot(input: UpdateInventoryLotInput) {
   if (!result.data) {
     throw new Error('Nie znaleziono zapasu do edycji.')
   }
+}
+
+export async function consumeInventoryLot(input: ConsumeInventoryLotInput) {
+  if (!supabase) {
+    throw new Error('Supabase is not configured.')
+  }
+
+  if (!Number.isFinite(input.quantity) || input.quantity <= 0) {
+    throw new Error('Podaj ilość większą od 0.')
+  }
+
+  const currentLot = await getCurrentInventoryLot(input.ownerId, input.lotId)
+  const currentQuantity = normalizeStoredQuantity(currentLot.quantity)
+  const currentMilli = toMilliUnits(currentQuantity)
+  const consumeMilli = toMilliUnits(input.quantity)
+
+  if (consumeMilli <= 0) {
+    throw new Error('Podaj ilość większą od 0.')
+  }
+
+  if (consumeMilli > currentMilli) {
+    throw new Error('Nie możesz zużyć więcej niż masz w zapasach.')
+  }
+
+  if (consumeMilli === currentMilli) {
+    const deleteResult = await supabase
+      .from('inventory_items')
+      .delete()
+      .eq('id', input.lotId)
+      .eq('owner_id', input.ownerId)
+      .select('id')
+      .maybeSingle()
+
+    if (deleteResult.error || !deleteResult.data) {
+      throw new Error(`Nie udało się zużyć całego zapasu: ${deleteResult.error?.message ?? 'brak zapisu'}`)
+    }
+
+    return { depleted: true, remainingQuantity: 0 }
+  }
+
+  const remainingQuantity = (currentMilli - consumeMilli) / 1000
+  const updateResult = await supabase
+    .from('inventory_items')
+    .update({ quantity: remainingQuantity })
+    .eq('id', input.lotId)
+    .eq('owner_id', input.ownerId)
+    .select('id')
+    .maybeSingle()
+
+  if (updateResult.error || !updateResult.data) {
+    throw new Error(`Nie udało się zaktualizować zapasu: ${updateResult.error?.message ?? 'brak zapisu'}`)
+  }
+
+  return { depleted: false, remainingQuantity }
+}
+
+export async function removeInventoryLot(input: RemoveInventoryLotInput) {
+  if (!supabase) {
+    throw new Error('Supabase is not configured.')
+  }
+
+  const result = await supabase
+    .from('inventory_items')
+    .delete()
+    .eq('id', input.lotId)
+    .eq('owner_id', input.ownerId)
+    .select('id')
+    .maybeSingle()
+
+  if (result.error) {
+    throw new Error(`Nie udało się usunąć zapasu: ${result.error.message}`)
+  }
+
+  if (!result.data) {
+    throw new Error('Nie znaleziono zapasu do usunięcia.')
+  }
+}
+
+export async function consumeAllInventoryLot(input: RemoveInventoryLotInput) {
+  await removeInventoryLot(input)
 }
