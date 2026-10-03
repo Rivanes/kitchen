@@ -14,8 +14,18 @@ export type ShoppingItem = {
   createdAt: string
 }
 
-export type ShoppingReadModel = {
-  items: ShoppingItem[]
+export type ShoppingCatalogModel = {
   products: ShoppingProduct[]
   units: ShoppingUnit[]
+}
+
+export type ShoppingCreateSeed = {
+  productId: string
+  productName: string
+  unitCode: string
+  quantity?: number
+}
+
+export type ShoppingReadModel = ShoppingCatalogModel & {
+  items: ShoppingItem[]
 }

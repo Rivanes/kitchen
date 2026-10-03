@@ -42,6 +42,13 @@ export type RemoveInventoryLotInput = {
   lotId: string
 }
 
+export type ConsumeInventoryResult = {
+  depleted: boolean
+  remainingQuantity: number
+  openedAt: string | null
+  openedUseByDate: string | null
+}
+
 type MergeableInventoryLot = {
   id: string
   quantity: number | string
@@ -238,7 +245,7 @@ export async function updateInventoryLot(input: UpdateInventoryLotInput) {
   }
 }
 
-export async function consumeInventoryLot(input: ConsumeInventoryLotInput) {
+export async function consumeInventoryLot(input: ConsumeInventoryLotInput): Promise<ConsumeInventoryResult> {
   if (!supabase) throw new Error('Supabase is not configured.')
 
   assertValidQuantity(input.quantity)

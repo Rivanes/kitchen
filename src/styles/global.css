@@ -399,6 +399,27 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
 
 .inventory-list { list-style: none; margin: 0; padding: 0; }
 .inventory-list li + li { border-top: 1px solid #f0f3ef; }
+.inventory-row-shell {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: stretch;
+}
+.inventory-row-shell .inventory-row { min-width: 0; }
+.inventory-row-shopping {
+  width: 48px;
+  min-width: 48px;
+  min-height: 48px;
+  align-self: center;
+  display: grid;
+  place-items: center;
+  margin: 8px 8px 8px 0;
+  padding: 0;
+  border: 1px solid #dfe8df;
+  border-radius: 13px;
+  background: #f5f8f4;
+  color: var(--color-accent-strong);
+}
+.inventory-row-shopping:active { background: var(--color-accent-soft); }
 .inventory-row {
   width: 100%;
   min-height: 64px;
@@ -1810,3 +1831,80 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
 
 /* V2.3.1 shared Product autocomplete: Inventory, Shopping and future Product-entry flows use one surface. */
 .product-autocomplete-status { min-height: 15px; }
+
+/* V2.4 — Inventory -> Shopping integration */
+.inventory-shopping-notice {
+  position: fixed;
+  left: 50%;
+  bottom: calc(max(12px, env(safe-area-inset-bottom)) + 82px);
+  z-index: 20;
+  width: min(calc(100% - 24px), 560px);
+  transform: translateX(-50%);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid rgba(202, 216, 203, .96);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, .98);
+  box-shadow: 0 16px 42px rgba(43, 61, 48, .18);
+  backdrop-filter: blur(16px);
+}
+.inventory-shopping-notice.is-success {
+  grid-template-columns: minmax(0, 1fr) auto;
+  border-color: #cfe1cf;
+  background: rgba(248, 252, 247, .98);
+}
+.inventory-shopping-notice-copy {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+.inventory-shopping-notice-copy strong {
+  font-size: 13px;
+  line-height: 1.3;
+}
+.inventory-shopping-notice-copy span {
+  color: var(--color-muted);
+  font-size: 11px;
+  line-height: 1.4;
+}
+.inventory-shopping-notice-actions {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.inventory-shopping-notice-actions .primary-button,
+.inventory-shopping-notice-actions .secondary-button {
+  width: auto;
+  min-height: 42px;
+  margin: 0;
+  padding: 0 12px;
+}
+.inventory-shopping-notice-actions .primary-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.inventory-shopping-notice-close {
+  width: 42px;
+  height: 42px;
+}
+@media (max-width: 430px) {
+  .inventory-shopping-notice {
+    grid-template-columns: 1fr;
+    gap: 9px;
+  }
+  .inventory-shopping-notice.is-success {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .inventory-shopping-notice-actions {
+    display: grid;
+    grid-template-columns: minmax(0, .75fr) minmax(0, 1.25fr);
+  }
+  .inventory-shopping-notice-actions .primary-button,
+  .inventory-shopping-notice-actions .secondary-button {
+    width: 100%;
+  }
+}

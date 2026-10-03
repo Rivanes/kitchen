@@ -2,18 +2,19 @@ import { FormEvent, useEffect, useRef, useState } from 'react'
 import { KitchenIcon } from '../../components/KitchenIcon'
 import { getDefaultUnitCode } from '../measurements/measurementUnits'
 import { ProductAutocompleteField, useProductAutocomplete } from '../products/ProductAutocomplete'
+import { normalizeProductName } from '../products/productIdentity'
 import { cleanCanonicalProductName } from '../products/productCatalogMutations'
 import { parseQuantityInput, QUANTITY_INPUT_ERROR } from '../quantity/quantity'
 import { createShoppingItem, removeShoppingItem, updateShoppingItem } from './shoppingMutations'
-import type { ShoppingItem, ShoppingReadModel } from './types'
+import type { ShoppingCatalogModel, ShoppingCreateSeed, ShoppingItem } from './types'
 
 type ShoppingEditorMode =
-  | { kind: 'create' }
+  | { kind: 'create'; seed?: ShoppingCreateSeed }
   | { kind: 'edit'; item: ShoppingItem }
 
 type ShoppingEditorProps = {
   ownerId: string
-  model: ShoppingReadModel
+  model: ShoppingCatalogModel
   mode: ShoppingEditorMode
   onClose: () => void
   onSaved: () => void
@@ -23,10 +24,17 @@ type ShoppingEditorProps = {
 export function ShoppingEditor({ ownerId, model, mode, onClose, onSaved }: ShoppingEditorProps) {
   const firstInputRef = useRef<HTMLInputElement>(null)
   const initialItem = mode.kind === 'edit' ? mode.item : null
-  const defaultUnit = getDefaultUnitCode(model.units, initialItem?.unitCode)
+  const initialSeed = mode.kind === 'create' ? mode.seed ?? null : null
+  const defaultUnit = getDefaultUnitCode(model.units, initialItem?.unitCode ?? initialSeed?.unitCode)
 
-  const [name, setName] = useState(initialItem?.name ?? '')
-  const [quantity, setQuantity] = useState(initialItem ? String(initialItem.quantity) : '1')
+  const [name, setName] = useState(initialItem?.name ?? initialSeed?.productName ?? '')
+  const [quantity, setQuantity] = useState(
+    initialItem
+      ? String(initialItem.quantity)
+      : initialSeed?.quantity
+        ? String(initialSeed.quantity)
+        : '1',
+  )
   const [unitCode, setUnitCode] = useState(defaultUnit)
   const [unitTouched, setUnitTouched] = useState(mode.kind === 'edit')
   const [busy, setBusy] = useState(false)
@@ -99,10 +107,15 @@ export function ShoppingEditor({ ownerId, model, mode, onClose, onSaved }: Shopp
     setBusy(true)
     try {
       if (mode.kind === 'create') {
+        const seededProductId = initialSeed
+          && normalizeProductName(name) === normalizeProductName(initialSeed.productName)
+          ? initialSeed.productId
+          : null
+
         await createShoppingItem({
           ownerId,
           name,
-          existingProductId: exactProduct?.id ?? null,
+          existingProductId: exactProduct?.id ?? seededProductId,
           quantity: parsedQuantity,
           unitCode,
         })

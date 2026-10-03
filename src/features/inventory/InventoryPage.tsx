@@ -5,6 +5,7 @@ import { InventoryConsumeSheet } from './InventoryConsumeSheet'
 import { getInventoryExpiryMeta } from './expiry'
 import { InventoryEditor } from './InventoryEditor'
 import { loadInventoryReadModel } from './inventoryReadModel'
+import { useInventoryShoppingBridge } from './InventoryShoppingBridge'
 import type { InventoryLocation, InventoryLocationGroup, InventoryLot, InventoryReadModel, StorageLocationKind } from './types'
 
 type InventoryPageProps = {
@@ -125,7 +126,7 @@ function InventoryOverview({
       )}
 
       {normalizedSearch && visibleGroups.length === 0 ? (
-        <div className="inventory-search-empty inventory-overview-search-empty" role="status">
+        <div className="inventory-search-empty inventory-overview-search-empty" aria-live="polite">
           <strong>Nie znaleziono produktu</strong>
           <span>Spróbuj innej nazwy albo wyszukaj miejsce przechowywania.</span>
         </div>
@@ -176,6 +177,7 @@ function InventoryLocationView({
   onBack,
   onAdd,
   onEdit,
+  onAddToShopping,
 }: {
   group: InventoryLocationGroup
   searchQuery: string
@@ -183,6 +185,7 @@ function InventoryLocationView({
   onBack: () => void
   onAdd: () => void
   onEdit: (lot: InventoryLot) => void
+  onAddToShopping: (lot: InventoryLot) => void
 }) {
   const normalizedSearch = searchQuery.trim().toLocaleLowerCase('pl')
   const visibleLots = normalizedSearch
@@ -238,7 +241,7 @@ function InventoryLocationView({
           </button>
         </div>
       ) : visibleLots.length === 0 ? (
-        <div className="inventory-search-empty" role="status">
+        <div className="inventory-search-empty" aria-live="polite">
           <strong>Brak wyników</strong>
           <span>Spróbuj innej nazwy produktu.</span>
         </div>
@@ -247,25 +250,36 @@ function InventoryLocationView({
           <ul className="inventory-list">
             {visibleLots.map((lot) => (
               <li key={lot.id}>
-                <button className="inventory-row inventory-row-action" type="button" onClick={() => onEdit(lot)}>
-                  <div className="inventory-product-copy">
-                    <strong>{lot.productName}</strong>
-                    {(lot.expiryDate || lot.openedUseByDate) && (() => {
-                      const expiry = getInventoryExpiryMeta(lot.expiryDate, lot.openedUseByDate)
-                      const openedPrefix = expiry.effectiveSource === 'opened' ? 'Otwarty · ' : ''
-                      return (
-                        <span className={`expiry-status expiry-${expiry.tone}`} title={expiry.exactLabel ? `Termin: ${expiry.exactLabel}` : undefined}>
-                          <KitchenIcon name="calendar" size={13} />
-                          {openedPrefix}{expiry.label}
-                        </span>
-                      )
-                    })()}
-                  </div>
-                  <span className="inventory-row-end">
-                    <span className="quantity-pill">{formatQuantity(lot.quantity)} {lot.unitSymbol}</span>
-                    <KitchenIcon name="edit" size={17} />
-                  </span>
-                </button>
+                <div className="inventory-row-shell">
+                  <button className="inventory-row inventory-row-action" type="button" onClick={() => onEdit(lot)}>
+                    <div className="inventory-product-copy">
+                      <strong>{lot.productName}</strong>
+                      {(lot.expiryDate || lot.openedUseByDate) && (() => {
+                        const expiry = getInventoryExpiryMeta(lot.expiryDate, lot.openedUseByDate)
+                        const openedPrefix = expiry.effectiveSource === 'opened' ? 'Otwarty · ' : ''
+                        return (
+                          <span className={`expiry-status expiry-${expiry.tone}`} title={expiry.exactLabel ? `Termin: ${expiry.exactLabel}` : undefined}>
+                            <KitchenIcon name="calendar" size={13} />
+                            {openedPrefix}{expiry.label}
+                          </span>
+                        )
+                      })()}
+                    </div>
+                    <span className="inventory-row-end">
+                      <span className="quantity-pill">{formatQuantity(lot.quantity)} {lot.unitSymbol}</span>
+                      <KitchenIcon name="edit" size={17} />
+                    </span>
+                  </button>
+                  <button
+                    className="inventory-row-shopping"
+                    type="button"
+                    onClick={() => onAddToShopping(lot)}
+                    aria-label={`Dodaj ${lot.productName} do listy zakupów`}
+                    title="Dodaj do listy zakupów"
+                  >
+                    <KitchenIcon name="shoppingAdd" size={20} />
+                  </button>
+                </div>
               </li>
             ))}
           </ul>
@@ -372,6 +386,14 @@ export function InventoryPage({
     return loadState.model.groups.find((group) => group.location.id === selectedLocationId) ?? null
   }, [loadState, selectedLocationId])
 
+  const inventoryShopping = useInventoryShoppingBridge({
+    ownerId,
+    catalog: loadState.status === 'ready'
+      ? { products: loadState.model.products, units: loadState.model.units }
+      : null,
+    onInventoryChanged: reload,
+  })
+
   return (
     <section className="inventory-page" aria-labelledby={selectedGroup ? undefined : 'inventory-title'}>
       {!selectedGroup && (
@@ -428,6 +450,7 @@ export function InventoryPage({
           onBack={closeLocation}
           onAdd={() => setEditor({ kind: 'create', initialLocationId: selectedGroup.location.id })}
           onEdit={(lot) => setEditor({ kind: 'edit', lot })}
+          onAddToShopping={inventoryShopping.openForLot}
         />
       )}
 
@@ -447,9 +470,14 @@ export function InventoryPage({
           ownerId={ownerId}
           lot={consumeLot}
           onClose={() => setConsumeLot(null)}
-          onSaved={handleSaved}
+          onConsumed={(result) => {
+            setConsumeLot(null)
+            inventoryShopping.handleConsumed(consumeLot, result)
+          }}
         />
       )}
+
+      {inventoryShopping.bridgeUi}
     </section>
   )
 }

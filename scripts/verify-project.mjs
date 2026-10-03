@@ -12,6 +12,7 @@ const requiredFiles = [
   'src/components/KitchenIcon.tsx',
   'src/features/home/HomePage.tsx',
   'src/features/inventory/InventoryPage.tsx',
+  'src/features/inventory/InventoryShoppingBridge.tsx',
   'src/features/inventory/ExpiryPage.tsx',
   'src/features/inventory/InventoryEditor.tsx',
   'src/features/inventory/InventoryConsumeSheet.tsx',
@@ -48,6 +49,7 @@ const requiredFiles = [
   'tests/PRODUCT_AUTOCOMPLETE_CONTRACT.md',
   'tests/PRODUCT_IDENTITY_CONTRACT.md',
   'tests/SHARED_CORE_CONSISTENCY_CONTRACT.md',
+  'tests/INVENTORY_TO_SHOPPING_CONTRACT.md',
   'vite.config.ts',
 ]
 
@@ -96,7 +98,7 @@ if (!viteConfig.includes("theme_color: '#f7f7f2'")) {
 }
 
 const globalCss = await readFile('src/styles/global.css', 'utf8')
-for (const marker of ['--color-bg: #f7f7f2', '--touch-min: 48px', '.home-quick-action', '.home-coming-card', '.home-expiry-hub', '.expiry-page', '.expiry-filter', '.expiry-row', '.after-open-details', '.consume-open-rule', '.inventory-sheet', '.primary-icon-button', '.inventory-search', '.inventory-stock-actions', '.inventory-consume-sheet', '.danger-button', '.inventory-location-entry', '.inventory-location-page', '.inventory-back-button', '.expiry-status', '.date-input-row', 'max-height: calc(100dvh - 8px)', 'grid-template-columns: repeat(2, minmax(0, 1fr))', '.inventory-editor-title-row', '.product-rename-trigger', '.product-rename-form', '.home-shopping-hub', '.shopping-page', '.shopping-list-card', '.shopping-row', '.shopping-remove-zone', '.product-autocomplete-status']) {
+for (const marker of ['--color-bg: #f7f7f2', '--touch-min: 48px', '.home-quick-action', '.home-coming-card', '.home-expiry-hub', '.expiry-page', '.expiry-filter', '.expiry-row', '.after-open-details', '.consume-open-rule', '.inventory-sheet', '.primary-icon-button', '.inventory-search', '.inventory-stock-actions', '.inventory-consume-sheet', '.danger-button', '.inventory-location-entry', '.inventory-location-page', '.inventory-back-button', '.expiry-status', '.date-input-row', 'max-height: calc(100dvh - 8px)', 'grid-template-columns: repeat(2, minmax(0, 1fr))', '.inventory-editor-title-row', '.product-rename-trigger', '.product-rename-form', '.home-shopping-hub', '.shopping-page', '.shopping-list-card', '.shopping-row', '.shopping-remove-zone', '.product-autocomplete-status', '.inventory-row-shell', '.inventory-row-shopping', '.inventory-shopping-notice']) {
   if (!globalCss.includes(marker)) {
     throw new Error(`V1.3 UI contract marker missing: ${marker}`)
   }
@@ -336,6 +338,28 @@ if (!inventoryPage.includes('partia')) {
   throw new Error('V1.6 may expose the natural term partia only when multiple lots need distinction.')
 }
 
+for (const marker of ['inventory-row-shopping', 'shoppingAdd', 'onAddToShopping={inventoryShopping.openForLot}', 'useInventoryShoppingBridge', 'inventoryShopping.handleConsumed', 'inventoryShopping.bridgeUi']) {
+  if (!inventoryPage.includes(marker)) {
+    throw new Error(`V2.4 Inventory -> Shopping page integration marker missing: ${marker}`)
+  }
+}
+if (inventoryPage.includes("from '../shopping/shoppingMutations'")) {
+  throw new Error('V2.4 Inventory must not implement a second Shopping mutation path.')
+}
+
+const inventoryShoppingBridge = await readFile('src/features/inventory/InventoryShoppingBridge.tsx', 'utf8')
+for (const marker of ['ShoppingEditor', 'ShoppingCreateSeed', 'ShoppingCatalogModel', 'buildLaunch', 'openForLot', 'handleConsumed', "kind: 'offer'", 'Dodać „', 'Dodaj do listy', "mode={{ kind: 'create', seed: shoppingLaunch.seed }}"]) {
+  if (!inventoryShoppingBridge.includes(marker)) {
+    throw new Error(`V2.4 shared Inventory -> Shopping bridge marker missing: ${marker}`)
+  }
+}
+if (inventoryShoppingBridge.includes("from '../shopping/shoppingMutations'") || inventoryShoppingBridge.includes('createShoppingItem(')) {
+  throw new Error('V2.4 shared bridge must reuse ShoppingEditor rather than owning Shopping persistence.')
+}
+if (!inventoryShoppingBridge.includes('quantity: 1') || !inventoryShoppingBridge.includes('productId: lot.productId')) {
+  throw new Error('V2.4 bridge must seed the existing canonical Product and an editable replenishment quantity.')
+}
+
 const consumeSheet = await readFile('src/features/inventory/InventoryConsumeSheet.tsx', 'utf8')
 if (!consumeSheet.includes('Ile zużyto?') || !consumeSheet.includes('Zużyj wszystko') || !consumeSheet.includes('consumeInventoryLot') || !consumeSheet.includes('consumeAllInventoryLot')) {
   throw new Error('V1.4 consume sheet contract is incomplete.')
@@ -345,6 +369,13 @@ if (!consumeSheet.includes('quantityToUse > lot.quantity')) {
 }
 if (!consumeSheet.includes('lot.afterOpenDays') || !consumeSheet.includes('Po częściowym zużyciu')) {
   throw new Error('V1.6.2 consume UI must explain automatic opening when an after-open rule exists.')
+}
+
+if (!consumeSheet.includes('onConsumed: (result: ConsumeInventoryResult) => void') || !consumeSheet.includes('onConsumed(result)')) {
+  throw new Error('V2.4 consume UI must return the successful consume event so Inventory can offer replenishment without conflating explicit removal.')
+}
+if (consumeSheet.includes('onSaved')) {
+  throw new Error('V2.4 consume sheet must not collapse consume success back into a generic save event.')
 }
 
 const homePage = await readFile('src/features/home/HomePage.tsx', 'utf8')
@@ -374,6 +405,10 @@ if (!expiryPage.includes('counts.critical > 0') || !expiryPage.includes('Wszystk
   throw new Error('V1.7 Expiry Center must suppress zero-value summary noise and expose one calm good state.')
 }
 
+
+if (!expiryPage.includes('useInventoryShoppingBridge') || !expiryPage.includes('inventoryShopping.handleConsumed') || !expiryPage.includes('inventoryShopping.bridgeUi')) {
+  throw new Error('V2.4 consumption from Expiry Center must reuse the same Inventory -> Shopping bridge.')
+}
 
 const shoppingReadModel = await readFile('src/features/shopping/shoppingReadModel.ts', 'utf8')
 if (!shoppingReadModel.includes(".from('shopping_items')")) {
@@ -411,7 +446,7 @@ if (shoppingMutations.includes('normalizeShoppingName') || shoppingMutations.inc
 }
 
 const shoppingEditor = await readFile('src/features/shopping/ShoppingEditor.tsx', 'utf8')
-for (const marker of ['Co kupić?', 'ProductAutocompleteField', 'useProductAutocomplete', 'model.units.map', 'createShoppingItem', 'updateShoppingItem', 'removeShoppingItem', 'Usuń z listy', 'existingProductId: exactProduct?.id ?? null', 'currentProductId: mode.item.productId', 'parseQuantityInput', 'getDefaultUnitCode']) {
+for (const marker of ['Co kupić?', 'ProductAutocompleteField', 'useProductAutocomplete', 'model.units.map', 'createShoppingItem', 'updateShoppingItem', 'removeShoppingItem', 'Usuń z listy', 'currentProductId: mode.item.productId', 'parseQuantityInput', 'getDefaultUnitCode', "kind: 'create'; seed?: ShoppingCreateSeed", 'initialSeed?.productName', 'initialSeed?.unitCode', 'seededProductId']) {
   if (!shoppingEditor.includes(marker)) {
     throw new Error(`V2.3.1 Shopping editor marker missing: ${marker}`)
   }
@@ -458,6 +493,12 @@ if (!inventoryTypes.includes("ProductIdentityOption") || !shoppingTypes.includes
 }
 if (!inventoryTypes.includes("MeasurementUnit as SharedMeasurementUnit") || !shoppingTypes.includes("MeasurementUnit")) {
   throw new Error('V2.3.3 Inventory and Shopping must share the Measurement Unit type.')
+}
+
+for (const marker of ['ShoppingCatalogModel', 'ShoppingCreateSeed', 'productId: string', 'productName: string', 'unitCode: string']) {
+  if (!shoppingTypes.includes(marker)) {
+    throw new Error(`V2.4 shared Shopping create seed/catalog marker missing: ${marker}`)
+  }
 }
 
 for (const file of ['src/features/inventory/InventoryPage.tsx', 'src/features/inventory/ExpiryPage.tsx', 'src/features/inventory/InventoryConsumeSheet.tsx', 'src/features/shopping/ShoppingPage.tsx']) {

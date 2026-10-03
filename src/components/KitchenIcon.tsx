@@ -2,6 +2,7 @@ type KitchenIconName =
   | 'home'
   | 'inventory'
   | 'shopping'
+  | 'shoppingAdd'
   | 'recipes'
   | 'logout'
   | 'check'
@@ -48,6 +49,8 @@ export function KitchenIcon({ name, size = 22, strokeWidth = 1.9 }: KitchenIconP
       return <svg {...common}><rect x="5" y="3.5" width="14" height="17" rx="2.5" /><path d="M5 9h14" /><path d="M9 6.2h3" /><path d="M9 12.2h3" /></svg>
     case 'shopping':
       return <svg {...common}><path d="M4 6h2l1.8 9.1a2 2 0 0 0 2 1.6h7.4a2 2 0 0 0 1.9-1.4L21 9H7" /><circle cx="10" cy="20" r="1" /><circle cx="18" cy="20" r="1" /></svg>
+    case 'shoppingAdd':
+      return <svg {...common}><path d="M3.5 6h2l1.7 8.6a2 2 0 0 0 2 1.6h6.2" /><path d="M7 8.5h11.5l-1.2 4.2" /><circle cx="9.5" cy="20" r="1" /><circle cx="16.5" cy="20" r="1" /><path d="M18.5 3.5v5" /><path d="M16 6h5" /></svg>
     case 'recipes':
       return <svg {...common}><path d="M5 4.5A2.5 2.5 0 0 1 7.5 2H19v17H7.5A2.5 2.5 0 0 0 5 21.5z" /><path d="M5 4.5v17" /><path d="M9 7h6" /><path d="M9 11h6" /></svg>
     case 'logout':

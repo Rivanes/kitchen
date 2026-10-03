@@ -145,3 +145,18 @@ Key effects:
 - explicit `Usuń z zapasów` remains a separate delete operation.
 
 No SQL/schema/RLS/Auth migration is required.
+
+
+## V2.4 — Inventory -> Shopping integration
+
+Inventory now reuses the existing Shopping create/merge flow instead of implementing a second add-to-list system.
+
+- each Inventory lot exposes a compact `Dodaj do listy zakupów` action
+- the action opens the existing `ShoppingEditor` create surface with canonical Product preselected
+- Product UUID, shared Product catalog, Quantity rules and Measurement Units are reused
+- create/merge is still owned by `createShoppingItem()`
+- after partial or full consumption, Inventory shows a non-blocking offer to add that Product to Shopping
+- explicit `Usuń z zapasów` does not trigger the replenishment offer
+- if the same Product + unit is already active in Shopping, existing merge semantics apply
+
+No SQL/schema/RLS/Auth changes.

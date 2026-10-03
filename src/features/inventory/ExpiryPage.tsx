@@ -4,6 +4,7 @@ import { formatQuantity } from '../quantity/quantity'
 import { getInventoryExpiryMeta } from './expiry'
 import { InventoryConsumeSheet } from './InventoryConsumeSheet'
 import { InventoryEditor } from './InventoryEditor'
+import { useInventoryShoppingBridge } from './InventoryShoppingBridge'
 import { loadInventoryReadModel } from './inventoryReadModel'
 import type { InventoryLot, InventoryReadModel } from './types'
 
@@ -126,6 +127,14 @@ export function ExpiryPage({ ownerId, onBack }: ExpiryPageProps) {
     setConsumeLot(null)
     reload()
   }
+
+  const inventoryShopping = useInventoryShoppingBridge({
+    ownerId,
+    catalog: loadState.status === 'ready'
+      ? { products: loadState.model.products, units: loadState.model.units }
+      : null,
+    onInventoryChanged: reload,
+  })
 
   return (
     <section className="expiry-page" aria-labelledby="expiry-page-title">
@@ -266,11 +275,16 @@ export function ExpiryPage({ ownerId, onBack }: ExpiryPageProps) {
               ownerId={ownerId}
               lot={consumeLot}
               onClose={() => setConsumeLot(null)}
-              onSaved={handleSaved}
+              onConsumed={(result) => {
+                setConsumeLot(null)
+                inventoryShopping.handleConsumed(consumeLot, result)
+              }}
             />
           )}
         </>
       )}
+
+      {inventoryShopping.bridgeUi}
     </section>
   )
 }

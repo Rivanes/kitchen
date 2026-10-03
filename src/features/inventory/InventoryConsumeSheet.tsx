@@ -2,17 +2,18 @@ import { FormEvent, useEffect, useRef, useState } from 'react'
 import { KitchenIcon } from '../../components/KitchenIcon'
 import { formatQuantity, parseQuantityInput, QUANTITY_INPUT_ERROR } from '../quantity/quantity'
 import { consumeAllInventoryLot, consumeInventoryLot } from './inventoryMutations'
+import type { ConsumeInventoryResult } from './inventoryMutations'
 import type { InventoryLot } from './types'
 
 type InventoryConsumeSheetProps = {
   ownerId: string
   lot: InventoryLot
   onClose: () => void
-  onSaved: () => void
+  onConsumed: (result: ConsumeInventoryResult) => void
 }
 
 
-export function InventoryConsumeSheet({ ownerId, lot, onClose, onSaved }: InventoryConsumeSheetProps) {
+export function InventoryConsumeSheet({ ownerId, lot, onClose, onConsumed }: InventoryConsumeSheetProps) {
   const [quantity, setQuantity] = useState('')
   const [saving, setSaving] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
@@ -50,12 +51,12 @@ export function InventoryConsumeSheet({ ownerId, lot, onClose, onSaved }: Invent
     setErrorMessage('')
 
     try {
-      await consumeInventoryLot({
+      const result = await consumeInventoryLot({
         ownerId,
         lotId: lot.id,
         quantity: quantityToUse,
       })
-      onSaved()
+      onConsumed(result)
     } catch (error: unknown) {
       setErrorMessage(error instanceof Error ? error.message : 'Nie udało się zmienić zapasu.')
       setSaving(false)
@@ -68,8 +69,8 @@ export function InventoryConsumeSheet({ ownerId, lot, onClose, onSaved }: Invent
     setErrorMessage('')
 
     try {
-      await consumeAllInventoryLot({ ownerId, lotId: lot.id })
-      onSaved()
+      const result = await consumeAllInventoryLot({ ownerId, lotId: lot.id })
+      onConsumed(result)
     } catch (error: unknown) {
       setErrorMessage(error instanceof Error ? error.message : 'Nie udało się zużyć całego zapasu.')
       setSaving(false)

@@ -29,3 +29,11 @@
 - explicit remove remains available
 
 Purchased state and Inventory/Shopping shortcuts remain later V2 stages.
+
+
+## V2.4 Inventory integration
+
+- Inventory quick-add and post-consume replenishment reuse the same `ShoppingEditor` create surface.
+- Inventory does not implement a separate Shopping mutation path.
+- seeded create keeps the canonical Product UUID and editable quantity/unit.
+- existing `createShoppingItem()` merge behavior remains authoritative.
