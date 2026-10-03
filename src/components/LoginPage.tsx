@@ -1,5 +1,6 @@
 import { FormEvent, useState } from 'react'
 import { supabase } from '../lib/supabase/client'
+import { KitchenIcon } from './KitchenIcon'
 
 type LoginPageProps = {
   configurationMissing: boolean
@@ -42,10 +43,20 @@ export function LoginPage({ configurationMissing }: LoginPageProps) {
   return (
     <main className="auth-layout">
       <section className="login-card" aria-labelledby="login-title">
-        <div className="brand-mark" aria-hidden="true">K</div>
-        <p className="eyebrow">Prywatna aplikacja domowa</p>
-        <h1 id="login-title">Kitchen</h1>
-        <p className="login-intro">Zaloguj się, aby przejść do swoich zapasów, przepisów i zakupów.</p>
+        <div className="brand-row">
+          <div className="brand-mark" aria-hidden="true">K</div>
+          <div>
+            <p className="brand-kicker">Kitchen</p>
+            <p className="brand-caption">Twoja domowa kuchnia w jednym miejscu</p>
+          </div>
+        </div>
+
+        <div className="login-heading">
+          <span className="soft-icon" aria-hidden="true"><KitchenIcon name="lock" size={20} /></span>
+          <p className="eyebrow">Prywatny dostęp</p>
+          <h1 id="login-title">Witaj ponownie</h1>
+          <p className="login-intro">Zaloguj się, aby przejść do swoich zapasów, zakupów i przepisów.</p>
+        </div>
 
         {configurationMissing ? (
           <div className="notice notice-error" role="alert">
@@ -60,6 +71,7 @@ export function LoginPage({ configurationMissing }: LoginPageProps) {
               type="email"
               name="email"
               autoComplete="email"
+              inputMode="email"
               value={email}
               onChange={(event) => setEmail(event.target.value)}
               disabled={configurationMissing || loading}
@@ -87,7 +99,7 @@ export function LoginPage({ configurationMissing }: LoginPageProps) {
           </button>
         </form>
 
-        <p className="login-footnote">Brak publicznej rejestracji. Dostęp tylko dla właściciela.</p>
+        <p className="login-footnote">Dostęp jest ograniczony do właściciela Kitchen.</p>
       </section>
     </main>
   )

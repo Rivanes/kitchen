@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import type { User } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase/client'
 import { AppShell } from './AppShell'
+import { KitchenIcon } from './KitchenIcon'
 
 type OwnerGateProps = {
   user: User
@@ -52,17 +53,25 @@ export function OwnerGate({ user }: OwnerGateProps) {
   if (status === 'checking') {
     return (
       <main className="loading-layout" aria-live="polite">
+        <div className="loading-mark" aria-hidden="true">K</div>
         <div className="loading-dot" aria-hidden="true" />
-        <p>Weryfikacja dostępu właściciela…</p>
+        <p>Sprawdzanie bezpiecznego dostępu…</p>
       </main>
     )
   }
 
   return (
     <main className="auth-layout">
-      <section className="login-card" aria-labelledby="owner-gate-title">
-        <div className="brand-mark" aria-hidden="true">K</div>
-        <p className="eyebrow">Kitchen security</p>
+      <section className="login-card access-card" aria-labelledby="owner-gate-title">
+        <div className="brand-row">
+          <div className="brand-mark" aria-hidden="true">K</div>
+          <div>
+            <p className="brand-kicker">Kitchen</p>
+            <p className="brand-caption">Prywatna aplikacja domowa</p>
+          </div>
+        </div>
+        <div className="access-icon" aria-hidden="true"><KitchenIcon name="lock" size={26} /></div>
+        <p className="eyebrow">Bezpieczny dostęp</p>
         <h1 id="owner-gate-title">Dostęp zablokowany</h1>
         <p className="login-intro">
           {status === 'denied'

@@ -8,6 +8,8 @@ const requiredFiles = [
   'src/App.tsx',
   'src/components/LoginPage.tsx',
   'src/components/OwnerGate.tsx',
+  'src/components/KitchenIcon.tsx',
+  'src/styles/global.css',
   'src/lib/supabase/client.ts',
   'tests/SECURITY_CONTRACT.md',
   'vite.config.ts',
@@ -52,6 +54,19 @@ if (!ownerGate.includes("data === true ? 'allowed' : 'denied'")) {
 const viteConfig = await readFile('vite.config.ts', 'utf8')
 if (!viteConfig.includes("base: '/kitchen/'")) {
   throw new Error("GitHub Pages base path must stay '/kitchen/'.")
+}
+if (!viteConfig.includes("theme_color: '#f7f7f2'")) {
+  throw new Error('PWA theme color must use the V0.3 light mobile foundation.')
+}
+
+const globalCss = await readFile('src/styles/global.css', 'utf8')
+if (!globalCss.includes('--color-bg: #f7f7f2') || !globalCss.includes('--touch-min: 48px')) {
+  throw new Error('V0.3 light/mobile design tokens are missing.')
+}
+
+const shell = await readFile('src/components/AppShell.tsx', 'utf8')
+if (!shell.includes('aria-label="Główna nawigacja Kitchen"')) {
+  throw new Error('V0.3 mobile application navigation is missing.')
 }
 
 console.log('Kitchen project contract verification: PASS')
