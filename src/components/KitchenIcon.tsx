@@ -10,6 +10,10 @@ type KitchenIconName =
   | 'fridge'
   | 'freezer'
   | 'pantry'
+  | 'plus'
+  | 'edit'
+  | 'close'
+  | 'chevronRight'
 
 type KitchenIconProps = {
   name: KitchenIconName
@@ -53,5 +57,13 @@ export function KitchenIcon({ name, size = 22, strokeWidth = 1.9 }: KitchenIconP
       return <svg {...common}><path d="M12 3v18" /><path d="m8.5 5 3.5 2 3.5-2" /><path d="m8.5 19 3.5-2 3.5 2" /><path d="m4.2 7.5 15.6 9" /><path d="m4.4 11.5-.2-4 3.6-1.8" /><path d="m19.6 12.5.2 4-3.6 1.8" /><path d="m19.8 7.5-15.6 9" /><path d="m16.2 5.7 3.6 1.8-.2 4" /><path d="m7.8 18.3-3.6-1.8.2-4" /></svg>
     case 'pantry':
       return <svg {...common}><rect x="4" y="4" width="16" height="16" rx="2.5" /><path d="M4 10h16" /><path d="M12 4v16" /><path d="M9.5 7h.01" /><path d="M14.5 7h.01" /><path d="M9.5 15h.01" /><path d="M14.5 15h.01" /></svg>
+    case 'plus':
+      return <svg {...common}><path d="M12 5v14" /><path d="M5 12h14" /></svg>
+    case 'edit':
+      return <svg {...common}><path d="M4 20h4l10.5-10.5a2.1 2.1 0 0 0-4-4L4 16z" /><path d="m13.5 6.5 4 4" /></svg>
+    case 'close':
+      return <svg {...common}><path d="M6 6l12 12" /><path d="M18 6 6 18" /></svg>
+    case 'chevronRight':
+      return <svg {...common}><path d="m9 5 7 7-7 7" /></svg>
   }
 }

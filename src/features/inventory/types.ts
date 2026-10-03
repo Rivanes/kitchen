@@ -39,6 +39,9 @@ export type InventoryLocationGroup = {
 }
 
 export type InventoryReadModel = {
+  locations: InventoryLocation[]
+  products: InventoryProduct[]
+  units: MeasurementUnit[]
   groups: InventoryLocationGroup[]
   totalLots: number
   stockedProducts: number

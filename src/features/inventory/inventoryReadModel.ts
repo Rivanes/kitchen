@@ -150,6 +150,9 @@ export async function loadInventoryReadModel(ownerId: string): Promise<Inventory
   }))
 
   return {
+    locations,
+    products,
+    units,
     groups,
     totalLots: lots.length,
     stockedProducts: new Set(lots.map((lot) => lot.productId)).size,

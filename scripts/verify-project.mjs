@@ -10,14 +10,18 @@ const requiredFiles = [
   'src/components/LoginPage.tsx',
   'src/components/OwnerGate.tsx',
   'src/components/KitchenIcon.tsx',
+  'src/features/home/HomePage.tsx',
   'src/features/inventory/InventoryPage.tsx',
+  'src/features/inventory/InventoryEditor.tsx',
   'src/features/inventory/inventoryReadModel.ts',
+  'src/features/inventory/inventoryMutations.ts',
   'src/features/inventory/types.ts',
   'src/styles/global.css',
   'src/lib/supabase/client.ts',
   'tests/SECURITY_CONTRACT.md',
   'tests/UI_CONTRACT.md',
   'tests/INVENTORY_READ_CONTRACT.md',
+  'tests/INVENTORY_EDIT_CONTRACT.md',
   'vite.config.ts',
 ]
 
@@ -62,41 +66,83 @@ if (!viteConfig.includes("base: '/kitchen/'")) {
   throw new Error("GitHub Pages base path must stay '/kitchen/'.")
 }
 if (!viteConfig.includes("theme_color: '#f7f7f2'")) {
-  throw new Error('PWA theme color must use the V0.3 light mobile foundation.')
+  throw new Error('PWA theme color must use the accepted light mobile foundation.')
 }
 
 const globalCss = await readFile('src/styles/global.css', 'utf8')
-if (!globalCss.includes('--color-bg: #f7f7f2') || !globalCss.includes('--touch-min: 48px')) {
-  throw new Error('V0.3 light/mobile design tokens are missing.')
-}
-if (!globalCss.includes('.inventory-location-card') || !globalCss.includes('.inventory-summary')) {
-  throw new Error('V1.2 Inventory mobile read styles are missing.')
+for (const marker of ['--color-bg: #f7f7f2', '--touch-min: 48px', '.home-quick-action', '.inventory-sheet', '.primary-icon-button']) {
+  if (!globalCss.includes(marker)) {
+    throw new Error(`V1.3 UI contract marker missing: ${marker}`)
+  }
 }
 
 const shell = await readFile('src/components/AppShell.tsx', 'utf8')
 if (!shell.includes('aria-label="Główna nawigacja Kitchen"')) {
   throw new Error('Mobile application navigation is missing.')
 }
-if (!shell.includes('<InventoryPage ownerId={user.id} />')) {
-  throw new Error('V1.2 must expose the owner-scoped Inventory read surface.')
+if (!shell.includes('<HomePage ownerId={user.id} onAddProduct={openInventoryCreate} />')) {
+  throw new Error('Start must use the contextual V1.3 HomePage.')
+}
+if (shell.includes('futureModules') || shell.includes('module-grid')) {
+  throw new Error('Start must not duplicate bottom-navigation modules.')
+}
+if (!shell.includes('createRequestToken={inventoryCreateRequest}')) {
+  throw new Error('Start quick-add must be able to open the Inventory create flow.')
 }
 
 const inventoryReadModel = await readFile('src/features/inventory/inventoryReadModel.ts', 'utf8')
 for (const table of ['storage_locations', 'products', 'measurement_units', 'inventory_items']) {
   if (!inventoryReadModel.includes(`.from('${table}')`)) {
-    throw new Error(`V1.2 Inventory read model must read ${table}.`)
+    throw new Error(`Inventory read model must read ${table}.`)
   }
 }
 if (!inventoryReadModel.includes(".eq('owner_id', ownerId)")) {
-  throw new Error('V1.2 owner-data reads must explicitly scope owner_id to the authenticated user.')
+  throw new Error('Owner-data reads must explicitly scope owner_id to the authenticated user.')
 }
 if (/\.(insert|update|upsert|delete)\s*\(/.test(inventoryReadModel)) {
-  throw new Error('V1.2 Inventory read model must remain read-only.')
+  throw new Error('Inventory read model itself must remain read-only.')
+}
+
+const mutations = await readFile('src/features/inventory/inventoryMutations.ts', 'utf8')
+if (!mutations.includes(".from('products')") || !mutations.includes(".from('inventory_items')")) {
+  throw new Error('V1.3 mutations must use canonical Products and Inventory items.')
+}
+if (!mutations.includes('.insert({') || !mutations.includes('.update({')) {
+  throw new Error('V1.3 must support create and edit mutations.')
+}
+if (!mutations.includes(".eq('owner_id', input.ownerId)")) {
+  throw new Error('V1.3 mutations must explicitly scope owner_id.')
+}
+if (/\.from\(['"]inventory_items['"]\)[\s\S]{0,220}\.delete\s*\(/.test(mutations)) {
+  throw new Error('V1.3 must not delete Inventory rows; depletion/removal belongs to V1.4.')
+}
+if (!mutations.includes("productResult.error.code === '23505'")) {
+  throw new Error('V1.3 must handle database duplicate Product identity safely.')
+}
+if (!mutations.includes('findMergeableInventoryLot') || !mutations.includes(".is('expiry_date', null)")) {
+  throw new Error('V1.3 must merge indistinguishable same-product/location/unit stock instead of creating duplicate null-expiry lots.')
+}
+
+const editor = await readFile('src/features/inventory/InventoryEditor.tsx', 'utf8')
+if (!editor.includes("mode.kind === 'create'") || !editor.includes("mode.kind === 'edit'")) {
+  throw new Error('Inventory editor must support explicit create and edit modes.')
+}
+if (!editor.includes('inputMode="decimal"') || !editor.includes('model.units.map') || !editor.includes('model.locations.map')) {
+  throw new Error('V1.3 editor must use validated quantity, controlled units and owner locations.')
+}
+if (/type=["']date["']/.test(editor) || /expiry/i.test(editor)) {
+  throw new Error('Expiry input/semantics remain reserved for V1.6.')
 }
 
 const inventoryPage = await readFile('src/features/inventory/InventoryPage.tsx', 'utf8')
 if (!inventoryPage.includes("status: 'loading'") || !inventoryPage.includes("status: 'error'") || !inventoryPage.includes("status: 'ready'")) {
-  throw new Error('V1.2 Inventory page must implement loading, error and ready states.')
+  throw new Error('Inventory page must retain loading, error and ready states.')
+}
+if (!inventoryPage.includes('occupiedGroups') || !inventoryPage.includes('<InventoryEditor')) {
+  throw new Error('V1.3 Inventory page must use SMART occupied-location rendering and the editor.')
+}
+if (inventoryPage.includes('inventory-summary')) {
+  throw new Error('V1.3 must not restore the redundant three-counter Inventory summary.')
 }
 
 console.log('Kitchen project contract verification: PASS')
