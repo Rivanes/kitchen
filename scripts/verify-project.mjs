@@ -6,12 +6,18 @@ const requiredFiles = [
   '.github/workflows/qa.yml',
   '.github/workflows/deploy.yml',
   'src/App.tsx',
+  'src/components/AppShell.tsx',
   'src/components/LoginPage.tsx',
   'src/components/OwnerGate.tsx',
   'src/components/KitchenIcon.tsx',
+  'src/features/inventory/InventoryPage.tsx',
+  'src/features/inventory/inventoryReadModel.ts',
+  'src/features/inventory/types.ts',
   'src/styles/global.css',
   'src/lib/supabase/client.ts',
   'tests/SECURITY_CONTRACT.md',
+  'tests/UI_CONTRACT.md',
+  'tests/INVENTORY_READ_CONTRACT.md',
   'vite.config.ts',
 ]
 
@@ -63,10 +69,34 @@ const globalCss = await readFile('src/styles/global.css', 'utf8')
 if (!globalCss.includes('--color-bg: #f7f7f2') || !globalCss.includes('--touch-min: 48px')) {
   throw new Error('V0.3 light/mobile design tokens are missing.')
 }
+if (!globalCss.includes('.inventory-location-card') || !globalCss.includes('.inventory-summary')) {
+  throw new Error('V1.2 Inventory mobile read styles are missing.')
+}
 
 const shell = await readFile('src/components/AppShell.tsx', 'utf8')
 if (!shell.includes('aria-label="Główna nawigacja Kitchen"')) {
-  throw new Error('V0.3 mobile application navigation is missing.')
+  throw new Error('Mobile application navigation is missing.')
+}
+if (!shell.includes('<InventoryPage ownerId={user.id} />')) {
+  throw new Error('V1.2 must expose the owner-scoped Inventory read surface.')
+}
+
+const inventoryReadModel = await readFile('src/features/inventory/inventoryReadModel.ts', 'utf8')
+for (const table of ['storage_locations', 'products', 'measurement_units', 'inventory_items']) {
+  if (!inventoryReadModel.includes(`.from('${table}')`)) {
+    throw new Error(`V1.2 Inventory read model must read ${table}.`)
+  }
+}
+if (!inventoryReadModel.includes(".eq('owner_id', ownerId)")) {
+  throw new Error('V1.2 owner-data reads must explicitly scope owner_id to the authenticated user.')
+}
+if (/\.(insert|update|upsert|delete)\s*\(/.test(inventoryReadModel)) {
+  throw new Error('V1.2 Inventory read model must remain read-only.')
+}
+
+const inventoryPage = await readFile('src/features/inventory/InventoryPage.tsx', 'utf8')
+if (!inventoryPage.includes("status: 'loading'") || !inventoryPage.includes("status: 'error'") || !inventoryPage.includes("status: 'ready'")) {
+  throw new Error('V1.2 Inventory page must implement loading, error and ready states.')
 }
 
 console.log('Kitchen project contract verification: PASS')

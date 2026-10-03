@@ -1,4 +1,15 @@
-type KitchenIconName = 'home' | 'inventory' | 'shopping' | 'recipes' | 'logout' | 'check' | 'lock'
+type KitchenIconName =
+  | 'home'
+  | 'inventory'
+  | 'shopping'
+  | 'recipes'
+  | 'logout'
+  | 'check'
+  | 'lock'
+  | 'refresh'
+  | 'fridge'
+  | 'freezer'
+  | 'pantry'
 
 type KitchenIconProps = {
   name: KitchenIconName
@@ -34,5 +45,13 @@ export function KitchenIcon({ name, size = 22, strokeWidth = 1.9 }: KitchenIconP
       return <svg {...common}><path d="m6.5 12.2 3.4 3.4 7.6-8" /></svg>
     case 'lock':
       return <svg {...common}><rect x="5" y="10" width="14" height="10" rx="2.5" /><path d="M8.5 10V7.5a3.5 3.5 0 0 1 7 0V10" /></svg>
+    case 'refresh':
+      return <svg {...common}><path d="M20 6v5h-5" /><path d="M4 18v-5h5" /><path d="M6.1 9a7 7 0 0 1 11.5-2.5L20 11" /><path d="M17.9 15a7 7 0 0 1-11.5 2.5L4 13" /></svg>
+    case 'fridge':
+      return <svg {...common}><rect x="6" y="2.5" width="12" height="19" rx="2.5" /><path d="M6 9h12" /><path d="M9 5.5v1.5" /><path d="M9 12v2" /></svg>
+    case 'freezer':
+      return <svg {...common}><path d="M12 3v18" /><path d="m8.5 5 3.5 2 3.5-2" /><path d="m8.5 19 3.5-2 3.5 2" /><path d="m4.2 7.5 15.6 9" /><path d="m4.4 11.5-.2-4 3.6-1.8" /><path d="m19.6 12.5.2 4-3.6 1.8" /><path d="m19.8 7.5-15.6 9" /><path d="m16.2 5.7 3.6 1.8-.2 4" /><path d="m7.8 18.3-3.6-1.8.2-4" /></svg>
+    case 'pantry':
+      return <svg {...common}><rect x="4" y="4" width="16" height="16" rx="2.5" /><path d="M4 10h16" /><path d="M12 4v16" /><path d="M9.5 7h.01" /><path d="M14.5 7h.01" /><path d="M9.5 15h.01" /><path d="M14.5 15h.01" /></svg>
   }
 }
