@@ -1,25 +1,15 @@
 # Kitchen
 
-Private single-user mobile-first PWA for home inventory, shopping and recipes.
+Private, single-user mobile-first PWA for household inventory, shopping and recipes.
 
-## Current production track
+Current runtime baseline: **V1.5 — Inventory Location Pages / UX (QA pending)**.
 
-- V0.1.2 Foundation/Auth/CI/Deploy — PASS/CLOSED
-- V0.2 Database Security — PASS/CLOSED
-- V0.3 Mobile-First UI Foundation — PASS/CLOSED
-- V1.1 Inventory Data Foundation — PASS/CLOSED
-- V1.2 Inventory List / Read Model — PASS/CLOSED
-- V1.3 Inventory Add / Edit — PASS/CLOSED
-- V1.4 Inventory Consume / Remove — READY FOR QA
+Active Inventory capabilities:
+- owner-scoped stock read model
+- add/edit stock
+- consume/remove stock
+- Zapasy overview
+- dedicated storage location views (Lodówka / Zamrażarka / Szafka-spiżarnia)
+- contextual search for larger location inventories
 
-V1.4 adds explicit stock depletion. Partial consumption reduces a lot, exact depletion removes the lot instead of persisting quantity zero, and explicit removal deletes only the stock lot while keeping the canonical Product reusable.
-
-The current storage-location accordion remains an interim browse layout. The agreed future direction is separate Lodówka / Zamrażarka / Szafka-spiżarnia pages.
-
-## Stack
-
-React + TypeScript + Vite + PWA + Supabase + GitHub Pages.
-
-## Security
-
-The public boundary is Login. Authenticated sessions must additionally pass the backend Kitchen owner authority through `public.is_kitchen_owner()` before AppShell renders. Inventory reads and mutations remain protected by owner-scoped RLS.
+Security remains Supabase Auth + owner authority + RLS. Public sign-up and anonymous access are not part of the product.

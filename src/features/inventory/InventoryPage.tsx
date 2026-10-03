@@ -3,11 +3,12 @@ import { KitchenIcon } from '../../components/KitchenIcon'
 import { InventoryConsumeSheet } from './InventoryConsumeSheet'
 import { InventoryEditor } from './InventoryEditor'
 import { loadInventoryReadModel } from './inventoryReadModel'
-import type { InventoryLocation, InventoryLot, InventoryReadModel, StorageLocationKind } from './types'
+import type { InventoryLocation, InventoryLocationGroup, InventoryLot, InventoryReadModel, StorageLocationKind } from './types'
 
 type InventoryPageProps = {
   ownerId: string
   createRequestToken?: number
+  overviewRequestToken?: number
 }
 
 type LoadState =
@@ -16,7 +17,7 @@ type LoadState =
   | { status: 'error'; model: null }
 
 type EditorState =
-  | { kind: 'create' }
+  | { kind: 'create'; initialLocationId?: string }
   | { kind: 'edit'; lot: InventoryLot }
   | null
 
@@ -37,41 +38,204 @@ function locationIcon(kind: StorageLocationKind) {
   return 'inventory' as const
 }
 
-function LocationHeading({
-  location,
-  count,
-  expanded,
+function polishCount(value: number, one: string, few: string, many: string) {
+  if (value === 1) return `${value} ${one}`
+  const mod10 = value % 10
+  const mod100 = value % 100
+  if (mod10 >= 2 && mod10 <= 4 && !(mod100 >= 12 && mod100 <= 14)) return `${value} ${few}`
+  return `${value} ${many}`
+}
+
+function pluralizePositions(value: number) {
+  return polishCount(value, 'pozycja', 'pozycje', 'pozycji')
+}
+
+function pluralizeProducts(value: number) {
+  return polishCount(value, 'produkt', 'produkty', 'produktów')
+}
+
+function uniqueProductCount(lots: InventoryLot[]) {
+  return new Set(lots.map((lot) => lot.productId)).size
+}
+
+function locationPreview(lots: InventoryLot[]) {
+  if (lots.length === 0) return 'Pusto'
+  const names = Array.from(new Set(lots.map((lot) => lot.productName)))
+  const visible = names.slice(0, 2)
+  const remaining = names.length - visible.length
+  return `${visible.join(', ')}${remaining > 0 ? ` +${remaining}` : ''}`
+}
+
+function InventoryOverview({
+  model,
+  onOpenLocation,
+  onAdd,
 }: {
-  location: InventoryLocation
-  count: number
-  expanded: boolean
+  model: InventoryReadModel
+  onOpenLocation: (locationId: string) => void
+  onAdd: () => void
 }) {
   return (
     <>
-      <div className={`location-mark location-mark-${location.kind}`} aria-hidden="true">
-        <KitchenIcon name={locationIcon(location.kind)} size={21} />
+      {model.totalLots > 0 && (
+        <div className="inventory-overview-summary" aria-label="Podsumowanie zapasów">
+          <div>
+            <strong>{model.stockedProducts}</strong>
+            <span>{pluralizeProducts(model.stockedProducts).replace(/^\d+\s+/, '')}</span>
+          </div>
+          <div>
+            <strong>{model.totalLots}</strong>
+            <span>{pluralizePositions(model.totalLots).replace(/^\d+\s+/, '')}</span>
+          </div>
+        </div>
+      )}
+
+      {model.totalLots === 0 && (
+        <div className="inventory-overview-empty">
+          <div className="inventory-empty-icon" aria-hidden="true"><KitchenIcon name="inventory" size={24} /></div>
+          <div>
+            <strong>Zapasy są jeszcze puste</strong>
+            <span>Dodaj pierwszy produkt i wybierz, gdzie go przechowujesz.</span>
+          </div>
+          <button className="primary-button" type="button" onClick={onAdd}>
+            <KitchenIcon name="plus" size={19} /> Dodaj produkt
+          </button>
+        </div>
+      )}
+
+      <div className="inventory-location-grid" aria-label="Miejsca przechowywania">
+        {model.groups.map((group) => (
+          <button
+            className={`inventory-location-entry location-entry-${group.location.kind}`}
+            type="button"
+            key={group.location.id}
+            onClick={() => onOpenLocation(group.location.id)}
+          >
+            <span className={`location-mark location-mark-${group.location.kind}`} aria-hidden="true">
+              <KitchenIcon name={locationIcon(group.location.kind)} size={22} />
+            </span>
+            <span className="location-entry-copy">
+              <strong>{group.location.name}</strong>
+              <span>{locationPreview(group.lots)}</span>
+            </span>
+            <span className="location-entry-end">
+              <span className="location-count-badge">{group.lots.length}</span>
+              <KitchenIcon name="chevronRight" size={18} />
+            </span>
+          </button>
+        ))}
       </div>
-      <div className="inventory-location-copy">
-        <h2>{location.name}</h2>
-        <p>{count === 0 ? 'Pusto' : `${count} ${count === 1 ? 'pozycja' : 'pozycje'}`}</p>
-      </div>
-      <span className="inventory-location-toggle-end">
-        {count > 0 && <span className="location-count-badge">{count}</span>}
-        {count > 0 && <KitchenIcon name="chevronDown" size={19} />}
-      </span>
-      <span className="sr-only">{expanded ? 'Zwiń' : 'Rozwiń'}</span>
     </>
   )
 }
 
-export function InventoryPage({ ownerId, createRequestToken = 0 }: InventoryPageProps) {
+function InventoryLocationView({
+  group,
+  searchQuery,
+  onSearchChange,
+  onBack,
+  onAdd,
+  onEdit,
+}: {
+  group: InventoryLocationGroup
+  searchQuery: string
+  onSearchChange: (value: string) => void
+  onBack: () => void
+  onAdd: () => void
+  onEdit: (lot: InventoryLot) => void
+}) {
+  const normalizedSearch = searchQuery.trim().toLocaleLowerCase('pl')
+  const visibleLots = normalizedSearch
+    ? group.lots.filter((lot) => lot.productName.toLocaleLowerCase('pl').includes(normalizedSearch))
+    : group.lots
+  const shouldShowSearch = group.lots.length >= 8
+  const products = uniqueProductCount(group.lots)
+
+  return (
+    <section className="inventory-location-page" aria-labelledby="inventory-location-title">
+      <button className="inventory-back-button" type="button" onClick={onBack}>
+        <KitchenIcon name="chevronLeft" size={18} />
+        Zapasy
+      </button>
+
+      <div className="inventory-location-hero">
+        <div className={`location-mark location-mark-${group.location.kind}`} aria-hidden="true">
+          <KitchenIcon name={locationIcon(group.location.kind)} size={23} />
+        </div>
+        <div>
+          <h1 id="inventory-location-title">{group.location.name}</h1>
+          <p>{group.lots.length === 0 ? 'Pusto' : `${pluralizeProducts(products)} · ${pluralizePositions(group.lots.length)}`}</p>
+        </div>
+        <button className="primary-icon-button" type="button" onClick={onAdd} aria-label={`Dodaj produkt do: ${group.location.name}`} title="Dodaj produkt">
+          <KitchenIcon name="plus" />
+        </button>
+      </div>
+
+      {shouldShowSearch && (
+        <label className="inventory-search inventory-location-search">
+          <span className="sr-only">Szukaj produktu w: {group.location.name}</span>
+          <KitchenIcon name="search" size={19} />
+          <input
+            type="search"
+            value={searchQuery}
+            onChange={(event) => onSearchChange(event.target.value)}
+            placeholder={`Szukaj w: ${group.location.name}`}
+            autoComplete="off"
+          />
+          {searchQuery && (
+            <button type="button" onClick={() => onSearchChange('')} aria-label="Wyczyść wyszukiwanie">
+              <KitchenIcon name="close" size={17} />
+            </button>
+          )}
+        </label>
+      )}
+
+      {group.lots.length === 0 ? (
+        <div className="inventory-location-empty">
+          <strong>Nic tu jeszcze nie ma</strong>
+          <span>Dodaj pierwszy produkt bezpośrednio do tego miejsca.</span>
+          <button className="primary-button" type="button" onClick={onAdd}>
+            <KitchenIcon name="plus" size={18} /> Dodaj produkt
+          </button>
+        </div>
+      ) : visibleLots.length === 0 ? (
+        <div className="inventory-search-empty" role="status">
+          <strong>Brak wyników</strong>
+          <span>Spróbuj innej nazwy produktu.</span>
+        </div>
+      ) : (
+        <div className="inventory-location-list-card">
+          <ul className="inventory-list">
+            {visibleLots.map((lot) => (
+              <li key={lot.id}>
+                <button className="inventory-row inventory-row-action" type="button" onClick={() => onEdit(lot)}>
+                  <div className="inventory-product-copy">
+                    <strong>{lot.productName}</strong>
+                    {lot.expiryDate && <span>Termin: {formatExpiryDate(lot.expiryDate)}</span>}
+                  </div>
+                  <span className="inventory-row-end">
+                    <span className="quantity-pill">{formatQuantity(lot.quantity)} {lot.unitSymbol}</span>
+                    <KitchenIcon name="edit" size={17} />
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </section>
+  )
+}
+
+export function InventoryPage({ ownerId, createRequestToken = 0, overviewRequestToken = 0 }: InventoryPageProps) {
   const [loadState, setLoadState] = useState<LoadState>({ status: 'loading', model: null })
   const [reloadVersion, setReloadVersion] = useState(0)
   const [editor, setEditor] = useState<EditorState>(null)
   const [consumeLot, setConsumeLot] = useState<InventoryLot | null>(null)
-  const [expandedLocations, setExpandedLocations] = useState<Set<string>>(() => new Set())
+  const [selectedLocationId, setSelectedLocationId] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const handledCreateRequest = useRef(0)
+  const handledOverviewRequest = useRef(0)
 
   const reload = useCallback(() => {
     setLoadState({ status: 'loading', model: null })
@@ -104,9 +268,27 @@ export function InventoryPage({ ownerId, createRequestToken = 0 }: InventoryPage
       loadState.status === 'ready'
     ) {
       handledCreateRequest.current = createRequestToken
+      setSelectedLocationId(null)
+      setSearchQuery('')
       setEditor({ kind: 'create' })
     }
   }, [createRequestToken, loadState.status])
+
+  useEffect(() => {
+    if (overviewRequestToken > 0 && overviewRequestToken !== handledOverviewRequest.current) {
+      handledOverviewRequest.current = overviewRequestToken
+      setSelectedLocationId(null)
+      setSearchQuery('')
+    }
+  }, [overviewRequestToken])
+
+  useEffect(() => {
+    if (loadState.status !== 'ready' || !selectedLocationId) return
+    if (!loadState.model.locations.some((location) => location.id === selectedLocationId)) {
+      setSelectedLocationId(null)
+      setSearchQuery('')
+    }
+  }, [loadState, selectedLocationId])
 
   function handleSaved() {
     setEditor(null)
@@ -119,69 +301,42 @@ export function InventoryPage({ ownerId, createRequestToken = 0 }: InventoryPage
     setConsumeLot(lot)
   }
 
-  function toggleLocation(locationId: string, count: number) {
-    if (count === 0) return
-    setExpandedLocations((current) => {
-      const next = new Set(current)
-      if (next.has(locationId)) next.delete(locationId)
-      else next.add(locationId)
-      return next
-    })
+  function openLocation(locationId: string) {
+    setSelectedLocationId(locationId)
+    setSearchQuery('')
+    window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
-  const normalizedSearch = searchQuery.trim().toLocaleLowerCase('pl')
+  function closeLocation() {
+    setSelectedLocationId(null)
+    setSearchQuery('')
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
 
-  const visibleGroups = useMemo(() => {
-    if (loadState.status !== 'ready') return []
-    if (!normalizedSearch) return loadState.model.groups
-
-    return loadState.model.groups
-      .map((group) => ({
-        ...group,
-        lots: group.lots.filter((lot) => lot.productName.toLocaleLowerCase('pl').includes(normalizedSearch)),
-      }))
-      .filter((group) => group.lots.length > 0)
-  }, [loadState, normalizedSearch])
-
-  const shouldShowSearch = loadState.status === 'ready' && loadState.model.totalLots >= 8
-  const searchHasNoResults = normalizedSearch.length > 0 && visibleGroups.length === 0
+  const selectedGroup = useMemo(() => {
+    if (loadState.status !== 'ready' || !selectedLocationId) return null
+    return loadState.model.groups.find((group) => group.location.id === selectedLocationId) ?? null
+  }, [loadState, selectedLocationId])
 
   return (
-    <section className="inventory-page" aria-labelledby="inventory-title">
-      <div className="page-heading-row inventory-page-heading">
-        <div>
-          <h1 id="inventory-title">Zapasy</h1>
-          {loadState.status === 'ready' && loadState.model.totalLots > 0 && (
-            <p className="page-intro">{loadState.model.stockedProducts} {loadState.model.stockedProducts === 1 ? 'produkt' : 'produkty'} · {loadState.model.totalLots} {loadState.model.totalLots === 1 ? 'pozycja' : 'pozycje'}</p>
-          )}
-        </div>
-        <div className="page-actions">
-          <button className="icon-button icon-button-quiet" type="button" onClick={reload} disabled={loadState.status === 'loading'} aria-label="Odśwież zapasy" title="Odśwież zapasy">
-            <KitchenIcon name="refresh" />
-          </button>
-          <button className="primary-icon-button" type="button" onClick={() => setEditor({ kind: 'create' })} disabled={loadState.status !== 'ready'} aria-label="Dodaj produkt" title="Dodaj produkt">
-            <KitchenIcon name="plus" />
-          </button>
-        </div>
-      </div>
-
-      {shouldShowSearch && (
-        <label className="inventory-search">
-          <span className="sr-only">Szukaj produktu w zapasach</span>
-          <KitchenIcon name="search" size={19} />
-          <input
-            type="search"
-            value={searchQuery}
-            onChange={(event) => setSearchQuery(event.target.value)}
-            placeholder="Szukaj produktu"
-            autoComplete="off"
-          />
-          {searchQuery && (
-            <button type="button" onClick={() => setSearchQuery('')} aria-label="Wyczyść wyszukiwanie">
-              <KitchenIcon name="close" size={17} />
+    <section className="inventory-page" aria-labelledby={selectedGroup ? undefined : 'inventory-title'}>
+      {!selectedGroup && (
+        <div className="page-heading-row inventory-page-heading">
+          <div>
+            <h1 id="inventory-title">Zapasy</h1>
+            {loadState.status === 'ready' && (
+              <p className="page-intro">Wybierz miejsce, żeby zobaczyć jego zawartość.</p>
+            )}
+          </div>
+          <div className="page-actions">
+            <button className="icon-button icon-button-quiet" type="button" onClick={reload} disabled={loadState.status === 'loading'} aria-label="Odśwież zapasy" title="Odśwież zapasy">
+              <KitchenIcon name="refresh" />
             </button>
-          )}
-        </label>
+            <button className="primary-icon-button" type="button" onClick={() => setEditor({ kind: 'create' })} disabled={loadState.status !== 'ready'} aria-label="Dodaj produkt" title="Dodaj produkt">
+              <KitchenIcon name="plus" />
+            </button>
+          </div>
+        </div>
       )}
 
       {loadState.status === 'loading' && (
@@ -201,67 +356,23 @@ export function InventoryPage({ ownerId, createRequestToken = 0 }: InventoryPage
         </div>
       )}
 
-      {loadState.status === 'ready' && loadState.model.totalLots === 0 && (
-        <div className="inventory-empty-smart">
-          <div className="inventory-empty-icon" aria-hidden="true"><KitchenIcon name="inventory" size={24} /></div>
-          <strong>Zapasy są puste</strong>
-          <button className="primary-button" type="button" onClick={() => setEditor({ kind: 'create' })}>
-            <KitchenIcon name="plus" size={19} /> Dodaj produkt
-          </button>
-        </div>
+      {loadState.status === 'ready' && !selectedGroup && (
+        <InventoryOverview
+          model={loadState.model}
+          onOpenLocation={openLocation}
+          onAdd={() => setEditor({ kind: 'create' })}
+        />
       )}
 
-      {loadState.status === 'ready' && searchHasNoResults && (
-        <div className="inventory-search-empty" role="status">
-          <strong>Brak wyników</strong>
-          <span>Spróbuj innej nazwy produktu.</span>
-        </div>
-      )}
-
-      {loadState.status === 'ready' && !searchHasNoResults && (
-        <div className="inventory-groups">
-          {visibleGroups.map((group) => {
-            const forcedExpanded = normalizedSearch.length > 0 && group.lots.length > 0
-            const expanded = forcedExpanded || expandedLocations.has(group.location.id)
-            const headingId = `location-${group.location.id}`
-            const panelId = `location-panel-${group.location.id}`
-
-            return (
-              <section className={`inventory-location-card${expanded ? ' is-expanded' : ''}`} key={group.location.id} aria-labelledby={headingId}>
-                <button
-                  className="inventory-location-heading inventory-location-button"
-                  type="button"
-                  onClick={() => toggleLocation(group.location.id, group.lots.length)}
-                  aria-expanded={group.lots.length > 0 ? expanded : undefined}
-                  aria-controls={group.lots.length > 0 ? panelId : undefined}
-                  disabled={group.lots.length === 0}
-                >
-                  <span id={headingId} className="sr-only">{group.location.name}</span>
-                  <LocationHeading location={group.location} count={group.lots.length} expanded={expanded} />
-                </button>
-
-                {expanded && group.lots.length > 0 && (
-                  <ul className="inventory-list" id={panelId}>
-                    {group.lots.map((lot) => (
-                      <li key={lot.id}>
-                        <button className="inventory-row inventory-row-action" type="button" onClick={() => setEditor({ kind: 'edit', lot })}>
-                          <div className="inventory-product-copy">
-                            <strong>{lot.productName}</strong>
-                            {lot.expiryDate && <span>Termin: {formatExpiryDate(lot.expiryDate)}</span>}
-                          </div>
-                          <span className="inventory-row-end">
-                            <span className="quantity-pill">{formatQuantity(lot.quantity)} {lot.unitSymbol}</span>
-                            <KitchenIcon name="edit" size={17} />
-                          </span>
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </section>
-            )
-          })}
-        </div>
+      {loadState.status === 'ready' && selectedGroup && (
+        <InventoryLocationView
+          group={selectedGroup}
+          searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
+          onBack={closeLocation}
+          onAdd={() => setEditor({ kind: 'create', initialLocationId: selectedGroup.location.id })}
+          onEdit={(lot) => setEditor({ kind: 'edit', lot })}
+        />
       )}
 
       {loadState.status === 'ready' && editor && (

@@ -4,7 +4,7 @@ import { createInventoryLot, normalizeProductName, removeInventoryLot, updateInv
 import type { InventoryLot, InventoryReadModel } from './types'
 
 type InventoryEditorMode =
-  | { kind: 'create' }
+  | { kind: 'create'; initialLocationId?: string }
   | { kind: 'edit'; lot: InventoryLot }
 
 type InventoryEditorProps = {
@@ -29,7 +29,9 @@ function parseQuantity(value: string) {
 }
 
 export function InventoryEditor({ ownerId, model, mode, onClose, onSaved, onConsumeRequested }: InventoryEditorProps) {
-  const initialLocationId = mode.kind === 'edit' ? mode.lot.storageLocationId : (model.locations[0]?.id ?? '')
+  const initialLocationId = mode.kind === 'edit'
+    ? mode.lot.storageLocationId
+    : (mode.initialLocationId ?? model.locations[0]?.id ?? '')
   const initialUnitCode = mode.kind === 'edit' ? mode.lot.unitCode : 'pcs'
   const [productName, setProductName] = useState(mode.kind === 'edit' ? mode.lot.productName : '')
   const [quantity, setQuantity] = useState(initialQuantity(mode))

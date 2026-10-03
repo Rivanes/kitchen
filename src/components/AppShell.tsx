@@ -14,12 +14,16 @@ type AppView = 'home' | 'inventory'
 export function AppShell({ user }: AppShellProps) {
   const [view, setView] = useState<AppView>('home')
   const [inventoryCreateRequest, setInventoryCreateRequest] = useState(0)
+  const [inventoryOverviewRequest, setInventoryOverviewRequest] = useState(0)
 
   async function handleLogout() {
     await supabase?.auth.signOut()
   }
 
   function changeView(nextView: AppView) {
+    if (nextView === 'inventory' && view === 'inventory') {
+      setInventoryOverviewRequest((value) => value + 1)
+    }
     setView(nextView)
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
@@ -48,7 +52,11 @@ export function AppShell({ user }: AppShellProps) {
       {view === 'home' ? (
         <HomePage ownerId={user.id} onAddProduct={openInventoryCreate} />
       ) : (
-        <InventoryPage ownerId={user.id} createRequestToken={inventoryCreateRequest} />
+        <InventoryPage
+          ownerId={user.id}
+          createRequestToken={inventoryCreateRequest}
+          overviewRequestToken={inventoryOverviewRequest}
+        />
       )}
 
       <nav className="bottom-nav" aria-label="Główna nawigacja Kitchen">

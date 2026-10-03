@@ -25,6 +25,7 @@ const requiredFiles = [
   'tests/INVENTORY_EDIT_CONTRACT.md',
   'tests/INVENTORY_BROWSE_CONTRACT.md',
   'tests/INVENTORY_CONSUME_CONTRACT.md',
+  'tests/INVENTORY_LOCATION_CONTRACT.md',
   'vite.config.ts',
 ]
 
@@ -73,7 +74,7 @@ if (!viteConfig.includes("theme_color: '#f7f7f2'")) {
 }
 
 const globalCss = await readFile('src/styles/global.css', 'utf8')
-for (const marker of ['--color-bg: #f7f7f2', '--touch-min: 48px', '.home-quick-action', '.home-coming-card', '.inventory-sheet', '.primary-icon-button', '.inventory-location-button', '.inventory-search', '.inventory-stock-actions', '.inventory-consume-sheet', '.danger-button']) {
+for (const marker of ['--color-bg: #f7f7f2', '--touch-min: 48px', '.home-quick-action', '.home-coming-card', '.inventory-sheet', '.primary-icon-button', '.inventory-search', '.inventory-stock-actions', '.inventory-consume-sheet', '.danger-button', '.inventory-location-entry', '.inventory-location-page', '.inventory-back-button']) {
   if (!globalCss.includes(marker)) {
     throw new Error(`V1.3 UI contract marker missing: ${marker}`)
   }
@@ -91,6 +92,9 @@ if (shell.includes('futureModules') || shell.includes('module-grid')) {
 }
 if (!shell.includes('createRequestToken={inventoryCreateRequest}')) {
   throw new Error('Start quick-add must be able to open the Inventory create flow.')
+}
+if (!shell.includes('overviewRequestToken={inventoryOverviewRequest}') || !shell.includes('setInventoryOverviewRequest')) {
+  throw new Error('V1.5 bottom-nav Inventory action must be able to return a location detail page to the Zapasy overview.')
 }
 
 const inventoryReadModel = await readFile('src/features/inventory/inventoryReadModel.ts', 'utf8')
@@ -139,6 +143,11 @@ if (!editor.includes("mode.kind === 'create'") || !editor.includes("mode.kind ==
 if (!editor.includes('inputMode="decimal"') || !editor.includes('model.units.map') || !editor.includes('model.locations.map')) {
   throw new Error('V1.3 editor must use validated quantity, controlled units and owner locations.')
 }
+
+if (!editor.includes('mode.initialLocationId ?? model.locations[0]?.id')) {
+  throw new Error('V1.5 create editor must accept a location-page initial location without removing manual location choice.')
+}
+
 if (/type=["']date["']/.test(editor) || /expiry/i.test(editor)) {
   throw new Error('Expiry input/semantics remain reserved for V1.6.')
 }
@@ -150,14 +159,20 @@ const inventoryPage = await readFile('src/features/inventory/InventoryPage.tsx',
 if (!inventoryPage.includes("status: 'loading'") || !inventoryPage.includes("status: 'error'") || !inventoryPage.includes("status: 'ready'")) {
   throw new Error('Inventory page must retain loading, error and ready states.')
 }
-if (!inventoryPage.includes('expandedLocations') || !inventoryPage.includes('toggleLocation') || !inventoryPage.includes('<InventoryEditor')) {
-  throw new Error('V1.3.2 Inventory page must use scalable location accordion browsing and the editor.')
+if (!inventoryPage.includes('InventoryOverview') || !inventoryPage.includes('InventoryLocationView') || !inventoryPage.includes('selectedLocationId')) {
+  throw new Error('V1.5 Inventory must use separate overview and location-detail page states.')
 }
-if (!inventoryPage.includes('shouldShowSearch') || !inventoryPage.includes('totalLots >= 8')) {
-  throw new Error('V1.3.2 must enable product search only when stock volume justifies the extra control.')
+if (inventoryPage.includes('expandedLocations') || inventoryPage.includes('toggleLocation')) {
+  throw new Error('V1.5 must remove the interim accordion-only storage browsing model.')
+}
+if (!inventoryPage.includes('group.lots.length >= 8')) {
+  throw new Error('V1.5 location pages must keep contextual search for larger location inventories.')
+}
+if (!inventoryPage.includes("initialLocationId: selectedGroup.location.id")) {
+  throw new Error('V1.5 add-from-location flow must preselect the current storage location.')
 }
 if (inventoryPage.includes('inventory-summary')) {
-  throw new Error('V1.4 must not restore the redundant three-counter Inventory summary.')
+  throw new Error('V1.5 must not restore the old three-counter Inventory summary.')
 }
 if (!inventoryPage.includes('<InventoryConsumeSheet') || !inventoryPage.includes('consumeLot')) {
   throw new Error('V1.4 Inventory page must wire the consume flow into the current stock lot.')

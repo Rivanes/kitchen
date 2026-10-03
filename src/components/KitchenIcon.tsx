@@ -14,6 +14,7 @@ type KitchenIconName =
   | 'edit'
   | 'close'
   | 'chevronRight'
+  | 'chevronLeft'
   | 'chevronDown'
   | 'calendar'
   | 'sparkles'
@@ -71,6 +72,8 @@ export function KitchenIcon({ name, size = 22, strokeWidth = 1.9 }: KitchenIconP
       return <svg {...common}><path d="M6 6l12 12" /><path d="M18 6 6 18" /></svg>
     case 'chevronRight':
       return <svg {...common}><path d="m9 5 7 7-7 7" /></svg>
+    case 'chevronLeft':
+      return <svg {...common}><path d="m15 5-7 7 7 7" /></svg>
     case 'chevronDown':
       return <svg {...common}><path d="m5 9 7 7 7-7" /></svg>
     case 'calendar':
