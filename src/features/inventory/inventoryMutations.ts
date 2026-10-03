@@ -124,6 +124,10 @@ export async function createInventoryLot(input: CreateInventoryLotInput) {
     }
   }
 
+  if (!productId) {
+    throw new Error('Nie udało się ustalić produktu dla dodawanego zapasu.')
+  }
+
   const mergeableLot = await findMergeableInventoryLot(
     input.ownerId,
     productId,
