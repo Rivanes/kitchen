@@ -1,7 +1,7 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react'
 import { KitchenIcon } from '../../components/KitchenIcon'
 import { formatDateOnly, isValidDateOnly } from './expiry'
-import { createInventoryLot, normalizeProductName, removeInventoryLot, updateInventoryLot } from './inventoryMutations'
+import { createInventoryLot, normalizeProductName, removeInventoryLot, renameProduct, updateInventoryLot } from './inventoryMutations'
 import type { InventoryLot, InventoryReadModel } from './types'
 
 type InventoryEditorMode =
@@ -35,6 +35,11 @@ export function InventoryEditor({ ownerId, model, mode, onClose, onSaved, onCons
     : (mode.initialLocationId ?? model.locations[0]?.id ?? '')
   const initialUnitCode = mode.kind === 'edit' ? mode.lot.unitCode : 'pcs'
   const [productName, setProductName] = useState(mode.kind === 'edit' ? mode.lot.productName : '')
+  const currentProductName = mode.kind === 'edit' ? mode.lot.productName : ''
+  const [renameOpen, setRenameOpen] = useState(false)
+  const [renameName, setRenameName] = useState(mode.kind === 'edit' ? mode.lot.productName : '')
+  const [renaming, setRenaming] = useState(false)
+  const [renameError, setRenameError] = useState('')
   const [quantity, setQuantity] = useState(initialQuantity(mode))
   const [unitCode, setUnitCode] = useState(initialUnitCode)
   const [locationId, setLocationId] = useState(initialLocationId)
@@ -46,7 +51,7 @@ export function InventoryEditor({ ownerId, model, mode, onClose, onSaved, onCons
   const [confirmingRemove, setConfirmingRemove] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
   const firstInputRef = useRef<HTMLInputElement>(null)
-  const busy = saving || removing
+  const busy = saving || removing || renaming
 
   const exactProduct = useMemo(() => {
     if (mode.kind === 'edit') return null
@@ -65,6 +70,16 @@ export function InventoryEditor({ ownerId, model, mode, onClose, onSaved, onCons
       .slice(0, 5)
   }, [mode.kind, model.products, productName, exactProduct?.id])
 
+  const renameCollision = useMemo(() => {
+    if (mode.kind !== 'edit') return null
+    const normalized = normalizeProductName(renameName)
+    if (!normalized) return null
+    return model.products.find((product) => (
+      product.id !== mode.lot.productId
+      && normalizeProductName(product.name) === normalized
+    )) ?? null
+  }, [mode, model.products, renameName])
+
   useEffect(() => {
     const previousOverflow = document.body.style.overflow
     document.body.style.overflow = 'hidden'
@@ -75,7 +90,14 @@ export function InventoryEditor({ ownerId, model, mode, onClose, onSaved, onCons
     }
 
     function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === 'Escape' && !busy) onClose()
+      if (event.key !== 'Escape' || busy) return
+      if (renameOpen) {
+        setRenameOpen(false)
+        setRenameName(currentProductName)
+        setRenameError('')
+        return
+      }
+      onClose()
     }
 
     window.addEventListener('keydown', handleKeyDown)
@@ -84,7 +106,7 @@ export function InventoryEditor({ ownerId, model, mode, onClose, onSaved, onCons
       window.removeEventListener('keydown', handleKeyDown)
       document.body.style.overflow = previousOverflow
     }
-  }, [onClose, busy])
+  }, [onClose, busy, renameOpen, currentProductName])
 
   useEffect(() => {
     if (mode.kind !== 'create' || unitTouched) return
@@ -102,6 +124,51 @@ export function InventoryEditor({ ownerId, model, mode, onClose, onSaved, onCons
     setUnitCode(product.defaultUnitCode)
     setUnitTouched(false)
     setErrorMessage('')
+  }
+
+  function openRename() {
+    if (mode.kind !== 'edit' || busy) return
+    setRenameName(currentProductName)
+    setRenameError('')
+    setRenameOpen(true)
+  }
+
+  function cancelRename() {
+    if (busy) return
+    setRenameName(currentProductName)
+    setRenameError('')
+    setRenameOpen(false)
+  }
+
+  async function handleRenameSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (mode.kind !== 'edit' || busy) return
+
+    const cleanName = renameName.trim().replace(/\s+/g, ' ')
+    if (!cleanName || cleanName.length > 120) {
+      setRenameError('Podaj nazwę produktu do 120 znaków.')
+      return
+    }
+
+    if (renameCollision) {
+      setRenameError(`Produkt „${renameCollision.name}” już istnieje. Wybierz inną nazwę.`)
+      return
+    }
+
+    setRenaming(true)
+    setRenameError('')
+
+    try {
+      await renameProduct({
+        ownerId,
+        productId: mode.lot.productId,
+        nextName: cleanName,
+      })
+      onSaved()
+    } catch (error: unknown) {
+      setRenameError(error instanceof Error ? error.message : 'Nie udało się zmienić nazwy produktu.')
+      setRenaming(false)
+    }
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -197,14 +264,63 @@ export function InventoryEditor({ ownerId, model, mode, onClose, onSaved, onCons
         <div className="sheet-handle" aria-hidden="true" />
         <div className="sheet-header">
           <div>
-            <p className="eyebrow">{mode.kind === 'create' ? 'Nowy zapas' : 'Edycja'}</p>
-            <h2 id="inventory-editor-title">{mode.kind === 'create' ? 'Dodaj produkt' : mode.lot.productName}</h2>
+            <p className="eyebrow">{mode.kind === 'create' ? 'Nowy zapas' : renameOpen ? 'Produkt' : 'Edycja'}</p>
+            <div className="inventory-editor-title-row">
+              <h2 id="inventory-editor-title">
+                {mode.kind === 'create' ? 'Dodaj produkt' : renameOpen ? 'Zmień nazwę' : currentProductName}
+              </h2>
+              {mode.kind === 'edit' && !renameOpen && (
+                <button
+                  className="product-rename-trigger"
+                  type="button"
+                  onClick={openRename}
+                  disabled={busy}
+                  aria-label={`Zmień nazwę produktu ${currentProductName}`}
+                  title="Zmień nazwę produktu"
+                >
+                  <KitchenIcon name="edit" size={17} />
+                </button>
+              )}
+            </div>
           </div>
           <button className="icon-button icon-button-quiet" type="button" onClick={onClose} disabled={busy} aria-label="Zamknij">
             <KitchenIcon name="close" />
           </button>
         </div>
 
+        {mode.kind === 'edit' && renameOpen ? (
+          <form className="product-rename-form" onSubmit={handleRenameSubmit}>
+            <div className="form-field">
+              <label htmlFor="inventory-product-rename">Nazwa produktu</label>
+              <input
+                id="inventory-product-rename"
+                type="text"
+                value={renameName}
+                onChange={(event) => {
+                  setRenameName(event.target.value)
+                  setRenameError('')
+                }}
+                autoComplete="off"
+                maxLength={120}
+                disabled={busy}
+              />
+              <p className="field-hint">Zmiana obejmie wszystkie partie tego produktu.</p>
+            </div>
+
+            {renameCollision && !renameError && (
+              <p className="form-error" role="alert">Produkt „{renameCollision.name}” już istnieje. Wybierz inną nazwę.</p>
+            )}
+            {renameError && <p className="form-error" role="alert">{renameError}</p>}
+
+            <div className="sheet-actions">
+              <button className="secondary-button" type="button" onClick={cancelRename} disabled={busy}>Anuluj</button>
+              <button className="primary-button" type="submit" disabled={busy || Boolean(renameCollision)}>
+                {renaming ? 'Zapisuję…' : 'Zapisz nazwę'}
+              </button>
+            </div>
+          </form>
+        ) : (
+          <>
         <form className="inventory-form" onSubmit={handleSubmit}>
           {mode.kind === 'create' && (
             <div className="form-field">
@@ -384,7 +500,7 @@ export function InventoryEditor({ ownerId, model, mode, onClose, onSaved, onCons
                   type="button"
                   onClick={() => onConsumeRequested(mode.lot)}
                   disabled={busy}
-                  aria-label={`Zużyj ${mode.lot.productName}`}
+                  aria-label={`Zużyj ${currentProductName}`}
                 >
                   <span className="stock-action-icon" aria-hidden="true"><KitchenIcon name="minus" size={18} /></span>
                   <strong>Zużyj</strong>
@@ -394,7 +510,7 @@ export function InventoryEditor({ ownerId, model, mode, onClose, onSaved, onCons
                   type="button"
                   onClick={() => setConfirmingRemove(true)}
                   disabled={busy}
-                  aria-label={`Usuń ${mode.lot.productName} z zapasów`}
+                  aria-label={`Usuń ${currentProductName} z zapasów`}
                   title="Usuń z zapasów"
                 >
                   <span className="stock-action-icon" aria-hidden="true"><KitchenIcon name="trash" size={17} /></span>
@@ -402,7 +518,7 @@ export function InventoryEditor({ ownerId, model, mode, onClose, onSaved, onCons
                 </button>
               </div>
             ) : (
-              <div className="remove-confirm" role="alertdialog" aria-label={`Usuń ${mode.lot.productName} z zapasów`}>
+              <div className="remove-confirm" role="alertdialog" aria-label={`Usuń ${currentProductName} z zapasów`}>
                 <strong>Usunąć ten wpis?</strong>
                 <span>Produkt zostanie w katalogu i będzie można dodać go ponownie.</span>
                 <div className="remove-confirm-actions">
@@ -412,6 +528,8 @@ export function InventoryEditor({ ownerId, model, mode, onClose, onSaved, onCons
               </div>
             )}
           </section>
+        )}
+          </>
         )}
       </section>
     </div>

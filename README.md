@@ -2,7 +2,7 @@
 
 Private, single-user mobile-first PWA for household inventory, shopping and recipes.
 
-Current runtime baseline: **V1.6 — Expiry UX (QA pending)**.
+Closed runtime baseline: **V1 Inventory — PASS/CLOSED**. Current candidate: **V2.1 — Product Name Editing**.
 
 Active Inventory capabilities:
 - owner-scoped stock read model
@@ -62,3 +62,18 @@ V1.7 prepares the complete Inventory domain for final V1 production closeout.
 - Opened-product date assignment is made explicitly household-calendar based by the accompanying V1.7 SQL corrective.
 
 No new Inventory feature family is introduced; V1.7 is polish/corrective work before V2 Shopping List.
+
+
+## V2.1 — Product Name Editing
+
+V2 starts by stabilizing canonical Product identity before Shopping List tables begin to reference it.
+
+- Existing Product names can be corrected from Inventory edit mode.
+- Rename updates the same Product row/UUID; Inventory references are preserved.
+- Rename is a dedicated compact sub-flow so it does not make the mobile lot editor permanently taller.
+- Product-name whitespace is normalized before persistence.
+- Case-insensitive/normalized collisions with another Product are rejected.
+- Database uniqueness races (`23505`) are translated into a clear collision message.
+- Rename is intentionally saved separately from Inventory-lot changes, avoiding partial multi-entity saves.
+
+No SQL/schema/RLS/Auth change is required. Existing owner-scoped Product UPDATE authority is reused.

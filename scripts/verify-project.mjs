@@ -33,6 +33,7 @@ const requiredFiles = [
   'tests/INVENTORY_EXPIRY_CENTER_CONTRACT.md',
   'tests/INVENTORY_OPENED_PRODUCT_CONTRACT.md',
   'tests/INVENTORY_V1_CLOSEOUT_CONTRACT.md',
+  'tests/PRODUCT_RENAME_CONTRACT.md',
   'vite.config.ts',
 ]
 
@@ -81,7 +82,7 @@ if (!viteConfig.includes("theme_color: '#f7f7f2'")) {
 }
 
 const globalCss = await readFile('src/styles/global.css', 'utf8')
-for (const marker of ['--color-bg: #f7f7f2', '--touch-min: 48px', '.home-quick-action', '.home-coming-card', '.home-expiry-hub', '.expiry-page', '.expiry-filter', '.expiry-row', '.after-open-details', '.consume-open-rule', '.inventory-sheet', '.primary-icon-button', '.inventory-search', '.inventory-stock-actions', '.inventory-consume-sheet', '.danger-button', '.inventory-location-entry', '.inventory-location-page', '.inventory-back-button', '.expiry-status', '.date-input-row', 'max-height: calc(100dvh - 8px)', 'grid-template-columns: repeat(2, minmax(0, 1fr))']) {
+for (const marker of ['--color-bg: #f7f7f2', '--touch-min: 48px', '.home-quick-action', '.home-coming-card', '.home-expiry-hub', '.expiry-page', '.expiry-filter', '.expiry-row', '.after-open-details', '.consume-open-rule', '.inventory-sheet', '.primary-icon-button', '.inventory-search', '.inventory-stock-actions', '.inventory-consume-sheet', '.danger-button', '.inventory-location-entry', '.inventory-location-page', '.inventory-back-button', '.expiry-status', '.date-input-row', 'max-height: calc(100dvh - 8px)', 'grid-template-columns: repeat(2, minmax(0, 1fr))', '.inventory-editor-title-row', '.product-rename-trigger', '.product-rename-form']) {
   if (!globalCss.includes(marker)) {
     throw new Error(`V1.3 UI contract marker missing: ${marker}`)
   }
@@ -170,6 +171,24 @@ if (!mutations.includes(".rpc('consume_inventory_item'") || !mutations.includes(
   throw new Error('V1.6.2 partial consumption must be delegated to the owner-scoped database RPC.')
 }
 
+if (!mutations.includes('export async function renameProduct') || !mutations.includes(".update({ name: cleanName })")) {
+  throw new Error('V2.1 must rename the existing canonical Product row in place.')
+}
+if (!mutations.includes('existing.id !== input.productId') || !mutations.includes("result.error.code === '23505'")) {
+  throw new Error('V2.1 Product rename must guard normalized collisions and database uniqueness races.')
+}
+if (!mutations.includes(".eq('id', input.productId)") || !mutations.includes(".eq('owner_id', input.ownerId)")) {
+  throw new Error('V2.1 Product rename must scope both Product id and owner_id.')
+}
+
+const renameProductBlock = mutations.slice(
+  mutations.indexOf('export async function renameProduct'),
+  mutations.indexOf('async function findMergeableInventoryLot'),
+)
+if (/\.(insert|delete|upsert)\s*\(/.test(renameProductBlock)) {
+  throw new Error('V2.1 Product rename must update identity in place, never recreate or delete the Product.')
+}
+
 const editor = await readFile('src/features/inventory/InventoryEditor.tsx', 'utf8')
 if (!editor.includes("mode.kind === 'create'") || !editor.includes("mode.kind === 'edit'")) {
   throw new Error('Inventory editor must support explicit create and edit modes.')
@@ -199,6 +218,15 @@ if (!editor.includes('inventory-after-open-days') || !editor.includes('afterOpen
 }
 if (!editor.includes('onConsumeRequested') || !editor.includes('Usuń z zapasów') || !editor.includes('removeInventoryLot')) {
   throw new Error('V1.4 edit flow must expose consume and explicit removal actions.')
+}
+
+for (const marker of ['renameProduct', 'product-rename-trigger', 'Zmień nazwę', 'Zapisz nazwę', 'Zmiana obejmie wszystkie partie tego produktu.']) {
+  if (!editor.includes(marker)) {
+    throw new Error(`V2.1 Product rename UI marker missing: ${marker}`)
+  }
+}
+if (!editor.includes("mode.kind === 'edit' && !renameOpen") || !editor.includes('handleRenameSubmit')) {
+  throw new Error('V2.1 rename must remain an explicit edit-only sub-flow, separate from Inventory-lot save.')
 }
 
 const inventoryPage = await readFile('src/features/inventory/InventoryPage.tsx', 'utf8')

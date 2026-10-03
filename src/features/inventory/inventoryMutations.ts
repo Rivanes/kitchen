@@ -33,6 +33,12 @@ export type RemoveInventoryLotInput = {
   lotId: string
 }
 
+export type RenameProductInput = {
+  ownerId: string
+  productId: string
+  nextName: string
+}
+
 type ProductIdentity = {
   id: string
   name: string
@@ -93,6 +99,47 @@ async function findProductByName(ownerId: string, productName: string): Promise<
 
   const normalized = normalizeProductName(productName)
   return ((result.data ?? []) as ProductIdentity[]).find((product) => normalizeProductName(product.name) === normalized) ?? null
+}
+
+export async function renameProduct(input: RenameProductInput) {
+  if (!supabase) {
+    throw new Error('Supabase is not configured.')
+  }
+
+  const cleanName = input.nextName.trim().replace(/\s+/g, ' ')
+  if (!cleanName || cleanName.length > 120) {
+    throw new Error('Podaj nazwę produktu do 120 znaków.')
+  }
+
+  const existing = await findProductByName(input.ownerId, cleanName)
+  if (existing && existing.id !== input.productId) {
+    throw new Error('Taki produkt już istnieje. Wybierz inną nazwę.')
+  }
+
+  if (existing && existing.id === input.productId && existing.name === cleanName) {
+    return existing.name
+  }
+
+  const result = await supabase
+    .from('products')
+    .update({ name: cleanName })
+    .eq('id', input.productId)
+    .eq('owner_id', input.ownerId)
+    .select('id, name')
+    .maybeSingle()
+
+  if (result.error) {
+    if (result.error.code === '23505') {
+      throw new Error('Taki produkt już istnieje. Wybierz inną nazwę.')
+    }
+    throw new Error(`Nie udało się zmienić nazwy produktu: ${result.error.message}`)
+  }
+
+  if (!result.data) {
+    throw new Error('Nie znaleziono produktu do zmiany nazwy.')
+  }
+
+  return result.data.name as string
 }
 
 async function findMergeableInventoryLot(
