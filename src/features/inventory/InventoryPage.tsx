@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { KitchenIcon } from '../../components/KitchenIcon'
 import { InventoryConsumeSheet } from './InventoryConsumeSheet'
+import { getExpiryMeta } from './expiry'
 import { InventoryEditor } from './InventoryEditor'
 import { loadInventoryReadModel } from './inventoryReadModel'
 import type { InventoryLocation, InventoryLocationGroup, InventoryLot, InventoryReadModel, StorageLocationKind } from './types'
@@ -8,6 +9,7 @@ import type { InventoryLocation, InventoryLocationGroup, InventoryLot, Inventory
 type InventoryPageProps = {
   ownerId: string
   createRequestToken?: number
+  onCreateRequestHandled?: (requestToken: number) => void
   overviewRequestToken?: number
 }
 
@@ -25,12 +27,6 @@ function formatQuantity(value: number) {
   return new Intl.NumberFormat('pl-PL', { maximumFractionDigits: 3 }).format(value)
 }
 
-function formatExpiryDate(value: string) {
-  const [year, month, day] = value.split('-')
-  if (!year || !month || !day) return value
-  return `${day}.${month}.${year}`
-}
-
 function locationIcon(kind: StorageLocationKind) {
   if (kind === 'fridge') return 'fridge' as const
   if (kind === 'freezer') return 'freezer' as const
@@ -46,8 +42,8 @@ function polishCount(value: number, one: string, few: string, many: string) {
   return `${value} ${many}`
 }
 
-function pluralizePositions(value: number) {
-  return polishCount(value, 'pozycja', 'pozycje', 'pozycji')
+function pluralizeLots(value: number) {
+  return polishCount(value, 'partia', 'partie', 'partii')
 }
 
 function pluralizeProducts(value: number) {
@@ -56,6 +52,14 @@ function pluralizeProducts(value: number) {
 
 function uniqueProductCount(lots: InventoryLot[]) {
   return new Set(lots.map((lot) => lot.productId)).size
+}
+
+function locationStockLabel(lots: InventoryLot[]) {
+  if (lots.length === 0) return 'Pusto'
+  const products = uniqueProductCount(lots)
+  return lots.length > products
+    ? `${pluralizeProducts(products)} · ${pluralizeLots(lots.length)}`
+    : pluralizeProducts(products)
 }
 
 function locationPreview(lots: InventoryLot[]) {
@@ -77,19 +81,6 @@ function InventoryOverview({
 }) {
   return (
     <>
-      {model.totalLots > 0 && (
-        <div className="inventory-overview-summary" aria-label="Podsumowanie zapasów">
-          <div>
-            <strong>{model.stockedProducts}</strong>
-            <span>{pluralizeProducts(model.stockedProducts).replace(/^\d+\s+/, '')}</span>
-          </div>
-          <div>
-            <strong>{model.totalLots}</strong>
-            <span>{pluralizePositions(model.totalLots).replace(/^\d+\s+/, '')}</span>
-          </div>
-        </div>
-      )}
-
       {model.totalLots === 0 && (
         <div className="inventory-overview-empty">
           <div className="inventory-empty-icon" aria-hidden="true"><KitchenIcon name="inventory" size={24} /></div>
@@ -119,7 +110,7 @@ function InventoryOverview({
               <span>{locationPreview(group.lots)}</span>
             </span>
             <span className="location-entry-end">
-              <span className="location-count-badge">{group.lots.length}</span>
+              <span className="location-count-badge">{uniqueProductCount(group.lots)}</span>
               <KitchenIcon name="chevronRight" size={18} />
             </span>
           </button>
@@ -149,7 +140,6 @@ function InventoryLocationView({
     ? group.lots.filter((lot) => lot.productName.toLocaleLowerCase('pl').includes(normalizedSearch))
     : group.lots
   const shouldShowSearch = group.lots.length >= 8
-  const products = uniqueProductCount(group.lots)
 
   return (
     <section className="inventory-location-page" aria-labelledby="inventory-location-title">
@@ -164,7 +154,7 @@ function InventoryLocationView({
         </div>
         <div>
           <h1 id="inventory-location-title">{group.location.name}</h1>
-          <p>{group.lots.length === 0 ? 'Pusto' : `${pluralizeProducts(products)} · ${pluralizePositions(group.lots.length)}`}</p>
+          <p>{locationStockLabel(group.lots)}</p>
         </div>
         <button className="primary-icon-button" type="button" onClick={onAdd} aria-label={`Dodaj produkt do: ${group.location.name}`} title="Dodaj produkt">
           <KitchenIcon name="plus" />
@@ -211,7 +201,16 @@ function InventoryLocationView({
                 <button className="inventory-row inventory-row-action" type="button" onClick={() => onEdit(lot)}>
                   <div className="inventory-product-copy">
                     <strong>{lot.productName}</strong>
-                    {lot.expiryDate && <span>Termin: {formatExpiryDate(lot.expiryDate)}</span>}
+                    {lot.expiryDate && (() => {
+                      const expiry = getExpiryMeta(lot.expiryDate)
+                      const label = expiry.tone === 'later' ? expiry.label : `${expiry.label} · ${expiry.exactLabel}`
+                      return (
+                        <span className={`expiry-status expiry-${expiry.tone}`} title={`Termin ważności: ${expiry.exactLabel}`}>
+                          <KitchenIcon name="calendar" size={13} />
+                          {label}
+                        </span>
+                      )
+                    })()}
                   </div>
                   <span className="inventory-row-end">
                     <span className="quantity-pill">{formatQuantity(lot.quantity)} {lot.unitSymbol}</span>
@@ -227,7 +226,12 @@ function InventoryLocationView({
   )
 }
 
-export function InventoryPage({ ownerId, createRequestToken = 0, overviewRequestToken = 0 }: InventoryPageProps) {
+export function InventoryPage({
+  ownerId,
+  createRequestToken = 0,
+  onCreateRequestHandled,
+  overviewRequestToken = 0,
+}: InventoryPageProps) {
   const [loadState, setLoadState] = useState<LoadState>({ status: 'loading', model: null })
   const [reloadVersion, setReloadVersion] = useState(0)
   const [editor, setEditor] = useState<EditorState>(null)
@@ -271,8 +275,9 @@ export function InventoryPage({ ownerId, createRequestToken = 0, overviewRequest
       setSelectedLocationId(null)
       setSearchQuery('')
       setEditor({ kind: 'create' })
+      onCreateRequestHandled?.(createRequestToken)
     }
-  }, [createRequestToken, loadState.status])
+  }, [createRequestToken, loadState.status, onCreateRequestHandled])
 
   useEffect(() => {
     if (overviewRequestToken > 0 && overviewRequestToken !== handledOverviewRequest.current) {

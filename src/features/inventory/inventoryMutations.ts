@@ -7,6 +7,7 @@ export type CreateInventoryLotInput = {
   storageLocationId: string
   quantity: number
   unitCode: string
+  expiryDate: string | null
 }
 
 export type UpdateInventoryLotInput = {
@@ -15,6 +16,7 @@ export type UpdateInventoryLotInput = {
   storageLocationId: string
   quantity: number
   unitCode: string
+  expiryDate: string | null
 }
 
 export type ConsumeInventoryLotInput = {
@@ -83,19 +85,23 @@ async function findMergeableInventoryLot(
   productId: string,
   storageLocationId: string,
   unitCode: string,
+  expiryDate: string | null,
 ): Promise<MergeableInventoryLot | null> {
   if (!supabase) {
     throw new Error('Supabase is not configured.')
   }
 
-  const result = await supabase
+  let query = supabase
     .from('inventory_items')
     .select('id, quantity')
     .eq('owner_id', ownerId)
     .eq('product_id', productId)
     .eq('storage_location_id', storageLocationId)
     .eq('unit_code', unitCode)
-    .is('expiry_date', null)
+
+  query = expiryDate ? query.eq('expiry_date', expiryDate) : query.is('expiry_date', null)
+
+  const result = await query
     .order('created_at', { ascending: true })
     .limit(1)
     .maybeSingle()
@@ -184,6 +190,7 @@ export async function createInventoryLot(input: CreateInventoryLotInput) {
     productId,
     input.storageLocationId,
     input.unitCode,
+    input.expiryDate,
   )
 
   if (mergeableLot) {
@@ -217,7 +224,7 @@ export async function createInventoryLot(input: CreateInventoryLotInput) {
       storage_location_id: input.storageLocationId,
       quantity: input.quantity,
       unit_code: input.unitCode,
-      expiry_date: null,
+      expiry_date: input.expiryDate,
     })
     .select('id')
     .single()
@@ -247,6 +254,7 @@ export async function updateInventoryLot(input: UpdateInventoryLotInput) {
       storage_location_id: input.storageLocationId,
       quantity: input.quantity,
       unit_code: input.unitCode,
+      expiry_date: input.expiryDate,
     })
     .eq('id', input.lotId)
     .eq('owner_id', input.ownerId)

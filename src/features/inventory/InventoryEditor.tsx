@@ -1,5 +1,6 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react'
 import { KitchenIcon } from '../../components/KitchenIcon'
+import { isValidDateOnly } from './expiry'
 import { createInventoryLot, normalizeProductName, removeInventoryLot, updateInventoryLot } from './inventoryMutations'
 import type { InventoryLot, InventoryReadModel } from './types'
 
@@ -37,6 +38,7 @@ export function InventoryEditor({ ownerId, model, mode, onClose, onSaved, onCons
   const [quantity, setQuantity] = useState(initialQuantity(mode))
   const [unitCode, setUnitCode] = useState(initialUnitCode)
   const [locationId, setLocationId] = useState(initialLocationId)
+  const [expiryDate, setExpiryDate] = useState(mode.kind === 'edit' ? (mode.lot.expiryDate ?? '') : '')
   const [unitTouched, setUnitTouched] = useState(mode.kind === 'edit')
   const [saving, setSaving] = useState(false)
   const [removing, setRemoving] = useState(false)
@@ -111,6 +113,11 @@ export function InventoryEditor({ ownerId, model, mode, onClose, onSaved, onCons
       return
     }
 
+    if (expiryDate && !isValidDateOnly(expiryDate)) {
+      setErrorMessage('Podaj prawidłowy termin ważności.')
+      return
+    }
+
     if (mode.kind === 'create') {
       const cleanName = productName.trim().replace(/\s+/g, ' ')
       if (!cleanName || cleanName.length > 120) {
@@ -131,6 +138,7 @@ export function InventoryEditor({ ownerId, model, mode, onClose, onSaved, onCons
           storageLocationId: locationId,
           quantity: parsedQuantity,
           unitCode,
+          expiryDate: expiryDate || null,
         })
       } else {
         await updateInventoryLot({
@@ -139,6 +147,7 @@ export function InventoryEditor({ ownerId, model, mode, onClose, onSaved, onCons
           storageLocationId: locationId,
           quantity: parsedQuantity,
           unitCode,
+          expiryDate: expiryDate || null,
         })
       }
       onSaved()
@@ -263,6 +272,31 @@ export function InventoryEditor({ ownerId, model, mode, onClose, onSaved, onCons
                 <option value={location.id} key={location.id}>{location.name}</option>
               ))}
             </select>
+          </div>
+
+          <div className="form-field">
+            <div className="field-label-row">
+              <label htmlFor="inventory-expiry">Termin ważności</label>
+              <span>Opcjonalnie</span>
+            </div>
+            <div className="date-input-row">
+              <input
+                id="inventory-expiry"
+                type="date"
+                value={expiryDate}
+                onChange={(event) => {
+                  setExpiryDate(event.target.value)
+                  setErrorMessage('')
+                }}
+                disabled={busy}
+              />
+              {expiryDate && (
+                <button className="date-clear-button" type="button" onClick={() => setExpiryDate('')} disabled={busy}>
+                  Wyczyść
+                </button>
+              )}
+            </div>
+            <p className="field-hint">Kitchen użyje tej daty do podpowiedzi „Do zużycia”.</p>
           </div>
 
           {errorMessage && <p className="form-error" role="alert">{errorMessage}</p>}

@@ -892,26 +892,6 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
 .consume-all-button:active { background: #eef5ed; }
 
 /* V1.5 — dedicated storage location pages */
-.inventory-overview-summary {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 9px;
-  margin-bottom: 14px;
-}
-.inventory-overview-summary > div {
-  min-height: 70px;
-  display: grid;
-  place-content: center;
-  gap: 1px;
-  padding: 10px;
-  border: 1px solid var(--color-border);
-  border-radius: 15px;
-  background: rgba(255, 255, 255, .78);
-  text-align: center;
-}
-.inventory-overview-summary strong { font-size: 20px; line-height: 1; }
-.inventory-overview-summary span { color: var(--color-muted); font-size: 10px; }
-
 .inventory-overview-empty {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
@@ -1039,4 +1019,164 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
     align-content: center;
   }
   .location-entry-end { grid-column: 2; justify-content: space-between; }
+}
+
+/* V1.6 — expiry UX + SMART density cleanup */
+.field-label-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+.field-label-row > span {
+  color: var(--color-muted);
+  font-size: 10px;
+  font-weight: 650;
+}
+.date-input-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+}
+.date-input-row input[type="date"] {
+  min-width: 0;
+  width: 100%;
+  font-size: 16px;
+}
+.date-clear-button {
+  min-height: 50px;
+  padding: 0 13px;
+  border: 1px solid var(--color-border);
+  border-radius: 13px;
+  background: #fff;
+  color: var(--color-muted);
+  font-size: 12px;
+  font-weight: 760;
+}
+.date-clear-button:active { background: #f6f8f5; }
+
+.expiry-status {
+  width: fit-content;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 2px;
+  padding: 3px 7px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 760;
+  line-height: 1.25;
+}
+.expiry-overdue {
+  background: #fff0f0;
+  color: #9b343a;
+}
+.expiry-today {
+  background: #fff5e6;
+  color: #8a5815;
+}
+.expiry-soon {
+  background: #fff9e8;
+  color: #76611b;
+}
+.expiry-later {
+  background: #f2f5f1;
+  color: #66746c;
+}
+
+.home-attention {
+  display: grid;
+  gap: 9px;
+  padding-top: 5px;
+}
+.home-attention-heading {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 12px;
+}
+.home-attention-heading > div { min-width: 0; }
+.home-attention-heading .eyebrow { margin-bottom: 4px; }
+.home-attention-heading h2 {
+  margin: 0;
+  font-size: 20px;
+  line-height: 1.1;
+  letter-spacing: -.025em;
+}
+.home-attention-heading > button {
+  min-height: 38px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 11px;
+  background: #eef5ee;
+  color: var(--color-accent-strong);
+  font-size: 11px;
+  font-weight: 800;
+}
+.home-expiry-list {
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: 17px;
+  background: #fff;
+}
+.home-expiry-row {
+  min-height: 64px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+}
+.home-expiry-row + .home-expiry-row { border-top: 1px solid #edf1ec; }
+.home-expiry-icon {
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  border-radius: 11px;
+  background: #f3f6f2;
+  color: var(--color-accent-strong);
+}
+.home-expiry-row > div { min-width: 0; display: grid; gap: 2px; }
+.home-expiry-row strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+}
+.home-expiry-row > div > span { color: var(--color-muted); font-size: 10px; }
+.home-expiry-status {
+  max-width: 118px;
+  padding: 5px 8px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 800;
+  text-align: right;
+}
+.home-expiry-row.expiry-overdue .home-expiry-icon,
+.home-expiry-row.expiry-overdue .home-expiry-status { background: #fff0f0; color: #9b343a; }
+.home-expiry-row.expiry-today .home-expiry-icon,
+.home-expiry-row.expiry-today .home-expiry-status { background: #fff5e6; color: #8a5815; }
+.home-expiry-row.expiry-soon .home-expiry-icon,
+.home-expiry-row.expiry-soon .home-expiry-status { background: #fff9e8; color: #76611b; }
+.home-attention-more {
+  min-height: 42px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 0 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 13px;
+  background: #fff;
+  color: var(--color-accent-strong);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+@media (max-width: 420px) {
+  .date-input-row { grid-template-columns: 1fr; }
+  .date-clear-button { min-height: 44px; }
+  .home-expiry-status { max-width: 104px; }
 }

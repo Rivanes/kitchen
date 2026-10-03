@@ -14,6 +14,7 @@ const requiredFiles = [
   'src/features/inventory/InventoryPage.tsx',
   'src/features/inventory/InventoryEditor.tsx',
   'src/features/inventory/InventoryConsumeSheet.tsx',
+  'src/features/inventory/expiry.ts',
   'src/features/inventory/inventoryReadModel.ts',
   'src/features/inventory/inventoryMutations.ts',
   'src/features/inventory/types.ts',
@@ -26,6 +27,7 @@ const requiredFiles = [
   'tests/INVENTORY_BROWSE_CONTRACT.md',
   'tests/INVENTORY_CONSUME_CONTRACT.md',
   'tests/INVENTORY_LOCATION_CONTRACT.md',
+  'tests/INVENTORY_EXPIRY_CONTRACT.md',
   'vite.config.ts',
 ]
 
@@ -74,7 +76,7 @@ if (!viteConfig.includes("theme_color: '#f7f7f2'")) {
 }
 
 const globalCss = await readFile('src/styles/global.css', 'utf8')
-for (const marker of ['--color-bg: #f7f7f2', '--touch-min: 48px', '.home-quick-action', '.home-coming-card', '.inventory-sheet', '.primary-icon-button', '.inventory-search', '.inventory-stock-actions', '.inventory-consume-sheet', '.danger-button', '.inventory-location-entry', '.inventory-location-page', '.inventory-back-button']) {
+for (const marker of ['--color-bg: #f7f7f2', '--touch-min: 48px', '.home-quick-action', '.home-coming-card', '.home-attention', '.home-expiry-row', '.inventory-sheet', '.primary-icon-button', '.inventory-search', '.inventory-stock-actions', '.inventory-consume-sheet', '.danger-button', '.inventory-location-entry', '.inventory-location-page', '.inventory-back-button', '.expiry-status', '.date-input-row']) {
   if (!globalCss.includes(marker)) {
     throw new Error(`V1.3 UI contract marker missing: ${marker}`)
   }
@@ -84,14 +86,17 @@ const shell = await readFile('src/components/AppShell.tsx', 'utf8')
 if (!shell.includes('aria-label="Główna nawigacja Kitchen"')) {
   throw new Error('Mobile application navigation is missing.')
 }
-if (!shell.includes('<HomePage ownerId={user.id} onAddProduct={openInventoryCreate} />')) {
-  throw new Error('Start must use the contextual V1.3 HomePage.')
+if (!shell.includes("<HomePage ownerId={user.id} onAddProduct={openInventoryCreate} onOpenInventory={() => changeView('inventory')} />")) {
+  throw new Error('Start must use the contextual V1.6 HomePage and keep an Inventory action.')
 }
 if (shell.includes('futureModules') || shell.includes('module-grid')) {
   throw new Error('Start must not duplicate bottom-navigation modules.')
 }
 if (!shell.includes('createRequestToken={inventoryCreateRequest}')) {
   throw new Error('Start quick-add must be able to open the Inventory create flow.')
+}
+if (!shell.includes('onCreateRequestHandled={handleInventoryCreateRequestHandled}') || !shell.includes('currentToken === requestToken ? 0 : currentToken')) {
+  throw new Error('V1.5.1 must acknowledge and clear consumed Inventory create requests so bottom-nav entry cannot replay them.')
 }
 if (!shell.includes('overviewRequestToken={inventoryOverviewRequest}') || !shell.includes('setInventoryOverviewRequest')) {
   throw new Error('V1.5 bottom-nav Inventory action must be able to return a location detail page to the Zapasy overview.')
@@ -109,6 +114,19 @@ if (!inventoryReadModel.includes(".eq('owner_id', ownerId)")) {
 if (/\.(insert|update|upsert|delete)\s*\(/.test(inventoryReadModel)) {
   throw new Error('Inventory read model itself must remain read-only.')
 }
+if (!inventoryReadModel.includes('compareExpiryDates') || !inventoryReadModel.includes('a.expiryDate')) {
+  throw new Error('V1.6 Inventory read model must sort dated lots by expiry before undated lots.')
+}
+
+const expiry = await readFile('src/features/inventory/expiry.ts', 'utf8')
+for (const marker of ['Date.UTC', 'needsAttention', 'daysUntilDate', 'compareExpiryDates', 'daysUntil <= 7']) {
+  if (!expiry.includes(marker)) {
+    throw new Error(`V1.6 expiry contract marker missing: ${marker}`)
+  }
+}
+if (/new Date\(value\)/.test(expiry)) {
+  throw new Error('Date-only expiry values must not be parsed with ambiguous new Date(value) semantics.')
+}
 
 const mutations = await readFile('src/features/inventory/inventoryMutations.ts', 'utf8')
 if (!mutations.includes(".from('products')") || !mutations.includes(".from('inventory_items')")) {
@@ -123,8 +141,11 @@ if (!mutations.includes(".eq('owner_id', input.ownerId)")) {
 if (!mutations.includes("productResult.error.code === '23505'")) {
   throw new Error('V1.3 must handle database duplicate Product identity safely.')
 }
-if (!mutations.includes('findMergeableInventoryLot') || !mutations.includes(".is('expiry_date', null)")) {
-  throw new Error('V1.3 merge behavior must remain intact in V1.4.')
+if (!mutations.includes('findMergeableInventoryLot') || !mutations.includes(".is('expiry_date', null)") || !mutations.includes(".eq('expiry_date', expiryDate)")) {
+  throw new Error('V1.6 merge behavior must only combine lots with the same expiry semantics.')
+}
+if (!mutations.includes('expiryDate: string | null') || !mutations.includes('expiry_date: input.expiryDate')) {
+  throw new Error('V1.6 create/edit mutations must persist optional expiry dates.')
 }
 if (!mutations.includes('consumeInventoryLot') || !mutations.includes('consumeAllInventoryLot') || !mutations.includes('removeInventoryLot')) {
   throw new Error('V1.4 must provide explicit consume and remove mutations.')
@@ -148,8 +169,11 @@ if (!editor.includes('mode.initialLocationId ?? model.locations[0]?.id')) {
   throw new Error('V1.5 create editor must accept a location-page initial location without removing manual location choice.')
 }
 
-if (/type=["']date["']/.test(editor) || /expiry/i.test(editor)) {
-  throw new Error('Expiry input/semantics remain reserved for V1.6.')
+if (!/type=["']date["']/.test(editor) || !editor.includes('inventory-expiry') || !editor.includes('expiryDate: expiryDate || null')) {
+  throw new Error('V1.6 editor must provide an optional date-only expiry field and persist it on create/edit.')
+}
+if (!editor.includes('isValidDateOnly')) {
+  throw new Error('V1.6 editor must validate the optional calendar date before mutation.')
 }
 if (!editor.includes('onConsumeRequested') || !editor.includes('Usuń z zapasów') || !editor.includes('removeInventoryLot')) {
   throw new Error('V1.4 edit flow must expose consume and explicit removal actions.')
@@ -174,8 +198,20 @@ if (!inventoryPage.includes("initialLocationId: selectedGroup.location.id")) {
 if (inventoryPage.includes('inventory-summary')) {
   throw new Error('V1.5 must not restore the old three-counter Inventory summary.')
 }
+if (!inventoryPage.includes('onCreateRequestHandled?.(createRequestToken)')) {
+  throw new Error('V1.5.1 Inventory must acknowledge the create request immediately after opening the editor.')
+}
 if (!inventoryPage.includes('<InventoryConsumeSheet') || !inventoryPage.includes('consumeLot')) {
   throw new Error('V1.4 Inventory page must wire the consume flow into the current stock lot.')
+}
+if (!inventoryPage.includes('getExpiryMeta') || !inventoryPage.includes('expiry-status')) {
+  throw new Error('V1.6 location pages must render clear expiry status for dated stock lots.')
+}
+if (inventoryPage.includes('inventory-overview-summary') || /pozycj/i.test(inventoryPage)) {
+  throw new Error('V1.6 SMART cleanup must remove technical overview counters and the term pozycja from everyday Inventory UI.')
+}
+if (!inventoryPage.includes('partia')) {
+  throw new Error('V1.6 may expose the natural term partia only when multiple lots need distinction.')
 }
 
 const consumeSheet = await readFile('src/features/inventory/InventoryConsumeSheet.tsx', 'utf8')
@@ -188,7 +224,16 @@ if (!consumeSheet.includes('quantityToUse > lot.quantity')) {
 
 const homePage = await readFile('src/features/home/HomePage.tsx', 'utf8')
 if (!homePage.includes('Kitchen podpowie więcej') || !homePage.includes('Do zużycia') || !homePage.includes('Co ugotować')) {
-  throw new Error('V1.3.2 Start must keep compact future SMART dashboard previews without duplicating navigation cards.')
+  throw new Error('V1.6 Start must keep the SMART dashboard and future module previews.')
+}
+if (!homePage.includes('getExpiryMeta') || !homePage.includes('needsAttention') || !homePage.includes('Sprawdź najpierw')) {
+  throw new Error('V1.6 Start must activate a contextual expiry-attention section for due/overdue stock.')
+}
+if (/pozycj|occupiedLocations/.test(homePage)) {
+  throw new Error('V1.6 Home must not expose technical Inventory counters such as positions or occupied locations.')
+}
+if (!homePage.includes('stockedProducts')) {
+  throw new Error('V1.6 Home may keep one natural product-count summary.')
 }
 
 console.log('Kitchen project contract verification: PASS')

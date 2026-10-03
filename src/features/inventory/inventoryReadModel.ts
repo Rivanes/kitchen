@@ -1,4 +1,5 @@
 import { supabase } from '../../lib/supabase/client'
+import { compareExpiryDates } from './expiry'
 import type {
   InventoryLocation,
   InventoryLocationGroup,
@@ -139,9 +140,9 @@ export async function loadInventoryReadModel(ownerId: string): Promise<Inventory
   })
 
   lots.sort((a, b) => {
-    const byProduct = a.productName.localeCompare(b.productName, 'pl', { sensitivity: 'base' })
-    if (byProduct !== 0) return byProduct
-    return (a.expiryDate ?? '9999-12-31').localeCompare(b.expiryDate ?? '9999-12-31')
+    const byExpiry = compareExpiryDates(a.expiryDate, b.expiryDate)
+    if (byExpiry !== 0) return byExpiry
+    return a.productName.localeCompare(b.productName, 'pl', { sensitivity: 'base' })
   })
 
   const groups: InventoryLocationGroup[] = locations.map((location) => ({

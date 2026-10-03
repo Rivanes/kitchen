@@ -34,6 +34,10 @@ export function AppShell({ user }: AppShellProps) {
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
+  function handleInventoryCreateRequestHandled(requestToken: number) {
+    setInventoryCreateRequest((currentToken) => (currentToken === requestToken ? 0 : currentToken))
+  }
+
   return (
     <main className="app-layout">
       <header className="app-header">
@@ -50,11 +54,12 @@ export function AppShell({ user }: AppShellProps) {
       </header>
 
       {view === 'home' ? (
-        <HomePage ownerId={user.id} onAddProduct={openInventoryCreate} />
+        <HomePage ownerId={user.id} onAddProduct={openInventoryCreate} onOpenInventory={() => changeView('inventory')} />
       ) : (
         <InventoryPage
           ownerId={user.id}
           createRequestToken={inventoryCreateRequest}
+          onCreateRequestHandled={handleInventoryCreateRequestHandled}
           overviewRequestToken={inventoryOverviewRequest}
         />
       )}
