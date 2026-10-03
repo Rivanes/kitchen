@@ -14,6 +14,14 @@ export type InventoryLocation = {
   sortOrder: number
 }
 
+
+export type InventoryCreateSeed = {
+  productId: string
+  productName: string
+  quantity: number
+  unitCode: string
+}
+
 export type InventoryLot = {
   id: string
   productId: string

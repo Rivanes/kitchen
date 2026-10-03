@@ -271,3 +271,36 @@ export async function restoreShoppingPurchase(input: RestoreShoppingPurchaseInpu
     throw new Error(`Nie udało się przywrócić rzeczy do listy: ${result.error.message}`)
   }
 }
+
+
+export type TransferPurchasedShoppingItemInput = {
+  ownerId: string
+  itemId: string
+  storageLocationId: string
+  expiryDate: string | null
+  afterOpenDays: number | null
+}
+
+export async function transferPurchasedShoppingItemToInventory(input: TransferPurchasedShoppingItemInput) {
+  if (!supabase) throw new Error('Supabase is not configured.')
+
+  const result = await supabase
+    .rpc('transfer_purchased_shopping_item_to_inventory', {
+      p_owner_id: input.ownerId,
+      p_shopping_item_id: input.itemId,
+      p_storage_location_id: input.storageLocationId,
+      p_expiry_date: input.expiryDate,
+      p_after_open_days: input.afterOpenDays,
+    })
+    .maybeSingle()
+
+  if (result.error) {
+    throw new Error(`Nie udało się przenieść zakupu do zapasów: ${result.error.message}`)
+  }
+
+  if (!result.data) {
+    throw new Error('Nie udało się potwierdzić przeniesienia zakupu do zapasów.')
+  }
+
+  return result.data.inventory_item_id as string
+}

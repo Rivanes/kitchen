@@ -8,32 +8,38 @@ import { QuantityStepperInput } from '../quantity/QuantityStepperInput'
 import { parseQuantityInput, QUANTITY_INPUT_ERROR } from '../quantity/quantity'
 import { formatDateOnly, isValidDateOnly } from './expiry'
 import { createInventoryLot, removeInventoryLot, updateInventoryLot } from './inventoryMutations'
-import type { InventoryLot, InventoryReadModel } from './types'
+import type { CreateInventoryLotInput } from './inventoryMutations'
+import type { InventoryCreateSeed, InventoryLot, InventoryReadModel } from './types'
 
-type InventoryEditorMode =
-  | { kind: 'create'; initialLocationId?: string }
+export type InventoryEditorMode =
+  | { kind: 'create'; initialLocationId?: string; seed?: InventoryCreateSeed }
   | { kind: 'edit'; lot: InventoryLot }
 
-type InventoryEditorProps = {
+export type InventoryEditorProps = {
   ownerId: string
   model: InventoryReadModel
   mode: InventoryEditorMode
   onClose: () => void
   onSaved: () => void
-  onConsumeRequested: (lot: InventoryLot) => void
+  onConsumeRequested?: (lot: InventoryLot) => void
+  createHandler?: (input: CreateInventoryLotInput) => Promise<unknown>
 }
 
 function initialQuantity(mode: InventoryEditorMode) {
-  return mode.kind === 'edit' ? String(mode.lot.quantity).replace('.', ',') : '1'
+  if (mode.kind === 'edit') return String(mode.lot.quantity).replace('.', ',')
+  return String(mode.seed?.quantity ?? 1).replace('.', ',')
 }
 
 
-export function InventoryEditor({ ownerId, model, mode, onClose, onSaved, onConsumeRequested }: InventoryEditorProps) {
+export function InventoryEditor({ ownerId, model, mode, onClose, onSaved, onConsumeRequested, createHandler = createInventoryLot }: InventoryEditorProps) {
   const initialLocationId = mode.kind === 'edit'
     ? mode.lot.storageLocationId
     : (mode.initialLocationId ?? model.locations[0]?.id ?? '')
-  const initialUnitCode = mode.kind === 'edit' ? mode.lot.unitCode : getDefaultUnitCode(model.units)
-  const [productName, setProductName] = useState(mode.kind === 'edit' ? mode.lot.productName : '')
+  const createSeed = mode.kind === 'create' ? mode.seed : undefined
+  const initialUnitCode = mode.kind === 'edit'
+    ? mode.lot.unitCode
+    : (createSeed?.unitCode ?? getDefaultUnitCode(model.units))
+  const [productName, setProductName] = useState(mode.kind === 'edit' ? mode.lot.productName : (createSeed?.productName ?? ''))
   const currentProductName = mode.kind === 'edit' ? mode.lot.productName : ''
   const [renameOpen, setRenameOpen] = useState(false)
   const [renameName, setRenameName] = useState(mode.kind === 'edit' ? mode.lot.productName : '')
@@ -44,7 +50,7 @@ export function InventoryEditor({ ownerId, model, mode, onClose, onSaved, onCons
   const [locationId, setLocationId] = useState(initialLocationId)
   const [expiryDate, setExpiryDate] = useState(mode.kind === 'edit' ? (mode.lot.expiryDate ?? '') : '')
   const [afterOpenDays, setAfterOpenDays] = useState(mode.kind === 'edit' && mode.lot.afterOpenDays ? String(mode.lot.afterOpenDays) : '')
-  const [unitTouched, setUnitTouched] = useState(mode.kind === 'edit')
+  const [unitTouched, setUnitTouched] = useState(mode.kind === 'edit' || Boolean(createSeed))
   const [saving, setSaving] = useState(false)
   const [removing, setRemoving] = useState(false)
   const [confirmingRemove, setConfirmingRemove] = useState(false)
@@ -54,10 +60,10 @@ export function InventoryEditor({ ownerId, model, mode, onClose, onSaved, onCons
 
   const productAutocomplete = useProductAutocomplete(
     model.products,
-    mode.kind === 'create' ? productName : '',
+    mode.kind === 'create' && !createSeed ? productName : '',
   )
-  const exactProduct = mode.kind === 'create' ? productAutocomplete.exactProduct : null
-  const suggestions = mode.kind === 'create' ? productAutocomplete.suggestions : []
+  const exactProduct = mode.kind === 'create' && !createSeed ? productAutocomplete.exactProduct : null
+  const suggestions = mode.kind === 'create' && !createSeed ? productAutocomplete.suggestions : []
 
   const renameCollision = useMemo(() => {
     if (mode.kind !== 'edit') return null
@@ -93,13 +99,13 @@ export function InventoryEditor({ ownerId, model, mode, onClose, onSaved, onCons
   }, [onClose, busy, renameOpen, currentProductName])
 
   useEffect(() => {
-    if (mode.kind !== 'create' || unitTouched) return
+    if (mode.kind !== 'create' || createSeed || unitTouched) return
     if (exactProduct) {
       setUnitCode(exactProduct.defaultUnitCode)
     } else {
       setUnitCode(getDefaultUnitCode(model.units))
     }
-  }, [mode.kind, exactProduct, model.units, unitTouched])
+  }, [mode.kind, createSeed, exactProduct, model.units, unitTouched])
 
   function chooseProduct(product: (typeof model.products)[number]) {
     setProductName(product.name)
@@ -198,10 +204,10 @@ export function InventoryEditor({ ownerId, model, mode, onClose, onSaved, onCons
 
     try {
       if (mode.kind === 'create') {
-        await createInventoryLot({
+        await createHandler({
           ownerId,
           productName,
-          existingProductId: exactProduct?.id ?? null,
+          existingProductId: createSeed?.productId ?? exactProduct?.id ?? null,
           storageLocationId: locationId,
           quantity: parsedQuantity,
           unitCode,
@@ -249,10 +255,10 @@ export function InventoryEditor({ ownerId, model, mode, onClose, onSaved, onCons
         <div className="sheet-handle" aria-hidden="true" />
         <div className="sheet-header">
           <div>
-            <p className="eyebrow">{mode.kind === 'create' ? 'Nowy zapas' : renameOpen ? 'Produkt' : 'Edycja'}</p>
+            <p className="eyebrow">{mode.kind === 'create' ? (createSeed ? 'Kupione' : 'Nowy zapas') : renameOpen ? 'Produkt' : 'Edycja'}</p>
             <div className="inventory-editor-title-row">
               <h2 id="inventory-editor-title">
-                {mode.kind === 'create' ? 'Dodaj produkt' : renameOpen ? 'Zmień nazwę' : currentProductName}
+                {mode.kind === 'create' ? (createSeed ? 'Dodaj do zapasów' : 'Dodaj produkt') : renameOpen ? 'Zmień nazwę' : currentProductName}
               </h2>
               {mode.kind === 'edit' && !renameOpen && (
                 <button
@@ -307,7 +313,7 @@ export function InventoryEditor({ ownerId, model, mode, onClose, onSaved, onCons
         ) : (
           <>
         <form className="inventory-form" onSubmit={handleSubmit}>
-          {mode.kind === 'create' && (
+          {mode.kind === 'create' && !createSeed && (
             <ProductAutocompleteField
               inputRef={firstInputRef}
               inputId="inventory-product-name"
@@ -327,7 +333,15 @@ export function InventoryEditor({ ownerId, model, mode, onClose, onSaved, onCons
             />
           )}
 
-          <div className="form-split">
+          {mode.kind === 'create' && createSeed && (
+            <div className="inventory-create-seed-summary" aria-label="Kupiony produkt przenoszony do zapasów">
+              <strong>{createSeed.productName}</strong>
+              <span>{quantity} {model.units.find((unit) => unit.code === unitCode)?.symbol ?? unitCode}</span>
+              <small>Produkt i kupiona ilość pozostaną bez zmian.</small>
+            </div>
+          )}
+
+          {!createSeed && <div className="form-split">
             <div className="form-field">
               <label htmlFor="inventory-quantity">Ilość</label>
               <QuantityStepperInput
@@ -360,7 +374,7 @@ export function InventoryEditor({ ownerId, model, mode, onClose, onSaved, onCons
                 ))}
               </select>
             </div>
-          </div>
+          </div>}
 
           <div className="form-field">
             <label htmlFor="inventory-location">Miejsce</label>
@@ -470,7 +484,7 @@ export function InventoryEditor({ ownerId, model, mode, onClose, onSaved, onCons
                 <button
                   className="stock-action-button"
                   type="button"
-                  onClick={() => onConsumeRequested(mode.lot)}
+                  onClick={() => onConsumeRequested?.(mode.lot)}
                   disabled={busy}
                   aria-label={`Zużyj ${currentProductName}`}
                 >

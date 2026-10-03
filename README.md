@@ -211,3 +211,18 @@ Restore merges a purchased fragment back into an equivalent active remainder ins
 a duplicate row.
 
 V2.5.1 adds no table/column/schema-model change, but it does require the supplied SQL function migration.
+
+
+## V2.6 — Purchased -> Inventory
+
+A purchased Shopping fragment can be transferred into Inventory without recreating the Product.
+The exact canonical `product_id`, purchased quantity and unit are preserved. The existing Inventory
+editor is reused for storage location, expiry and after-open configuration.
+
+Inventory lot add/merge now has one database authority: `public.add_inventory_lot(...)`.
+Normal Inventory creation calls that same authority, and Shopping transfer delegates to it through
+`public.transfer_purchased_shopping_item_to_inventory(...)`. This prevents a second Inventory merge
+implementation from appearing in the Shopping module.
+
+The transfer is atomic: Inventory add/merge and removal of the purchased Shopping fragment succeed
+or fail together. Purchased rows disappear from `Kupione` after successful transfer.

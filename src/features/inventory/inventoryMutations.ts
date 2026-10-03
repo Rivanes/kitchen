@@ -4,7 +4,6 @@ import {
   resolveOrCreateCanonicalProduct,
 } from '../products/productCatalogMutations'
 import {
-  addQuantities,
   assertValidQuantity,
   readStoredQuantity,
 } from '../quantity/quantity'
@@ -49,10 +48,6 @@ export type ConsumeInventoryResult = {
   openedUseByDate: string | null
 }
 
-type MergeableInventoryLot = {
-  id: string
-  quantity: number | string
-}
 
 type CurrentInventoryLot = {
   id: string
@@ -73,42 +68,6 @@ function normalizeAfterOpenDays(value: number | null) {
     throw new Error('Termin po otwarciu musi mieć od 1 do 3650 dni.')
   }
   return value
-}
-
-async function findMergeableInventoryLot(
-  ownerId: string,
-  productId: string,
-  storageLocationId: string,
-  unitCode: string,
-  expiryDate: string | null,
-  afterOpenDays: number | null,
-): Promise<MergeableInventoryLot | null> {
-  if (!supabase) throw new Error('Supabase is not configured.')
-
-  let query = supabase
-    .from('inventory_items')
-    .select('id, quantity')
-    .eq('owner_id', ownerId)
-    .eq('product_id', productId)
-    .eq('storage_location_id', storageLocationId)
-    .eq('unit_code', unitCode)
-    .is('opened_at', null)
-
-  query = expiryDate ? query.eq('expiry_date', expiryDate) : query.is('expiry_date', null)
-  query = afterOpenDays === null
-    ? query.is('after_open_days', null)
-    : query.eq('after_open_days', afterOpenDays)
-
-  const result = await query
-    .order('created_at', { ascending: true })
-    .limit(1)
-    .maybeSingle()
-
-  if (result.error) {
-    throw new Error(`Nie udało się sprawdzić istniejącego zapasu: ${result.error.message}`)
-  }
-
-  return (result.data as MergeableInventoryLot | null) ?? null
 }
 
 async function getCurrentInventoryLot(ownerId: string, lotId: string): Promise<CurrentInventoryLot> {
@@ -145,60 +104,27 @@ export async function createInventoryLot(input: CreateInventoryLotInput) {
   })
 
   try {
-    const mergeableLot = await findMergeableInventoryLot(
-      input.ownerId,
-      product.id,
-      input.storageLocationId,
-      input.unitCode,
-      input.expiryDate,
-      afterOpenDays,
-    )
-
-    if (mergeableLot) {
-      const currentQuantity = readStoredQuantity(
-        mergeableLot.quantity,
-        'Zapisana ilość produktu jest nieprawidłowa.',
-      )
-      const nextQuantity = addQuantities(
-        currentQuantity,
-        input.quantity,
-        'Łączna ilość produktu przekracza dozwolony zakres.',
-      )
-
-      const mergeResult = await supabase
-        .from('inventory_items')
-        .update({ quantity: nextQuantity })
-        .eq('id', mergeableLot.id)
-        .eq('owner_id', input.ownerId)
-        .select('id')
-        .maybeSingle()
-
-      if (mergeResult.error || !mergeResult.data) {
-        throw new Error(`Nie udało się połączyć zapasu: ${mergeResult.error?.message ?? 'brak zapisu'}`)
-      }
-
-      return mergeResult.data.id
-    }
-
-    const itemResult = await supabase
-      .from('inventory_items')
-      .insert({
-        owner_id: input.ownerId,
-        product_id: product.id,
-        storage_location_id: input.storageLocationId,
-        quantity: input.quantity,
-        unit_code: input.unitCode,
-        expiry_date: input.expiryDate,
-        after_open_days: afterOpenDays,
+    const result = await supabase
+      .rpc('add_inventory_lot', {
+        p_owner_id: input.ownerId,
+        p_product_id: product.id,
+        p_storage_location_id: input.storageLocationId,
+        p_quantity: input.quantity,
+        p_unit_code: input.unitCode,
+        p_expiry_date: input.expiryDate,
+        p_after_open_days: afterOpenDays,
       })
-      .select('id')
-      .single()
+      .maybeSingle()
 
-    if (itemResult.error) {
-      throw new Error(`Nie udało się dodać zapasu: ${itemResult.error.message}`)
+    if (result.error) {
+      throw new Error(`Nie udało się dodać zapasu: ${result.error.message}`)
     }
 
-    return itemResult.data.id
+    if (!result.data) {
+      throw new Error('Nie udało się potwierdzić dodania zapasu.')
+    }
+
+    return result.data.inventory_item_id as string
   } catch (error) {
     if (product.created) {
       await cleanupCreatedCanonicalProduct(input.ownerId, product.id)

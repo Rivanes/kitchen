@@ -3,6 +3,7 @@ import { KitchenIcon } from '../../components/KitchenIcon'
 import { formatQuantity } from '../quantity/quantity'
 import { ShoppingEditor } from './ShoppingEditor'
 import { ShoppingPurchaseSheet } from './ShoppingPurchaseSheet'
+import { ShoppingInventoryBridge } from './ShoppingInventoryBridge'
 import { restoreShoppingPurchase } from './shoppingMutations'
 import { loadShoppingReadModel } from './shoppingReadModel'
 import type { ShoppingItem, ShoppingReadModel } from './types'
@@ -42,6 +43,7 @@ export function ShoppingPage({ ownerId }: ShoppingPageProps) {
   const [searchQuery, setSearchQuery] = useState('')
   const [completedOpen, setCompletedOpen] = useState(true)
   const [purchaseTarget, setPurchaseTarget] = useState<ShoppingItem | null>(null)
+  const [inventoryTarget, setInventoryTarget] = useState<ShoppingItem | null>(null)
   const [updatingItemId, setUpdatingItemId] = useState<string | null>(null)
   const [actionError, setActionError] = useState('')
 
@@ -85,6 +87,13 @@ export function ShoppingPage({ ownerId }: ShoppingPageProps) {
     const nextModel = await loadShoppingReadModel(ownerId)
     setShoppingStatus({ status: 'ready', model: nextModel })
     setCompletedOpen(true)
+  }
+
+  async function handleTransferredToInventory() {
+    setInventoryTarget(null)
+    setActionError('')
+    const nextModel = await loadShoppingReadModel(ownerId)
+    setShoppingStatus({ status: 'ready', model: nextModel })
   }
 
   async function handleRestorePurchased(item: ShoppingItem) {
@@ -258,6 +267,16 @@ export function ShoppingPage({ ownerId }: ShoppingPageProps) {
                         <strong>{item.name}</strong>
                         <small>{formatQuantity(item.quantity)} {item.unitSymbol}</small>
                       </div>
+                      <button
+                        className="shopping-to-inventory-button"
+                        type="button"
+                        onClick={() => setInventoryTarget(item)}
+                        disabled={Boolean(updatingItemId)}
+                        aria-label={`Dodaj ${item.name} do zapasów`}
+                        title="Dodaj do zapasów"
+                      >
+                        <KitchenIcon name="inventory" size={18} />
+                      </button>
                     </li>
                   ))}
                 </ul>
@@ -279,6 +298,15 @@ export function ShoppingPage({ ownerId }: ShoppingPageProps) {
           <KitchenIcon name="plus" size={18} />
           Dodaj do listy
         </button>
+      )}
+
+      {inventoryTarget && (
+        <ShoppingInventoryBridge
+          ownerId={ownerId}
+          item={inventoryTarget}
+          onClose={() => setInventoryTarget(null)}
+          onTransferred={() => void handleTransferredToInventory()}
+        />
       )}
 
       {purchaseTarget && (

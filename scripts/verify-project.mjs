@@ -37,6 +37,7 @@ const requiredFiles = [
   'tests/PRODUCT_RENAME_CONTRACT.md',
   'src/features/shopping/ShoppingPage.tsx',
   'src/features/shopping/ShoppingPurchaseSheet.tsx',
+  'src/features/shopping/ShoppingInventoryBridge.tsx',
   'src/features/shopping/ShoppingEditor.tsx',
   'src/features/shopping/shoppingReadModel.ts',
   'src/features/shopping/shoppingMutations.ts',
@@ -55,6 +56,7 @@ const requiredFiles = [
   'tests/QUANTITY_STEPPER_CONTRACT.md',
   'tests/SHOPPING_PURCHASED_STATE_CONTRACT.md',
   'tests/SHOPPING_PARTIAL_PURCHASE_CONTRACT.md',
+  'tests/SHOPPING_TO_INVENTORY_CONTRACT.md',
   'vite.config.ts',
 ]
 
@@ -176,17 +178,20 @@ if (/new Date\(value\)/.test(expiry)) {
 }
 
 const mutations = await readFile('src/features/inventory/inventoryMutations.ts', 'utf8')
-if (!mutations.includes('resolveOrCreateCanonicalProduct') || !mutations.includes(".from('inventory_items')")) {
-  throw new Error('Inventory create must use the shared canonical Product authority.')
+if (!mutations.includes('resolveOrCreateCanonicalProduct') || !mutations.includes(".rpc('add_inventory_lot'")) {
+  throw new Error('V2.6 Inventory create must use shared Product identity plus the shared Inventory lot authority.')
 }
-if (!mutations.includes('.insert({') || !mutations.includes('.update({')) {
-  throw new Error('V1.3 must support create and edit mutations.')
+if (!mutations.includes(".rpc('add_inventory_lot'") || !mutations.includes('.update({')) {
+  throw new Error('V2.6 must support shared create/merge authority and direct edit mutation.')
 }
 if (!mutations.includes(".eq('owner_id', input.ownerId)")) {
   throw new Error('V1.3 mutations must explicitly scope owner_id.')
 }
-if (!mutations.includes('findMergeableInventoryLot') || !mutations.includes(".is('expiry_date', null)") || !mutations.includes(".eq('expiry_date', expiryDate)") || !mutations.includes(".is('opened_at', null)")) {
-  throw new Error('V1.6.2 merge behavior must only combine unopened lots with identical expiry semantics.')
+if (mutations.includes('findMergeableInventoryLot')) {
+  throw new Error('V2.6 must not keep a second client-side Inventory merge authority.')
+}
+if (!mutations.includes("p_expiry_date: input.expiryDate") || !mutations.includes("p_after_open_days: afterOpenDays")) {
+  throw new Error('V2.6 Inventory create must delegate expiry and after-open merge semantics to add_inventory_lot.')
 }
 if (!mutations.includes('expiryDate: string | null') || !mutations.includes('expiry_date: input.expiryDate')) {
   throw new Error('V1.6 create/edit mutations must persist optional expiry dates.')
@@ -213,7 +218,7 @@ const consumeAllBlock = mutations.slice(
 if (consumeAllBlock.includes('removeInventoryLot(') || consumeAllBlock.includes('.delete()')) {
   throw new Error('V2.3.3 full consumption must not be implemented as explicit removal.')
 }
-for (const marker of ['assertValidQuantity', 'readStoredQuantity', 'addQuantities', 'cleanupCreatedCanonicalProduct']) {
+for (const marker of ['assertValidQuantity', 'readStoredQuantity', 'cleanupCreatedCanonicalProduct']) {
   if (!mutations.includes(marker)) {
     throw new Error(`V2.3.3 Inventory mutation must reuse shared core: ${marker}`)
   }
@@ -265,6 +270,12 @@ if (!editor.includes("mode.kind === 'edit' && !renameOpen") || !editor.includes(
 
 if (!editor.includes('ProductAutocompleteField') || !editor.includes('useProductAutocomplete')) {
   throw new Error('V2.3.1 Inventory create must use the shared Product autocomplete surface.')
+}
+
+for (const marker of ['seed?: InventoryCreateSeed', 'createHandler = createInventoryLot', 'createSeed?.productId ?? exactProduct?.id ?? null', 'inventory-create-seed-summary', 'Produkt i kupiona ilość pozostaną bez zmian.']) {
+  if (!editor.includes(marker)) {
+    throw new Error(`V2.6 reusable seeded Inventory create marker missing: ${marker}`)
+  }
 }
 
 const sharedProductIdentity = await readFile('src/features/products/productIdentity.ts', 'utf8')
@@ -453,6 +464,12 @@ for (const marker of ['purchaseShoppingQuantity', 'restoreShoppingPurchase', "rp
 if (shoppingMutations.includes('setShoppingItemPurchased')) {
   throw new Error('V2.5.1 must not retain a second boolean-only Shopping completion mutation authority.')
 }
+
+for (const marker of ['transferPurchasedShoppingItemToInventory', "rpc('transfer_purchased_shopping_item_to_inventory'", 'p_shopping_item_id: input.itemId']) {
+  if (!shoppingMutations.includes(marker)) {
+    throw new Error(`V2.6 Shopping -> Inventory mutation marker missing: ${marker}`)
+  }
+}
 if (!shoppingMutations.includes('mergeTarget') || !shoppingMutations.includes('item.unit_code === input.unitCode')) {
   throw new Error('V2.3 create must merge only the same active identity in the same unit.')
 }
@@ -501,12 +518,29 @@ if (!shoppingPage.includes('visibleActiveItems') || !shoppingPage.includes('visi
   throw new Error('V2.5 shared Shopping search must filter both active and purchased groups.')
 }
 
+for (const marker of ['ShoppingInventoryBridge', 'inventoryTarget', 'shopping-to-inventory-button', 'Dodaj ${item.name} do zapasów', 'handleTransferredToInventory']) {
+  if (!shoppingPage.includes(marker)) {
+    throw new Error(`V2.6 Purchased -> Inventory page marker missing: ${marker}`)
+  }
+}
+
 
 const shoppingPurchaseSheet = await readFile('src/features/shopping/ShoppingPurchaseSheet.tsx', 'utf8')
 for (const marker of ['Ile kupiono?', 'QuantityStepperInput', 'max={item.quantity}', 'purchaseShoppingQuantity', 'Zostanie do kupienia:', 'Cała pozycja trafi do „Kupione”.']) {
   if (!shoppingPurchaseSheet.includes(marker)) {
     throw new Error(`V2.5.1 partial-purchase sheet marker missing: ${marker}`)
   }
+}
+
+
+const shoppingInventoryBridge = await readFile('src/features/shopping/ShoppingInventoryBridge.tsx', 'utf8')
+for (const marker of ['InventoryEditor', 'loadInventoryReadModel', 'transferPurchasedShoppingItemToInventory', 'productId: item.productId!', 'quantity: item.quantity', 'unitCode: item.unitCode', 'createHandler={transfer}']) {
+  if (!shoppingInventoryBridge.includes(marker)) {
+    throw new Error(`V2.6 shared Shopping -> Inventory bridge marker missing: ${marker}`)
+  }
+}
+if (shoppingInventoryBridge.includes(".from('inventory_items')") || shoppingInventoryBridge.includes('.insert({')) {
+  throw new Error('V2.6 Shopping bridge must not own a second Inventory persistence implementation.')
 }
 
 if (!homePage.includes('onOpenShopping') || !homePage.includes('home-shopping-hub') || !homePage.includes('loadActiveShoppingCount')) {
@@ -534,6 +568,12 @@ for (const marker of ['ShoppingCatalogModel', 'ShoppingCreateSeed', 'productId: 
 for (const marker of ['isPurchased: boolean', 'purchasedAt: string | null', 'activeItems: ShoppingItem[]', 'purchasedItems: ShoppingItem[]']) {
   if (!shoppingTypes.includes(marker)) {
     throw new Error(`V2.5 Shopping type marker missing: ${marker}`)
+  }
+}
+
+for (const marker of ['InventoryCreateSeed', 'productId: string', 'productName: string', 'quantity: number', 'unitCode: string']) {
+  if (!inventoryTypes.includes(marker)) {
+    throw new Error(`V2.6 Inventory create seed marker missing: ${marker}`)
   }
 }
 
@@ -566,9 +606,9 @@ for (const marker of ['.quantity-stepper', '.quantity-stepper-button', 'grid-tem
     throw new Error(`V2.4.1 quantity stepper style marker missing: ${marker}`)
   }
 }
-for (const marker of ['.shopping-purchase-toggle', '.shopping-completed-section', '.shopping-completed-heading', '.shopping-item-completed', '.shopping-all-done-card', '.shopping-purchase-sheet', '.shopping-purchase-remaining']) {
+for (const marker of ['.shopping-purchase-toggle', '.shopping-completed-section', '.shopping-completed-heading', '.shopping-item-completed', '.shopping-all-done-card', '.shopping-purchase-sheet', '.shopping-purchase-remaining', '.shopping-to-inventory-button', '.inventory-create-seed-summary', '.shopping-inventory-bridge-state']) {
   if (!quantityStepperStyles.includes(marker)) {
-    throw new Error(`V2.5.1 purchased-state style marker missing: ${marker}`)
+    throw new Error(`V2.6 purchased-state/inventory-transfer style marker missing: ${marker}`)
   }
 }
 

@@ -2176,3 +2176,77 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
   background: #eef7ed;
   color: #345f39;
 }
+
+
+/* V2.6 — Purchased -> Inventory */
+.shopping-item-completed {
+  grid-template-columns: 48px minmax(0, 1fr) 48px;
+}
+.shopping-to-inventory-button {
+  width: 48px;
+  min-height: 54px;
+  display: grid;
+  place-items: center;
+  align-self: center;
+  border: 0;
+  background: transparent;
+  color: var(--color-accent-strong);
+}
+.shopping-to-inventory-button:active {
+  background: #f0f5ef;
+}
+.shopping-to-inventory-button:disabled {
+  color: #adb5ae;
+  opacity: .65;
+}
+.inventory-create-seed-summary {
+  display: grid;
+  gap: 3px;
+  padding: 12px 13px;
+  border: 1px solid var(--color-border);
+  border-radius: 15px;
+  background: #f8faf7;
+}
+.inventory-create-seed-summary strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-size: 14px;
+}
+.inventory-create-seed-summary span {
+  color: var(--color-text);
+  font-size: 13px;
+  font-weight: 800;
+}
+.inventory-create-seed-summary small {
+  color: var(--color-muted);
+  font-size: 11px;
+  line-height: 1.4;
+}
+.shopping-inventory-bridge-state {
+  display: grid;
+  gap: 14px;
+}
+.shopping-inventory-bridge-message {
+  min-height: 96px;
+  display: grid;
+  place-items: center;
+  gap: 7px;
+  padding: 16px;
+  border: 1px solid var(--color-border);
+  border-radius: 16px;
+  background: #f8faf7;
+  color: var(--color-muted);
+  text-align: center;
+}
+.shopping-inventory-bridge-message strong {
+  color: var(--color-text);
+  font-size: 13px;
+}
+.shopping-inventory-bridge-message span {
+  font-size: 11px;
+  line-height: 1.45;
+}
+.shopping-inventory-bridge-message.is-error {
+  border-color: #f0d4d1;
+  background: #fffafa;
+}
