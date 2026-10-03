@@ -4,13 +4,14 @@ import { supabase } from '../lib/supabase/client'
 import { HomePage } from '../features/home/HomePage'
 import { ExpiryPage } from '../features/inventory/ExpiryPage'
 import { InventoryPage } from '../features/inventory/InventoryPage'
+import { ShoppingPage } from '../features/shopping/ShoppingPage'
 import { KitchenIcon } from './KitchenIcon'
 
 type AppShellProps = {
   user: User
 }
 
-type AppView = 'home' | 'inventory' | 'expiry'
+type AppView = 'home' | 'inventory' | 'expiry' | 'shopping'
 
 export function AppShell({ user }: AppShellProps) {
   const [view, setView] = useState<AppView>('home')
@@ -61,6 +62,7 @@ export function AppShell({ user }: AppShellProps) {
           ownerId={user.id}
           onAddProduct={openInventoryCreate}
           onOpenExpiry={() => changeView('expiry')}
+          onOpenShopping={() => changeView('shopping')}
         />
       )}
 
@@ -77,6 +79,8 @@ export function AppShell({ user }: AppShellProps) {
         />
       )}
 
+      {view === 'shopping' && <ShoppingPage ownerId={user.id} />}
+
       <nav className="bottom-nav" aria-label="Główna nawigacja Kitchen">
         <button className={`nav-item${startSectionActive ? ' is-active' : ''}`} type="button" onClick={() => changeView('home')} aria-current={startSectionActive ? 'page' : undefined}>
           <KitchenIcon name="home" />
@@ -86,7 +90,7 @@ export function AppShell({ user }: AppShellProps) {
           <KitchenIcon name="inventory" />
           <span>Zapasy</span>
         </button>
-        <button className="nav-item" type="button" disabled aria-label="Zakupy — moduł w przygotowaniu">
+        <button className={`nav-item${view === 'shopping' ? ' is-active' : ''}`} type="button" onClick={() => changeView('shopping')} aria-current={view === 'shopping' ? 'page' : undefined}>
           <KitchenIcon name="shopping" />
           <span>Zakupy</span>
         </button>

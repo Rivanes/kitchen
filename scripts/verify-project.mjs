@@ -34,6 +34,12 @@ const requiredFiles = [
   'tests/INVENTORY_OPENED_PRODUCT_CONTRACT.md',
   'tests/INVENTORY_V1_CLOSEOUT_CONTRACT.md',
   'tests/PRODUCT_RENAME_CONTRACT.md',
+  'src/features/shopping/ShoppingPage.tsx',
+  'src/features/shopping/ShoppingEditor.tsx',
+  'src/features/shopping/shoppingReadModel.ts',
+  'src/features/shopping/shoppingMutations.ts',
+  'src/features/shopping/types.ts',
+  'tests/SHOPPING_LIST_CONTRACT.md',
   'vite.config.ts',
 ]
 
@@ -82,7 +88,7 @@ if (!viteConfig.includes("theme_color: '#f7f7f2'")) {
 }
 
 const globalCss = await readFile('src/styles/global.css', 'utf8')
-for (const marker of ['--color-bg: #f7f7f2', '--touch-min: 48px', '.home-quick-action', '.home-coming-card', '.home-expiry-hub', '.expiry-page', '.expiry-filter', '.expiry-row', '.after-open-details', '.consume-open-rule', '.inventory-sheet', '.primary-icon-button', '.inventory-search', '.inventory-stock-actions', '.inventory-consume-sheet', '.danger-button', '.inventory-location-entry', '.inventory-location-page', '.inventory-back-button', '.expiry-status', '.date-input-row', 'max-height: calc(100dvh - 8px)', 'grid-template-columns: repeat(2, minmax(0, 1fr))', '.inventory-editor-title-row', '.product-rename-trigger', '.product-rename-form']) {
+for (const marker of ['--color-bg: #f7f7f2', '--touch-min: 48px', '.home-quick-action', '.home-coming-card', '.home-expiry-hub', '.expiry-page', '.expiry-filter', '.expiry-row', '.after-open-details', '.consume-open-rule', '.inventory-sheet', '.primary-icon-button', '.inventory-search', '.inventory-stock-actions', '.inventory-consume-sheet', '.danger-button', '.inventory-location-entry', '.inventory-location-page', '.inventory-back-button', '.expiry-status', '.date-input-row', 'max-height: calc(100dvh - 8px)', 'grid-template-columns: repeat(2, minmax(0, 1fr))', '.inventory-editor-title-row', '.product-rename-trigger', '.product-rename-form', '.home-shopping-hub', '.shopping-page', '.shopping-list-card', '.shopping-row', '.shopping-remove-zone']) {
   if (!globalCss.includes(marker)) {
     throw new Error(`V1.3 UI contract marker missing: ${marker}`)
   }
@@ -106,6 +112,16 @@ if (!shell.includes('onCreateRequestHandled={handleInventoryCreateRequestHandled
 }
 if (!shell.includes('overviewRequestToken={inventoryOverviewRequest}') || !shell.includes('setInventoryOverviewRequest')) {
   throw new Error('V1.5 bottom-nav Inventory action must be able to return a location detail page to the Zapasy overview.')
+}
+
+if (!shell.includes("type AppView = 'home' | 'inventory' | 'expiry' | 'shopping'")) {
+  throw new Error('V2.3 AppShell must expose Shopping as a first-class view.')
+}
+if (!shell.includes("<ShoppingPage ownerId={user.id} />") || !shell.includes("changeView('shopping')")) {
+  throw new Error('V2.3 bottom navigation must activate the Shopping List.')
+}
+if (shell.includes('Zakupy — moduł w przygotowaniu')) {
+  throw new Error('V2.3 must remove the disabled Shopping placeholder from bottom navigation.')
 }
 
 const inventoryReadModel = await readFile('src/features/inventory/inventoryReadModel.ts', 'utf8')
@@ -304,5 +320,63 @@ if (!expiryPage.includes('Terminy ważności') || !expiryPage.includes('allLots.
 if (!expiryPage.includes('counts.critical > 0') || !expiryPage.includes('Wszystko w porządku')) {
   throw new Error('V1.7 Expiry Center must suppress zero-value summary noise and expose one calm good state.')
 }
+
+
+const shoppingReadModel = await readFile('src/features/shopping/shoppingReadModel.ts', 'utf8')
+for (const table of ['shopping_items', 'products', 'measurement_units']) {
+  if (!shoppingReadModel.includes(`.from('${table}')`)) {
+    throw new Error(`V2.3 Shopping read model must read ${table}.`)
+  }
+}
+if (!shoppingReadModel.includes(".eq('owner_id', ownerId)") || !shoppingReadModel.includes(".eq('is_purchased', false)")) {
+  throw new Error('V2.3 Shopping reads must be owner-scoped and limited to the active list.')
+}
+if (/\.(insert|update|upsert|delete)\s*\(/.test(shoppingReadModel)) {
+  throw new Error('V2.3 Shopping read model itself must remain read-only.')
+}
+if (!shoppingReadModel.includes('loadActiveShoppingCount')) {
+  throw new Error('V2.3 Start needs an owner-scoped active Shopping count.')
+}
+
+const shoppingMutations = await readFile('src/features/shopping/shoppingMutations.ts', 'utf8')
+for (const marker of ['createShoppingItem', 'updateShoppingItem', 'removeShoppingItem', 'normalizeShoppingName', "product_id: identity.productId", "custom_name: identity.productId ? null : identity.cleanName", ".eq('owner_id', input.ownerId)", ".eq('is_purchased', false)"]) {
+  if (!shoppingMutations.includes(marker)) {
+    throw new Error(`V2.3 Shopping mutation marker missing: ${marker}`)
+  }
+}
+if (!shoppingMutations.includes('mergeTarget') || !shoppingMutations.includes('item.unit_code === input.unitCode')) {
+  throw new Error('V2.3 create must merge only the same active identity in the same unit.')
+}
+if (!shoppingMutations.includes('Taka rzecz jest już na liście w tej samej jednostce.')) {
+  throw new Error('V2.3 edit must guard collisions instead of silently creating duplicate active identities.')
+}
+
+const shoppingEditor = await readFile('src/features/shopping/ShoppingEditor.tsx', 'utf8')
+for (const marker of ['Co kupić?', 'shopping-product-suggestions', 'model.units.map', 'createShoppingItem', 'updateShoppingItem', 'removeShoppingItem', 'Usuń z listy']) {
+  if (!shoppingEditor.includes(marker)) {
+    throw new Error(`V2.3 Shopping editor marker missing: ${marker}`)
+  }
+}
+if (!shoppingEditor.includes("matchMedia('(hover: hover) and (pointer: fine)')")) {
+  throw new Error('V2.3 Shopping editor must keep the no-forced-mobile-keyboard contract.')
+}
+
+const shoppingPage = await readFile('src/features/shopping/ShoppingPage.tsx', 'utf8')
+for (const marker of ['Zakupy', 'Lista jest pusta', 'loadShoppingReadModel', 'model.items.length >= 8', 'Szukaj na liście', '<ShoppingEditor']) {
+  if (!shoppingPage.includes(marker)) {
+    throw new Error(`V2.3 Shopping page marker missing: ${marker}`)
+  }
+}
+if (/Kupione|Oznacz jako kupione/.test(shoppingPage)) {
+  throw new Error('V2.3 must not prematurely implement purchased-state UI reserved for the next stage.')
+}
+
+if (!homePage.includes('onOpenShopping') || !homePage.includes('home-shopping-hub') || !homePage.includes('loadActiveShoppingCount')) {
+  throw new Error('V2.3 Start must provide a contextual Shopping List shortcut and natural count summary.')
+}
+if (homePage.includes('<strong>Do kupienia</strong>') && homePage.includes('coming-badge')) {
+  throw new Error('V2.3 must remove Shopping from disabled future previews once the module is active.')
+}
+
 
 console.log('Kitchen project contract verification: PASS')

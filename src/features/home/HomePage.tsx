@@ -2,12 +2,14 @@ import { useEffect, useMemo, useState } from 'react'
 import { KitchenIcon } from '../../components/KitchenIcon'
 import { getInventoryExpiryMeta } from '../inventory/expiry'
 import { loadInventoryReadModel } from '../inventory/inventoryReadModel'
+import { loadActiveShoppingCount } from '../shopping/shoppingReadModel'
 import type { InventoryReadModel } from '../inventory/types'
 
 type HomePageProps = {
   ownerId: string
   onAddProduct: () => void
   onOpenExpiry: () => void
+  onOpenShopping: () => void
 }
 
 type HomeStatus =
@@ -36,8 +38,20 @@ function expiryHubSummary(critical: number, warning: number, missing: number, to
   return parts.length > 0 ? parts.join(' · ') : 'Wszystkie terminy są spokojne'
 }
 
-export function HomePage({ ownerId, onAddProduct, onOpenExpiry }: HomePageProps) {
+function shoppingSummary(count: number) {
+  if (count === 0) return 'Lista jest pusta'
+  if (count === 1) return '1 rzecz do kupienia'
+  const mod10 = count % 10
+  const mod100 = count % 100
+  if (mod10 >= 2 && mod10 <= 4 && !(mod100 >= 12 && mod100 <= 14)) {
+    return `${count} rzeczy do kupienia`
+  }
+  return `${count} rzeczy do kupienia`
+}
+
+export function HomePage({ ownerId, onAddProduct, onOpenExpiry, onOpenShopping }: HomePageProps) {
   const [homeStatus, setHomeStatus] = useState<HomeStatus>({ status: 'loading', model: null })
+  const [shoppingCount, setShoppingCount] = useState<number | null>(null)
 
   useEffect(() => {
     let active = true
@@ -48,6 +62,22 @@ export function HomePage({ ownerId, onAddProduct, onOpenExpiry }: HomePageProps)
       })
       .catch(() => {
         if (active) setHomeStatus({ status: 'error', model: null })
+      })
+
+    return () => {
+      active = false
+    }
+  }, [ownerId])
+
+  useEffect(() => {
+    let active = true
+
+    loadActiveShoppingCount(ownerId)
+      .then((count) => {
+        if (active) setShoppingCount(count)
+      })
+      .catch(() => {
+        if (active) setShoppingCount(null)
       })
 
     return () => {
@@ -120,6 +150,15 @@ export function HomePage({ ownerId, onAddProduct, onOpenExpiry }: HomePageProps)
         <KitchenIcon name="chevronRight" size={19} />
       </button>
 
+      <button className="home-shopping-hub" type="button" onClick={onOpenShopping}>
+        <span className="home-shopping-hub-icon" aria-hidden="true"><KitchenIcon name="shopping" size={21} /></span>
+        <span className="home-shopping-hub-copy">
+          <strong>Lista zakupów</strong>
+          <small>{shoppingCount === null ? 'Otwórz listę zakupów' : shoppingSummary(shoppingCount)}</small>
+        </span>
+        <KitchenIcon name="chevronRight" size={19} />
+      </button>
+
       <section className="home-coming" aria-labelledby="home-coming-title">
         <div className="home-section-heading">
           <p className="eyebrow">Wkrótce</p>
@@ -127,15 +166,6 @@ export function HomePage({ ownerId, onAddProduct, onOpenExpiry }: HomePageProps)
         </div>
 
         <div className="home-coming-grid">
-          <article className="home-coming-card" aria-disabled="true">
-            <span className="home-coming-icon" aria-hidden="true"><KitchenIcon name="shopping" size={20} /></span>
-            <div>
-              <strong>Do kupienia</strong>
-              <span>Lista zakupów</span>
-            </div>
-            <span className="coming-badge">V2</span>
-          </article>
-
           <article className="home-coming-card" aria-disabled="true">
             <span className="home-coming-icon" aria-hidden="true"><KitchenIcon name="sparkles" size={20} /></span>
             <div>

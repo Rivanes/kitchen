@@ -77,3 +77,23 @@ V2 starts by stabilizing canonical Product identity before Shopping List tables 
 - Rename is intentionally saved separately from Inventory-lot changes, avoiding partial multi-entity saves.
 
 No SQL/schema/RLS/Auth change is required. Existing owner-scoped Product UPDATE authority is reused.
+
+
+## V2.3 — Shopping List UI
+
+The `Zakupy` bottom-navigation module is now active.
+
+V2.3 adds:
+- owner-scoped active shopping-list read model
+- mobile list page with loading/error/empty states
+- add/edit/remove flow
+- canonical Product reuse when the typed name matches an existing Kitchen Product
+- ad-hoc shopping names for non-catalog things
+- controlled quantity + unit
+- SMART create merge for the same active identity + unit
+- conflict guard when edit would collide with another active row
+- contextual search at 8+ active shopping items
+- Start-page shortcut with a natural `rzeczy do kupienia` summary
+
+Purchased-state behavior remains reserved for the next Shopping stage.
+No SQL/schema/RLS/Auth changes in V2.3; it uses the V2.2 shopping data foundation.
