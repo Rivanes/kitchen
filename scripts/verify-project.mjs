@@ -41,8 +41,10 @@ const requiredFiles = [
   'src/features/shopping/types.ts',
   'src/features/products/ProductAutocomplete.tsx',
   'src/features/products/productIdentity.ts',
+  'src/features/products/productCatalogMutations.ts',
   'tests/SHOPPING_LIST_CONTRACT.md',
   'tests/PRODUCT_AUTOCOMPLETE_CONTRACT.md',
+  'tests/PRODUCT_IDENTITY_CONTRACT.md',
   'vite.config.ts',
 ]
 
@@ -159,17 +161,14 @@ if (/new Date\(value\)/.test(expiry)) {
 }
 
 const mutations = await readFile('src/features/inventory/inventoryMutations.ts', 'utf8')
-if (!mutations.includes(".from('products')") || !mutations.includes(".from('inventory_items')")) {
-  throw new Error('V1.3 mutations must use canonical Products and Inventory items.')
+if (!mutations.includes('resolveOrCreateCanonicalProduct') || !mutations.includes(".from('inventory_items')")) {
+  throw new Error('Inventory create must use the shared canonical Product authority.')
 }
 if (!mutations.includes('.insert({') || !mutations.includes('.update({')) {
   throw new Error('V1.3 must support create and edit mutations.')
 }
 if (!mutations.includes(".eq('owner_id', input.ownerId)")) {
   throw new Error('V1.3 mutations must explicitly scope owner_id.')
-}
-if (!mutations.includes("productResult.error.code === '23505'")) {
-  throw new Error('V1.3 must handle database duplicate Product identity safely.')
 }
 if (!mutations.includes('findMergeableInventoryLot') || !mutations.includes(".is('expiry_date', null)") || !mutations.includes(".eq('expiry_date', expiryDate)") || !mutations.includes(".is('opened_at', null)")) {
   throw new Error('V1.6.2 merge behavior must only combine unopened lots with identical expiry semantics.')
@@ -263,6 +262,13 @@ const sharedProductAutocomplete = await readFile('src/features/products/ProductA
 for (const marker of ['useProductAutocomplete', 'ProductAutocompleteField', 'product-suggestions', 'Pasujące produkty']) {
   if (!sharedProductAutocomplete.includes(marker)) {
     throw new Error(`V2.3.1 shared Product autocomplete marker missing: ${marker}`)
+  }
+}
+
+const sharedProductCatalog = await readFile('src/features/products/productCatalogMutations.ts', 'utf8')
+for (const marker of ['resolveOrCreateCanonicalProduct', 'loadOwnerProductCatalog', ".from('products')", ".eq('owner_id', ownerId)", "insertResult.error.code === '23505'"]) {
+  if (!sharedProductCatalog.includes(marker)) {
+    throw new Error(`V2.3.2 shared Product authority marker missing: ${marker}`)
   }
 }
 
@@ -360,9 +366,9 @@ if (!shoppingReadModel.includes('loadActiveShoppingCount')) {
 }
 
 const shoppingMutations = await readFile('src/features/shopping/shoppingMutations.ts', 'utf8')
-for (const marker of ['createShoppingItem', 'updateShoppingItem', 'removeShoppingItem', 'normalizeProductName', "product_id: identity.productId", "custom_name: identity.productId ? null : identity.cleanName", ".eq('owner_id', input.ownerId)", ".eq('is_purchased', false)"]) {
+for (const marker of ['createShoppingItem', 'updateShoppingItem', 'removeShoppingItem', 'normalizeProductName', 'resolveOrCreateCanonicalProduct', 'product_id: product.id', 'custom_name: null', ".eq('owner_id', input.ownerId)", ".eq('is_purchased', false)"]) {
   if (!shoppingMutations.includes(marker)) {
-    throw new Error(`V2.3 Shopping mutation marker missing: ${marker}`)
+    throw new Error(`V2.3.2 Shopping mutation marker missing: ${marker}`)
   }
 }
 if (!shoppingMutations.includes('mergeTarget') || !shoppingMutations.includes('item.unit_code === input.unitCode')) {
@@ -371,12 +377,8 @@ if (!shoppingMutations.includes('mergeTarget') || !shoppingMutations.includes('i
 if (!shoppingMutations.includes('Taka rzecz jest już na liście w tej samej jednostce.')) {
   throw new Error('V2.3 edit must guard collisions instead of silently creating duplicate active identities.')
 }
-
-if (!shoppingMutations.includes("from '../products/productIdentity'") || !shoppingMutations.includes('existingProductId: string | null') || !shoppingMutations.includes('selectedProduct')) {
-  throw new Error('V2.3.1 Shopping mutations must reuse shared Product normalization and owner-catalog canonical identity resolution.')
-}
-if (shoppingMutations.includes('normalizeShoppingName')) {
-  throw new Error('V2.3.1 must remove the duplicate Shopping-only Product normalizer.')
+if (shoppingMutations.includes('normalizeShoppingName') || shoppingMutations.includes('resolveIdentity(')) {
+  throw new Error('V2.3.2 must not keep a second Shopping-only Product identity implementation.')
 }
 
 const shoppingEditor = await readFile('src/features/shopping/ShoppingEditor.tsx', 'utf8')
@@ -390,6 +392,13 @@ if (shoppingEditor.includes('<datalist') || shoppingEditor.includes('shopping-pr
 }
 if (!shoppingEditor.includes("matchMedia('(hover: hover) and (pointer: fine)')")) {
   throw new Error('V2.3 Shopping editor must keep the no-forced-mobile-keyboard contract.')
+}
+
+if (shoppingEditor.includes('products={model.products}')) {
+  throw new Error('V2.3.2 must not pass unsupported props to ProductAutocompleteField.')
+}
+if (!shoppingEditor.includes('unmatchedHint="Powstanie nowy produkt."')) {
+  throw new Error('V2.3.2 Shopping must communicate canonical Product creation for unknown names.')
 }
 
 const shoppingPage = await readFile('src/features/shopping/ShoppingPage.tsx', 'utf8')

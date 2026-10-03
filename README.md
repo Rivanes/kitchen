@@ -113,3 +113,13 @@ Inventory and Shopping now share one Product identity/autocomplete layer:
 Shopping keeps its intentional semantic difference: text that does not match a canonical Product is stored as an ad-hoc Shopping name rather than creating a Product.
 
 No SQL/schema/RLS/Auth changes.
+
+
+## V2.3.2 — Unified Product Identity Corrective
+
+- fixed V2.3.1 TypeScript deploy blocker: unsupported `products` prop on ProductAutocompleteField
+- Inventory and Shopping now share the same canonical Product resolver/creator
+- unknown Shopping names create canonical Product immediately
+- Shopping stores product_id, enabling later purchased -> Inventory without recreating Product
+- legacy custom_name stays readable for compatibility
+- no SQL/schema/RLS/Auth changes

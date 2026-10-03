@@ -162,11 +162,10 @@ export function ShoppingEditor({ ownerId, model, mode, onClose, onSaved }: Shopp
             inputId="shopping-name"
             label="Co kupić?"
             value={name}
-            products={model.products}
             exactProduct={exactProduct}
             suggestions={suggestions}
             exactHint="Użyję istniejącego produktu."
-            unmatchedHint="Na liście zapiszę własną nazwę."
+            unmatchedHint="Powstanie nowy produkt."
             placeholder="np. Mleko"
             disabled={busy}
             onChange={handleNameChange}

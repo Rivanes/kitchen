@@ -1,5 +1,5 @@
 import { supabase } from '../../lib/supabase/client'
-import { normalizeProductName } from '../products/productIdentity'
+import { findOwnerProductByName, resolveOrCreateCanonicalProduct } from '../products/productCatalogMutations'
 import { addDaysDateOnly } from './expiry'
 
 export type CreateInventoryLotInput = {
@@ -40,11 +40,6 @@ export type RenameProductInput = {
   nextName: string
 }
 
-type ProductIdentity = {
-  id: string
-  name: string
-  default_unit_code: string
-}
 
 type MergeableInventoryLot = {
   id: string
@@ -80,24 +75,6 @@ function normalizeAfterOpenDays(value: number | null) {
   return value
 }
 
-async function findProductByName(ownerId: string, productName: string): Promise<ProductIdentity | null> {
-  if (!supabase) {
-    throw new Error('Supabase is not configured.')
-  }
-
-  const result = await supabase
-    .from('products')
-    .select('id, name, default_unit_code')
-    .eq('owner_id', ownerId)
-
-  if (result.error) {
-    throw new Error(`Nie udało się sprawdzić produktu: ${result.error.message}`)
-  }
-
-  const normalized = normalizeProductName(productName)
-  return ((result.data ?? []) as ProductIdentity[]).find((product) => normalizeProductName(product.name) === normalized) ?? null
-}
-
 export async function renameProduct(input: RenameProductInput) {
   if (!supabase) {
     throw new Error('Supabase is not configured.')
@@ -108,7 +85,7 @@ export async function renameProduct(input: RenameProductInput) {
     throw new Error('Podaj nazwę produktu do 120 znaków.')
   }
 
-  const existing = await findProductByName(input.ownerId, cleanName)
+  const existing = await findOwnerProductByName(input.ownerId, cleanName)
   if (existing && existing.id !== input.productId) {
     throw new Error('Taki produkt już istnieje. Wybierz inną nazwę.')
   }
@@ -205,50 +182,15 @@ export async function createInventoryLot(input: CreateInventoryLotInput) {
     throw new Error('Supabase is not configured.')
   }
 
-  const productName = input.productName.trim().replace(/\s+/g, ' ')
-  if (!productName) {
-    throw new Error('Podaj nazwę produktu.')
-  }
-
   const afterOpenDays = normalizeAfterOpenDays(input.afterOpenDays)
-  let productId = input.existingProductId
-  let createdProductId: string | null = null
-
-  if (!productId) {
-    const existing = await findProductByName(input.ownerId, productName)
-    productId = existing?.id ?? null
-  }
-
-  if (!productId) {
-    const productResult = await supabase
-      .from('products')
-      .insert({
-        owner_id: input.ownerId,
-        name: productName,
-        default_unit_code: input.unitCode,
-      })
-      .select('id')
-      .single()
-
-    if (productResult.error) {
-      if (productResult.error.code === '23505') {
-        const existing = await findProductByName(input.ownerId, productName)
-        if (!existing) {
-          throw new Error('Produkt już istnieje, ale nie udało się go odczytać.')
-        }
-        productId = existing.id
-      } else {
-        throw new Error(`Nie udało się utworzyć produktu: ${productResult.error.message}`)
-      }
-    } else {
-      productId = productResult.data.id
-      createdProductId = productResult.data.id
-    }
-  }
-
-  if (!productId) {
-    throw new Error('Nie udało się ustalić produktu dla dodawanego zapasu.')
-  }
+  const product = await resolveOrCreateCanonicalProduct({
+    ownerId: input.ownerId,
+    name: input.productName,
+    existingProductId: input.existingProductId,
+    defaultUnitCode: input.unitCode,
+  })
+  const productId = product.id
+  const createdProductId = product.created ? product.id : null
 
   const mergeableLot = await findMergeableInventoryLot(
     input.ownerId,
