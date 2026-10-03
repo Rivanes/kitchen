@@ -8,6 +8,7 @@ import {
   resolveOrCreateCanonicalProduct,
 } from '../products/productCatalogMutations'
 import { normalizeProductName } from '../products/productIdentity'
+import { requireInventoryItemId } from '../inventory/inventoryRpcResults'
 import {
   addQuantities,
   assertValidQuantity,
@@ -298,9 +299,8 @@ export async function transferPurchasedShoppingItemToInventory(input: TransferPu
     throw new Error(`Nie udało się przenieść zakupu do zapasów: ${result.error.message}`)
   }
 
-  if (!result.data) {
-    throw new Error('Nie udało się potwierdzić przeniesienia zakupu do zapasów.')
-  }
-
-  return result.data.inventory_item_id as string
+  return requireInventoryItemId(
+    result.data,
+    'Nie udało się potwierdzić przeniesienia zakupu do zapasów.',
+  )
 }

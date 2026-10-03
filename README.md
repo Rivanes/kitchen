@@ -226,3 +226,14 @@ implementation from appearing in the Shopping module.
 
 The transfer is atomic: Inventory add/merge and removal of the purchased Shopping fragment succeed
 or fail together. Purchased rows disappear from `Kupione` after successful transfer.
+
+
+## V2.6.1 — RPC result typing corrective
+
+GitHub's dependency-backed TypeScript build exposed that the intentionally ungenerated Supabase
+client infers custom RPC result rows as `{}`. V2.6.1 does not change the database contract or runtime
+business rules. Both Inventory create and Shopping -> Inventory now decode the shared
+`inventory_item_id` RPC payload through one runtime-validated `requireInventoryItemId()` helper.
+
+This keeps one response-shape authority and removes unsafe direct property access from both callers.
+No SQL rerun is required when the V2.6 production postcheck already passed.

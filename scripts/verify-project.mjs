@@ -19,6 +19,7 @@ const requiredFiles = [
   'src/features/inventory/expiry.ts',
   'src/features/inventory/inventoryReadModel.ts',
   'src/features/inventory/inventoryMutations.ts',
+  'src/features/inventory/inventoryRpcResults.ts',
   'src/features/inventory/types.ts',
   'src/styles/global.css',
   'src/lib/supabase/client.ts',
@@ -613,3 +614,23 @@ for (const marker of ['.shopping-purchase-toggle', '.shopping-completed-section'
 }
 
 console.log('Kitchen project contract verification: PASS')
+
+
+// V2.6.1 — one shared runtime decoder for untyped custom RPC result rows.
+const inventoryRpcResults = await readFile('src/features/inventory/inventoryRpcResults.ts', 'utf8')
+for (const marker of ['requireInventoryItemId', "'inventory_item_id' in payload", "typeof payload.inventory_item_id !== 'string'"]) {
+  if (!inventoryRpcResults.includes(marker)) {
+    throw new Error(`V2.6.1 shared Inventory RPC result decoder marker missing: ${marker}`)
+  }
+}
+for (const [fileName, source] of [
+  ['inventoryMutations.ts', mutations],
+  ['shoppingMutations.ts', shoppingMutations],
+]) {
+  if (!source.includes('requireInventoryItemId')) {
+    throw new Error(`V2.6.1 ${fileName} must use the shared Inventory RPC result decoder.`)
+  }
+  if (source.includes('result.data.inventory_item_id')) {
+    throw new Error(`V2.6.1 ${fileName} must not directly access an untyped RPC result row.`)
+  }
+}

@@ -8,6 +8,7 @@ import {
   readStoredQuantity,
 } from '../quantity/quantity'
 import { addDaysDateOnly } from './expiry'
+import { requireInventoryItemId } from './inventoryRpcResults'
 
 export type CreateInventoryLotInput = {
   ownerId: string
@@ -120,11 +121,10 @@ export async function createInventoryLot(input: CreateInventoryLotInput) {
       throw new Error(`Nie udało się dodać zapasu: ${result.error.message}`)
     }
 
-    if (!result.data) {
-      throw new Error('Nie udało się potwierdzić dodania zapasu.')
-    }
-
-    return result.data.inventory_item_id as string
+    return requireInventoryItemId(
+      result.data,
+      'Nie udało się potwierdzić dodania zapasu.',
+    )
   } catch (error) {
     if (product.created) {
       await cleanupCreatedCanonicalProduct(input.ownerId, product.id)

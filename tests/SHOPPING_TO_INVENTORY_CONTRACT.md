@@ -42,3 +42,10 @@ Otherwise a new Inventory lot is created.
 - RLS remains active
 - anon cannot execute
 - authenticated owner may execute
+
+
+## V2.6.1 — RPC result typing authority
+- Custom Supabase RPC payloads are treated as `unknown` at the boundary because this repository does not use generated Database types.
+- Inventory create and Shopping -> Inventory must use the same `requireInventoryItemId()` runtime decoder.
+- Callers must not directly access `result.data.inventory_item_id` on an untyped RPC response.
+- This is a TypeScript/runtime-boundary corrective only; V2.6 SQL semantics remain unchanged.
