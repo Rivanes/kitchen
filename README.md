@@ -257,3 +257,16 @@ Correcting 4 -> 3 atomically keeps 3 in `Kupione` and returns 1 to `Do kupienia`
 Inventory Consume now seeds the shared quantity stepper with a valid real value (`min(1, available)`), so +/- works immediately without first typing a number when the amount is already known.
 
 V2.6.3 requires `V2_6_3_PURCHASED_QUANTITY_CORRECTION.sql` before runtime deploy.
+
+
+## V2.6.4 — Mobile Density + Shared Quantity Ergonomics Corrective
+
+This corrective is presentation-only. Database/RLS/Auth/RPC behavior from V2.6.3 remains unchanged.
+
+- `Zmień ilość` still appears only on an already-purchased Shopping item.
+- The action is a compact sibling control in the purchased row; it no longer expands the product copy vertically.
+- The visual treatment reuses the proven compact V2.6.2 action contract: borderless, transparent, accent-colored, 44px touch target, icon-only fallback below 360px.
+- The one shared `QuantityStepperInput` remains the only +/- implementation.
+- Its container is now intrinsically bounded to 220px while still shrinking inside narrow parents, so `-`, value/unit and `+` stay close enough for one-handed use.
+- Touch targets remain >=44px and manual quantity entry remains available.
+- No SQL migration is required.

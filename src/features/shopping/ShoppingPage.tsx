@@ -289,17 +289,18 @@ export function ShoppingPage({ ownerId }: ShoppingPageProps) {
                       <div className="shopping-completed-row-copy">
                         <strong>{item.name}</strong>
                         <small>{formatQuantity(item.quantity)} {item.unitSymbol}</small>
-                        <button
-                          className="shopping-purchased-quantity-button"
-                          type="button"
-                          onClick={() => setPurchaseTarget(item)}
-                          disabled={Boolean(updatingItemId)}
-                          aria-label={`Zmień kupioną ilość produktu ${item.name}`}
-                        >
-                          <KitchenIcon name="edit" size={14} />
-                          Zmień ilość
-                        </button>
                       </div>
+                      <button
+                        className="shopping-purchased-quantity-button"
+                        type="button"
+                        onClick={() => setPurchaseTarget(item)}
+                        disabled={Boolean(updatingItemId)}
+                        aria-label={`Zmień kupioną ilość produktu ${item.name}`}
+                        title="Zmień kupioną ilość"
+                      >
+                        <KitchenIcon name="edit" size={14} />
+                        Zmień ilość
+                      </button>
                       <button
                         className="shopping-to-inventory-button"
                         type="button"

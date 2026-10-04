@@ -596,6 +596,7 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
 
 .quantity-stepper {
   width: 100%;
+  max-width: 220px;
   min-width: 0;
   display: grid;
   grid-template-columns: 44px minmax(0, 1fr) 44px;
@@ -2162,14 +2163,15 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
 }
 .shopping-item-completed {
   min-height: 58px;
-  grid-template-columns: 48px minmax(0, 1fr);
+  grid-template-columns: 48px minmax(0, 1fr) auto 48px;
+  align-items: stretch;
 }
 .shopping-completed-row-copy {
   min-width: 0;
   display: grid;
   gap: 3px;
   align-content: center;
-  padding: 8px 12px 8px 0;
+  padding: 8px 4px 8px 0;
 }
 .shopping-completed-row-copy strong {
   overflow: hidden;
@@ -2238,9 +2240,6 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
 
 
 /* V2.6 — Purchased -> Inventory */
-.shopping-item-completed {
-  grid-template-columns: 48px minmax(0, 1fr) 48px;
-}
 .shopping-to-inventory-button {
   width: 48px;
   min-height: 54px;
@@ -2311,31 +2310,45 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
 }
 
 
-/* V2.6.3 — purchased quantity correction lives on the purchased tile */
+/* V2.6.4 — compact purchased-quantity action; V2.6.2 visual contract, V2.6.3 semantics */
 .shopping-purchased-quantity-button {
-  width: fit-content;
   min-height: 44px;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  margin-top: 4px;
-  padding: 4px 8px;
-  border: 1px solid var(--color-border);
-  border-radius: 10px;
-  background: #f8faf7;
-  color: var(--color-muted);
+  justify-content: center;
+  align-self: center;
+  gap: 4px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 11px;
+  background: transparent;
+  color: var(--color-accent-strong);
   font: inherit;
-  font-size: 12px;
-  font-weight: 750;
+  font-size: 10px;
+  font-weight: 800;
+  white-space: nowrap;
   cursor: pointer;
+}
+.shopping-purchased-quantity-button:active:not(:disabled) {
+  background: #eef5ed;
 }
 .shopping-purchased-quantity-button:disabled {
   cursor: default;
-  opacity: 0.55;
+  opacity: .5;
 }
 @media (hover: hover) and (pointer: fine) {
   .shopping-purchased-quantity-button:not(:disabled):hover {
-    border-color: #b9cbb8;
     background: #f1f6f0;
+  }
+}
+@media (max-width: 359px) {
+  .shopping-purchased-quantity-button {
+    width: 44px;
+    padding: 0;
+    font-size: 0;
+  }
+  .shopping-purchased-quantity-button svg {
+    width: 17px;
+    height: 17px;
   }
 }

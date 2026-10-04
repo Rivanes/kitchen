@@ -32,3 +32,13 @@
 - owner id must equal `auth.uid()` and `public.is_kitchen_owner()` must pass
 - anon has no execute privilege
 - authenticated has execute privilege
+
+
+## V2.6.4 purchased-row density
+
+- `Zmień ilość` remains post-purchase only.
+- The action is a sibling of the product copy, not a vertical child beneath name/quantity.
+- Purchased tiles remain compact single rows on normal mobile widths.
+- The action reuses the compact borderless accent treatment proven in V2.6.2.
+- Below 360px the action may collapse to its edit icon while retaining an accessible label and >=44px target.
+- The Inventory transfer action remains separately tappable.

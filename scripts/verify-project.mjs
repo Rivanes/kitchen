@@ -57,6 +57,7 @@ const requiredFiles = [
   'tests/INVENTORY_TO_SHOPPING_CONTRACT.md',
   'tests/QUANTITY_STEPPER_CONTRACT.md',
   'tests/SHOPPING_PURCHASED_STATE_CONTRACT.md',
+  'tests/MOBILE_DENSITY_CONTRACT.md',
   'tests/SHOPPING_PARTIAL_PURCHASE_CONTRACT.md',
   'tests/SHOPPING_TO_INVENTORY_CONTRACT.md',
   'tests/STORAGE_LOCATION_PICKER_CONTRACT.md',
@@ -608,9 +609,9 @@ if (!consumeSheet.includes('max={lot.quantity}')) {
   throw new Error('V2.4.1 Consume quantity stepper must be bounded by the current lot quantity.')
 }
 const quantityStepperStyles = await readFile('src/styles/global.css', 'utf8')
-for (const marker of ['.quantity-stepper', '.quantity-stepper-button', 'grid-template-columns: 44px minmax(0, 1fr) 44px']) {
+for (const marker of ['.quantity-stepper', '.quantity-stepper-button', 'grid-template-columns: 44px minmax(0, 1fr) 44px', 'max-width: 220px']) {
   if (!quantityStepperStyles.includes(marker)) {
-    throw new Error(`V2.4.1 quantity stepper style marker missing: ${marker}`)
+    throw new Error(`V2.6.4 shared quantity stepper style marker missing: ${marker}`)
   }
 }
 for (const marker of ['.shopping-purchase-toggle', '.shopping-completed-section', '.shopping-completed-heading', '.shopping-item-completed', '.shopping-all-done-card', '.shopping-purchase-sheet', '.shopping-purchase-remaining', '.shopping-to-inventory-button', '.inventory-create-seed-summary', '.shopping-inventory-bridge-state']) {
@@ -654,8 +655,34 @@ for (const marker of ['formatQuantityInput(Math.min(DEFAULT_QUANTITY_STEP, lot.q
   }
 }
 
-console.log('Kitchen project contract verification: PASS')
-
+// V2.6.4 — purchased-row density + one shared compact stepper sizing authority.
+const purchasedCopyStart = shoppingPageV262.indexOf('<div className="shopping-completed-row-copy">')
+const purchasedCopyEnd = shoppingPageV262.indexOf('</div>', purchasedCopyStart)
+const purchasedQuantityAction = shoppingPageV262.indexOf('className="shopping-purchased-quantity-button"')
+const purchasedInventoryAction = shoppingPageV262.indexOf('className="shopping-to-inventory-button"')
+if (
+  purchasedCopyStart < 0
+  || purchasedCopyEnd < 0
+  || purchasedQuantityAction < purchasedCopyEnd
+  || purchasedInventoryAction < purchasedQuantityAction
+) {
+  throw new Error('V2.6.4 purchased quantity action must be a compact sibling after product copy and before Inventory action.')
+}
+for (const marker of [
+  'grid-template-columns: 48px minmax(0, 1fr) auto 48px',
+  '.shopping-purchased-quantity-button',
+  'border: 0',
+  'background: transparent',
+  '@media (max-width: 359px)',
+  'max-width: 220px',
+]) {
+  if (!globalCss.includes(marker)) {
+    throw new Error(`V2.6.4 mobile density marker missing: ${marker}`)
+  }
+}
+if (globalCss.includes('.shopping-purchased-quantity-button {\n  width: fit-content;')) {
+  throw new Error('V2.6.4 must not retain the oversized V2.6.3 purchased-quantity button treatment.')
+}
 
 // V2.6.1 — one shared runtime decoder for untyped custom RPC result rows.
 const inventoryRpcResults = await readFile('src/features/inventory/inventoryRpcResults.ts', 'utf8')
@@ -675,3 +702,5 @@ for (const [fileName, source] of [
     throw new Error(`V2.6.1 ${fileName} must not directly access an untyped RPC result row.`)
   }
 }
+
+console.log('Kitchen project contract verification: PASS')
