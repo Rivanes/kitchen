@@ -37,3 +37,11 @@ Purchased state and Inventory/Shopping shortcuts remain later V2 stages.
 - Inventory does not implement a separate Shopping mutation path.
 - seeded create keeps the canonical Product UUID and editable quantity/unit.
 - existing `createShoppingItem()` merge behavior remains authoritative.
+
+
+## V3.5.3 Recipe missing-Product bridge
+
+- Recipe-to-Shopping reuse keeps `createShoppingItem()` as the final add/merge authority.
+- canonical batch execution validates inputs first and calls the shared single-item authority sequentially.
+- Recipe code must never write `shopping_items` directly.
+- existing same Product + same unit merge behavior remains authoritative.

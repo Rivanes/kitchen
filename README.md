@@ -2,7 +2,7 @@
 
 Private, single-user mobile-first PWA for household inventory, shopping and recipes.
 
-Closed runtime baseline: **V1 Inventory — PASS/CLOSED**. Current candidate: **V2.1 — Product Name Editing**.
+Closed milestones: **V1 Inventory — PASS/CLOSED**, **V2 Shopping — PASS/CLOSED**, **V3.1–V3.4 — PASS/CLOSED**. Current candidate: **V3.5.3 — Recipe Missing Products -> Shopping**.
 
 Active Inventory capabilities:
 - owner-scoped stock read model
@@ -396,7 +396,7 @@ The V3.4.1–V3.4.4 corrective chain is historical implementation work and is no
 
 ## V3.5 — Servings UX + Recipe Polish
 
-Delivered through V3.5.2:
+Delivered through V3.5.3:
 - read-only servings preview from 1..999
 - scaled ingredient quantities without mutating stored Recipe data
 - reset to base servings only when preview differs
@@ -406,5 +406,9 @@ Delivered through V3.5.2:
 - reusable existing section selection in Recipe authoring without a `recipe_sections` table
 - optional preparation and cooking/baking times stored as Recipe metadata
 - ingredient Product-presence dots: Inventory / active Shopping / missing
+- explicit add-to-Shopping action for red/missing canonical Products
+- one bulk action for all unique missing Products
+- current serving preview requirement is used only after the explicit Shopping action
+- duplicate Product+unit Recipe requirements are grouped before Shopping mutation
 
-V3.5.2 introduces only the two optional duration columns and extends the existing atomic `save_recipe_snapshot(...)` authority. RLS/Auth/Storage policies remain unchanged. Product-presence color is presence-only and does not claim quantity sufficiency or Recipe matching.
+V3.5.2 introduced only the two optional duration columns and extended the existing atomic `save_recipe_snapshot(...)` authority. V3.5.3 adds no SQL/schema/RLS/Auth/Storage-policy change: final add/merge remains owned by shared Shopping mutation authority. Product-presence color remains presence-only and does not claim quantity sufficiency or Recipe matching.

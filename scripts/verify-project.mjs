@@ -72,6 +72,7 @@ const requiredFiles = [
   'src/features/recipes/RecipeCoverImage.tsx',
   'src/features/recipes/RecipeServingsControl.tsx',
   'src/features/recipes/recipeServings.ts',
+  'src/features/recipes/recipeShoppingPlan.ts',
   'src/features/recipes/recipeDuration.ts',
   'src/features/recipes/recipeCoverCrop.ts',
   'src/features/recipes/recipeMutations.ts',
@@ -83,6 +84,7 @@ const requiredFiles = [
   'tests/RECIPE_AUTHORING_CONTRACT.md',
   'tests/RECIPE_SHARED_CORE_CONTRACT.md',
   'tests/RECIPE_IMAGE_CONTRACT.md',
+  'tests/RECIPE_TO_SHOPPING_CONTRACT.md',
   'vite.config.ts',
 ]
 
@@ -904,6 +906,23 @@ if (/supabase|\.from\(|\.rpc\(/i.test(recipeDuration)) {
   throw new Error('Recipe duration authority must remain pure and independent from persistence.')
 }
 
+const recipeShoppingPlan = await readFile('src/features/recipes/recipeShoppingPlan.ts', 'utf8')
+for (const marker of [
+  'scaleRecipeIngredientQuantity',
+  "ingredient.presence !== 'missing'",
+  'productId',
+  'unitCode',
+  'exactQuantity',
+  'normalizeQuantityPrecision',
+  'MIN_POSITIVE_SHOPPING_QUANTITY = 0.001',
+  'getMissingRecipeProductIds',
+]) {
+  if (!recipeShoppingPlan.includes(marker)) throw new Error(`V3.5.3 Recipe Shopping-plan marker missing: ${marker}`)
+}
+if (/supabase|\.rpc\(/i.test(recipeShoppingPlan) || /\.from\(\s*['"]/i.test(recipeShoppingPlan)) {
+  throw new Error('V3.5.3 Recipe Shopping plan must remain pure and must not own persistence.')
+}
+
 const recipeServingsControl = await readFile('src/features/recipes/RecipeServingsControl.tsx', 'utf8')
 for (const marker of [
   'Zmniejsz liczbę porcji',
@@ -954,6 +973,36 @@ if (recipeEditor.includes('<datalist') || recipeEditor.includes('recipe-section-
 }
 if (/recipe_sections/.test(recipeEditor)) {
   throw new Error('V3.5.2 must not introduce a Recipe section entity.')
+}
+
+for (const marker of [
+  'createCanonicalShoppingItemsSequentially',
+  'for (const input of inputs)',
+  'await createShoppingItem(input)',
+]) {
+  if (!shoppingMutations.includes(marker)) throw new Error(`V3.5.3 shared Shopping batch marker missing: ${marker}`)
+}
+if (/createCanonicalShoppingItemsSequentially[\s\S]{0,1200}Promise\.all/.test(shoppingMutations)) {
+  throw new Error('V3.5.3 canonical Shopping batch must remain deterministic/sequential.')
+}
+
+for (const marker of [
+  'buildRecipeShoppingPlan',
+  'getMissingRecipeProductIds',
+  'createCanonicalShoppingItemsSequentially',
+  'Dodaj wszystkie brakujące',
+  'Dodaj ${ingredient.productName} do listy zakupów',
+  'targetServings',
+  'markRecipeProductsAsShopping',
+  'refreshRecipesSilently',
+]) {
+  if (!recipesPage.includes(marker)) throw new Error(`V3.5.3 Recipe -> Shopping UI marker missing: ${marker}`)
+}
+if (/\.from\(\s*['"]shopping_items['"]\s*\)|\.insert\(|\.update\(/.test(recipesPage)) {
+  throw new Error('V3.5.3 RecipesPage must not write Shopping rows directly.')
+}
+if (recipesPage.includes('Promise.all') && recipesPage.includes('createCanonicalShoppingItemsSequentially')) {
+  throw new Error('V3.5.3 RecipesPage must not parallelize Shopping writes.')
 }
 
 const productAutocomplete = await readFile('src/features/products/ProductAutocomplete.tsx', 'utf8')
@@ -1093,11 +1142,13 @@ const recipesUiContract = await readFile('tests/RECIPES_UI_CONTRACT.md', 'utf8')
 const recipeAuthoringContract = await readFile('tests/RECIPE_AUTHORING_CONTRACT.md', 'utf8')
 const recipeSharedContract = await readFile('tests/RECIPE_SHARED_CORE_CONTRACT.md', 'utf8')
 const recipeImageContract = await readFile('tests/RECIPE_IMAGE_CONTRACT.md', 'utf8')
+const recipeToShoppingContract = await readFile('tests/RECIPE_TO_SHOPPING_CONTRACT.md', 'utf8')
 for (const [contract, markers] of [
   [recipesUiContract, ['read surfaces', 'exactly one Recipe edit entry point', 'compact horizontal summary row', 'Ingredient count is not repeated', 'Product-presence indicator only', 'Inventory has priority', 'Bez sekcji', '+ Nowa sekcja']],
   [recipeAuthoringContract, ['One Recipe authoring draft', 'save_recipe_snapshot', 'Cancel discards the draft', 'optional preparation time', 'optional cooking/baking time', 'Section labels are selected/reused']],
   [recipeSharedContract, ['canonical Product resolver/create authority', 'shared Quantity', 'must not globally rename', 'canonical Product UUID only', 'must not claim quantity sufficiency']],
   [recipeImageContract, ['full source image', 'pure crop geometry authority', 'RECIPE_COVER_HERO_ASPECT', 'must therefore match', 'Cleanup retries never block Recipe reading']],
+  [recipeToShoppingContract, ["presence === 'missing'", 'current target-servings requirement', 'grouped by canonical Product + unit', 'createShoppingItem()', 'sequential', 'no unit conversion', 'V3.6']],
 ]) {
   for (const marker of markers) {
     if (!contract.includes(marker)) throw new Error(`Current Recipe contract marker missing: ${marker}`)
@@ -1114,6 +1165,9 @@ for (const marker of [
   '.recipe-ingredient-index.is-inventory',
   '.recipe-ingredient-index.is-shopping',
   '.recipe-ingredient-index.is-missing',
+  '.recipe-shopping-add-all',
+  '.recipe-ingredient-shopping-action',
+  '.recipe-shopping-feedback',
   '.recipe-time-fields',
   '.recipe-new-section-field',
   '.recipes-search-empty',

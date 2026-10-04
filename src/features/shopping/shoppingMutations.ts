@@ -150,6 +150,26 @@ export async function createShoppingItem(input: CreateShoppingItemInput) {
   }
 }
 
+export type CreateCanonicalShoppingItemInput = Omit<CreateShoppingItemInput, 'existingProductId'> & {
+  existingProductId: string
+}
+
+export async function createCanonicalShoppingItemsSequentially(inputs: CreateCanonicalShoppingItemInput[]) {
+  for (const input of inputs) {
+    if (!input.ownerId.trim() || !input.name.trim() || !input.existingProductId?.trim() || !input.unitCode.trim()) {
+      throw new Error('Nie udało się przygotować produktów do listy zakupów.')
+    }
+    assertValidQuantity(input.quantity)
+  }
+
+  const createdItemIds: string[] = []
+  for (const input of inputs) {
+    createdItemIds.push(await createShoppingItem(input))
+  }
+
+  return createdItemIds
+}
+
 export async function updateShoppingItem(input: UpdateShoppingItemInput) {
   if (!supabase) throw new Error('Supabase is not configured.')
 

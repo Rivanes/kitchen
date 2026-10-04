@@ -2654,6 +2654,32 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
   border-bottom: 1px solid #edf1ec;
 }
 .recipe-detail-section-heading h2 { margin: 0; font-size: 14px; }
+.recipe-ingredients-heading { flex-wrap: wrap; }
+.recipe-shopping-add-all {
+  min-height: 34px;
+  margin: 0 0 0 auto;
+  padding: 6px 9px;
+  gap: 6px;
+  font-size: 10.5px;
+}
+.recipe-shopping-add-all:disabled,
+.recipe-ingredient-shopping-action:disabled {
+  opacity: .55;
+  cursor: default;
+}
+.recipe-shopping-feedback {
+  margin: 0;
+  padding: 8px 13px;
+  border-bottom: 1px solid #edf1ec;
+  background: #f7faf6;
+  color: #46604a;
+  font-size: 10.5px;
+  line-height: 1.4;
+}
+.recipe-shopping-feedback.is-error {
+  background: #fff7f7;
+  color: #9b343a;
+}
 .recipe-detail-section-icon {
   width: 34px;
   height: 34px;
@@ -2688,6 +2714,21 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
 .recipe-ingredient-index.is-inventory { background: #5b9b63; }
 .recipe-ingredient-index.is-shopping { background: #d3922f; }
 .recipe-ingredient-index.is-missing { background: #c95b5f; }
+.recipe-ingredient-row.has-shopping-action {
+  grid-template-columns: 10px minmax(0, 1fr) auto 34px;
+}
+.recipe-ingredient-shopping-action {
+  width: 34px;
+  height: 34px;
+  display: inline-grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid #dfe8df;
+  border-radius: 11px;
+  background: #f5f8f4;
+  color: var(--color-accent-strong);
+}
+.recipe-ingredient-shopping-action:active { background: var(--color-accent-soft); }
 .recipe-ingredient-copy { min-width: 0; display: grid; gap: 2px; }
 .recipe-ingredient-copy strong { overflow-wrap: anywhere; font-size: 13px; }
 .recipe-ingredient-copy small { color: var(--color-muted); font-size: 10px; line-height: 1.35; }
@@ -3032,12 +3073,24 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
 .recipe-focus-actions .secondary-button { margin: 0; }
 
 @media (max-width: 380px) {
+  .recipe-ingredients-heading { align-items: flex-start; }
+  .recipe-shopping-add-all {
+    width: calc(100% - 44px);
+    margin-left: 44px;
+  }
   .recipe-ingredient-row {
     grid-template-columns: 8px minmax(0, 1fr);
+  }
+  .recipe-ingredient-row.has-shopping-action {
+    grid-template-columns: 8px minmax(0, 1fr) 34px;
   }
   .recipe-ingredient-quantity {
     grid-column: 2;
     padding-left: 0;
+  }
+  .recipe-ingredient-shopping-action {
+    grid-column: 3;
+    grid-row: 1 / span 2;
   }
   .recipe-ingredient-quantity-unit { grid-template-columns: 1fr; }
 }

@@ -34,6 +34,9 @@
 - Inventory has priority over active Shopping when the same Product exists in both places.
 - Purchased Shopping history does not count as active Shopping presence.
 - Presence state is exposed accessibly in addition to color.
+- A red/missing Product may expose an explicit Shopping-add action; this action is separate from the read-only presence projection.
+- One bulk action may add all unique red/missing Products and disappears when no missing Product remains.
+- Green/orange Products do not expose Recipe-to-Shopping add actions.
 
 ## Contextual Recipe search
 

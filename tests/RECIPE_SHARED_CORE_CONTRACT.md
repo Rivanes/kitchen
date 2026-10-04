@@ -17,3 +17,8 @@ Recipe presence reads are owner-scoped and read-only. Recipe code must not own I
 Presence means only `Inventory`, active `Shopping`, or `missing`; it must not claim quantity sufficiency before Package Semantics and later Recipe matching.
 
 Recipe UI must not expose terms such as `canonical Product` or internal catalog architecture.
+
+
+## V3.5.3 missing-Product Shopping bridge
+
+Recipe may build a pure Product+unit requirement plan from the current servings preview, but final Shopping writes must remain in the shared Shopping mutation authority. The bridge must use canonical Product UUIDs, shared Quantity precision and shared Measurement Units. Duplicate Product+unit Recipe requirements are grouped before mutation; different units are never converted by V3.5.3. Serving +/- alone remains read-only and never mutates Shopping.

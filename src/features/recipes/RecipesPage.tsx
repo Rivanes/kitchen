@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { KitchenIcon } from '../../components/KitchenIcon'
+import { createCanonicalShoppingItemsSequentially } from '../shopping/shoppingMutations'
 import { RecipeServingsControl } from './RecipeServingsControl'
 import { formatRecipeDuration } from './recipeDuration'
 import { formatScaledRecipeQuantity } from './recipeServings'
+import { buildRecipeShoppingPlan, getMissingRecipeProductIds } from './recipeShoppingPlan'
 import { RecipeCoverImage } from './RecipeCoverImage'
 import { RECIPE_COVER_HERO_ASPECT, RECIPE_COVER_THUMBNAIL_ASPECT } from './recipeCoverCrop'
 import { RecipeEditor } from './RecipeEditor'
@@ -23,6 +25,15 @@ type RecipesStatus =
 type EditorMode =
   | { kind: 'create' }
   | { kind: 'edit'; recipe: RecipeReadItem }
+  | null
+
+type RecipeShoppingAction =
+  | { kind: 'product'; productId: string }
+  | { kind: 'bulk' }
+  | null
+
+type RecipeShoppingFeedback =
+  | { kind: 'success' | 'error'; message: string }
   | null
 
 function recipesLabel(count: number) {
@@ -61,6 +72,9 @@ export function RecipesPage({ ownerId, overviewRequestToken }: RecipesPageProps)
   const [editorMode, setEditorMode] = useState<EditorMode>(null)
   const [targetServings, setTargetServings] = useState(1)
   const [searchQuery, setSearchQuery] = useState('')
+  const [shoppingAction, setShoppingAction] = useState<RecipeShoppingAction>(null)
+  const [shoppingFeedback, setShoppingFeedback] = useState<RecipeShoppingFeedback>(null)
+  const [shoppingRecoveryBlocked, setShoppingRecoveryBlocked] = useState(false)
 
   const load = useCallback(async (preserveSelection = true, selectedAfterLoad: string | null = null) => {
     setRecipesStatus({ status: 'loading', model: null })
@@ -98,6 +112,12 @@ export function RecipesPage({ ownerId, overviewRequestToken }: RecipesPageProps)
     setTargetServings(selectedRecipe.servings)
   }, [selectedRecipe?.id, selectedRecipe?.servings])
 
+  useEffect(() => {
+    setShoppingAction(null)
+    setShoppingFeedback(null)
+    setShoppingRecoveryBlocked(false)
+  }, [selectedRecipe?.id])
+
   const shouldShowRecipeSearch = Boolean(model && model.recipes.length >= 8)
   const normalizedSearch = shouldShowRecipeSearch
     ? searchQuery.trim().toLocaleLowerCase('pl-PL')
@@ -123,6 +143,90 @@ export function RecipesPage({ ownerId, overviewRequestToken }: RecipesPageProps)
   const hasNamedRecipeSections = Boolean(
     selectedRecipe?.ingredients.some((ingredient) => Boolean(ingredient.sectionLabel?.trim())),
   )
+  const missingRecipeProductIds = useMemo(
+    () => selectedRecipe ? getMissingRecipeProductIds(selectedRecipe.ingredients) : [],
+    [selectedRecipe],
+  )
+
+  function markRecipeProductsAsShopping(productIds: Iterable<string>) {
+    const ids = new Set(productIds)
+    if (ids.size === 0) return
+
+    setRecipesStatus((current) => {
+      if (current.status !== 'ready') return current
+
+      return {
+        status: 'ready',
+        model: {
+          recipes: current.model.recipes.map((recipe) => ({
+            ...recipe,
+            ingredients: recipe.ingredients.map((ingredient) => (
+              ids.has(ingredient.productId) && ingredient.presence !== 'inventory'
+                ? { ...ingredient, presence: 'shopping' as const }
+                : ingredient
+            )),
+          })),
+        },
+      }
+    })
+  }
+
+  async function refreshRecipesSilently() {
+    const refreshed = await loadRecipesReadModel(ownerId)
+    setRecipesStatus({ status: 'ready', model: refreshed })
+  }
+
+  async function addMissingProductsToShopping(productIds: string[], action: RecipeShoppingAction) {
+    if (!selectedRecipe || shoppingAction || shoppingRecoveryBlocked || productIds.length === 0) return
+
+    setShoppingAction(action)
+    setShoppingFeedback(null)
+
+    try {
+      const plan = buildRecipeShoppingPlan({
+        ingredients: selectedRecipe.ingredients,
+        baseServings: selectedRecipe.servings,
+        targetServings,
+        productIds,
+      })
+
+      if (plan.length === 0) return
+
+      await createCanonicalShoppingItemsSequentially(plan.map((entry) => ({
+        ownerId,
+        name: entry.productName,
+        existingProductId: entry.productId,
+        quantity: entry.quantity,
+        unitCode: entry.unitCode,
+      })))
+
+      markRecipeProductsAsShopping(productIds)
+      setShoppingFeedback({
+        kind: 'success',
+        message: productIds.length === 1
+          ? 'Dodano brakujący produkt do listy zakupów.'
+          : `Dodano brakujące produkty do listy zakupów (${productIds.length}).`,
+      })
+    } catch (error) {
+      let refreshed = false
+      try {
+        await refreshRecipesSilently()
+        refreshed = true
+      } catch {
+        setShoppingRecoveryBlocked(true)
+      }
+      setShoppingFeedback({
+        kind: 'error',
+        message: refreshed
+          ? (error instanceof Error
+              ? `${error.message} Status listy został odświeżony.`
+              : 'Nie udało się dodać wszystkich produktów. Status listy został odświeżony.')
+          : 'Nie udało się potwierdzić aktualnego stanu listy zakupów. Wróć do listy przepisów i otwórz przepis ponownie przed kolejną próbą.',
+      })
+    } finally {
+      setShoppingAction(null)
+    }
+  }
 
   if (selectedRecipe) {
     return (
@@ -182,10 +286,28 @@ export function RecipesPage({ ownerId, overviewRequestToken }: RecipesPageProps)
         )}
 
         <section className="recipe-detail-section" aria-labelledby="recipe-ingredients-title">
-          <div className="recipe-detail-section-heading">
+          <div className="recipe-detail-section-heading recipe-ingredients-heading">
             <span className="recipe-detail-section-icon" aria-hidden="true"><KitchenIcon name="inventory" size={18} /></span>
             <h2 id="recipe-ingredients-title">Składniki</h2>
+            {missingRecipeProductIds.length > 0 && (
+              <button
+                className="secondary-button compact-button recipe-shopping-add-all"
+                type="button"
+                disabled={shoppingAction !== null || shoppingRecoveryBlocked}
+                onClick={() => void addMissingProductsToShopping(missingRecipeProductIds, { kind: 'bulk' })}
+                aria-label={`Dodaj wszystkie brakujące produkty do listy zakupów (${missingRecipeProductIds.length})`}
+              >
+                <KitchenIcon name="shoppingAdd" size={16} />
+                <span>{shoppingAction?.kind === 'bulk' ? 'Dodawanie…' : `Dodaj wszystkie brakujące (${missingRecipeProductIds.length})`}</span>
+              </button>
+            )}
           </div>
+
+          {shoppingFeedback && (
+            <p className={`recipe-shopping-feedback is-${shoppingFeedback.kind}`} role="status" aria-live="polite">
+              {shoppingFeedback.message}
+            </p>
+          )}
 
           {selectedRecipe.ingredients.length > 0 ? (
             <div className="recipe-ingredient-groups">
@@ -206,7 +328,7 @@ export function RecipesPage({ ownerId, overviewRequestToken }: RecipesPageProps)
                 return (
                   <div key={ingredient.id}>
                     {showSection && <h3 className="recipe-ingredient-section-title">{sectionTitle}</h3>}
-                    <div className="recipe-ingredient-row">
+                    <div className={`recipe-ingredient-row${ingredient.presence === 'missing' ? ' has-shopping-action' : ''}`}>
                       <span
                         className={`recipe-ingredient-index is-${ingredient.presence}`}
                         role="img"
@@ -218,6 +340,24 @@ export function RecipesPage({ ownerId, overviewRequestToken }: RecipesPageProps)
                         {ingredient.note && <small>{ingredient.note}</small>}
                       </span>
                       <span className="recipe-ingredient-quantity">{displayQuantity} {ingredient.unitSymbol}</span>
+                      {ingredient.presence === 'missing' && (
+                        <button
+                          className="recipe-ingredient-shopping-action"
+                          type="button"
+                          disabled={shoppingAction !== null || shoppingRecoveryBlocked}
+                          onClick={() => void addMissingProductsToShopping(
+                            [ingredient.productId],
+                            { kind: 'product', productId: ingredient.productId },
+                          )}
+                          aria-label={`Dodaj ${ingredient.productName} do listy zakupów`}
+                          title="Dodaj do listy zakupów"
+                        >
+                          <KitchenIcon
+                            name="shoppingAdd"
+                            size={17}
+                          />
+                        </button>
+                      )}
                     </div>
                   </div>
                 )
