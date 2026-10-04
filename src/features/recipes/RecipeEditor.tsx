@@ -23,6 +23,7 @@ import {
 import { QuantityStepperInput } from '../quantity/QuantityStepperInput'
 import { RecipeCoverFocusEditor } from './RecipeCoverFocusEditor'
 import { RecipeCoverImage } from './RecipeCoverImage'
+import { RECIPE_COVER_HERO_ASPECT } from './recipeCoverCrop'
 import { processRecipeCoverImage, type ProcessedRecipeImage } from './recipeImageProcessor'
 import {
   cleanRecipeName,
@@ -419,14 +420,14 @@ export function RecipeEditor({ ownerId, mode, onClose, onSaved }: RecipeEditorPr
               <strong>Zdjęcie</strong>
             </div>
 
-            <div className={`recipe-cover-preview${currentCoverUrl ? ' has-image' : ''}`}>
+            <div className={`recipe-cover-preview${currentCoverUrl ? ' has-image' : ''}`} style={{ aspectRatio: RECIPE_COVER_HERO_ASPECT }}>
               {currentCoverUrl ? (
                 <RecipeCoverImage
                   src={currentCoverUrl}
                   alt=""
                   focusX={coverFocusX}
                   focusY={coverFocusY}
-                  targetAspect={16 / 9}
+                  targetAspect={RECIPE_COVER_HERO_ASPECT}
                 />
               ) : (
                 <span className="recipe-cover-placeholder" aria-hidden="true"><KitchenIcon name="image" size={30} /></span>

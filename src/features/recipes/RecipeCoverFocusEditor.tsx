@@ -4,6 +4,8 @@ import { RecipeCoverImage } from './RecipeCoverImage'
 import {
   getContainedImageRect,
   mapPointerToSourceFocus,
+  RECIPE_COVER_HERO_ASPECT,
+  RECIPE_COVER_THUMBNAIL_ASPECT,
 } from './recipeCoverCrop'
 
 type RecipeCoverFocusEditorProps = {
@@ -116,14 +118,14 @@ export function RecipeCoverFocusEditor({
         <div className="recipe-focus-previews" aria-label="Podgląd kadru">
           <div>
             <span>Widok przepisu</span>
-            <div className="recipe-focus-wide">
-              <RecipeCoverImage src={imageUrl} alt="" focusX={x} focusY={y} targetAspect={16 / 10} />
+            <div className="recipe-focus-wide" style={{ aspectRatio: RECIPE_COVER_HERO_ASPECT }}>
+              <RecipeCoverImage src={imageUrl} alt="" focusX={x} focusY={y} targetAspect={RECIPE_COVER_HERO_ASPECT} />
             </div>
           </div>
           <div>
             <span>Miniatura</span>
-            <div className="recipe-focus-square">
-              <RecipeCoverImage src={imageUrl} alt="" focusX={x} focusY={y} targetAspect={1} />
+            <div className="recipe-focus-square" style={{ aspectRatio: RECIPE_COVER_THUMBNAIL_ASPECT }}>
+              <RecipeCoverImage src={imageUrl} alt="" focusX={x} focusY={y} targetAspect={RECIPE_COVER_THUMBNAIL_ASPECT} />
             </div>
           </div>
         </div>

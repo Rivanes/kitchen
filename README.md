@@ -429,3 +429,12 @@ Corrects the V3 authoring architecture instead of layering another hotfix.
 - one shared crop geometry/renderer drives hero, thumbnail and previews
 - Storage cleanup maintenance no longer blocks Recipe reads
 - Recipe CSS/contracts/verifier are consolidated to current architecture
+
+
+## V3.4.3 — Recipe Cover Aspect Consistency Corrective
+
+Runtime-only corrective after V3.4.2 mobile smoke.
+
+The crop preview, Recipe editor preview and final Recipe detail hero now share one source-of-truth aspect (`RECIPE_COVER_HERO_ASPECT = 16/10`) and the same crop renderer. The list thumbnail uses the shared 1:1 thumbnail aspect.
+
+Removed the obsolete Recipe editor 16:9 frame and removed duplicated hard-coded Recipe aspect ratios from CSS. No SQL/schema/Storage-policy change.

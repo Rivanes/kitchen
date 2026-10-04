@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { KitchenIcon } from '../../components/KitchenIcon'
 import { formatQuantity } from '../quantity/quantity'
 import { RecipeCoverImage } from './RecipeCoverImage'
+import { RECIPE_COVER_HERO_ASPECT, RECIPE_COVER_THUMBNAIL_ASPECT } from './recipeCoverCrop'
 import { RecipeEditor } from './RecipeEditor'
 import { flushRecipeImageCleanupQueue } from './recipeCoverStorage'
 import { loadRecipesReadModel } from './recipesReadModel'
@@ -103,14 +104,14 @@ export function RecipesPage({ ownerId, overviewRequestToken }: RecipesPageProps)
           </button>
         </div>
 
-        <div className={`recipe-detail-cover${selectedRecipe.coverImageUrl ? ' has-image' : ''}`}>
+        <div className={`recipe-detail-cover${selectedRecipe.coverImageUrl ? ' has-image' : ''}`} style={{ aspectRatio: RECIPE_COVER_HERO_ASPECT }}>
           {selectedRecipe.coverImageUrl ? (
             <RecipeCoverImage
               src={selectedRecipe.coverImageUrl}
               alt={`Zdjęcie przepisu ${selectedRecipe.name}`}
               focusX={selectedRecipe.coverFocusX}
               focusY={selectedRecipe.coverFocusY}
-              targetAspect={16 / 10}
+              targetAspect={RECIPE_COVER_HERO_ASPECT}
             />
           ) : (
             <span aria-hidden="true"><KitchenIcon name="recipes" size={34} /></span>
@@ -236,7 +237,7 @@ export function RecipesPage({ ownerId, overviewRequestToken }: RecipesPageProps)
                 <button className="recipe-row" type="button" onClick={() => { setSelectedRecipeId(recipe.id); window.scrollTo({ top: 0, behavior: 'smooth' }) }}>
                   <span className={`recipe-row-cover${recipe.coverImageUrl ? ' has-image' : ''}`} aria-hidden={!recipe.coverImageUrl}>
                     {recipe.coverImageUrl ? (
-                      <RecipeCoverImage src={recipe.coverImageUrl} alt="" focusX={recipe.coverFocusX} focusY={recipe.coverFocusY} targetAspect={1} />
+                      <RecipeCoverImage src={recipe.coverImageUrl} alt="" focusX={recipe.coverFocusX} focusY={recipe.coverFocusY} targetAspect={RECIPE_COVER_THUMBNAIL_ASPECT} />
                     ) : (
                       <KitchenIcon name="recipes" size={19} />
                     )}

@@ -894,6 +894,33 @@ if (!coverImage.includes('calculateCoverObjectPosition')) {
   throw new Error('Recipe covers must use one shared production crop renderer.')
 }
 
+for (const marker of [
+  'RECIPE_COVER_HERO_ASPECT = 16 / 10',
+  'RECIPE_COVER_THUMBNAIL_ASPECT = 1',
+]) {
+  if (!cropGeometry.includes(marker)) throw new Error(`Recipe cover aspect authority marker missing: ${marker}`)
+}
+for (const [sourceName, source] of [
+  ['RecipeEditor', recipeEditor],
+  ['RecipeCoverFocusEditor', focalEditor],
+  ['RecipesPage', recipesPage],
+]) {
+  if (!source.includes('RECIPE_COVER_HERO_ASPECT')) {
+    throw new Error(`${sourceName} must reuse the shared Recipe hero aspect authority.`)
+  }
+}
+if (!focalEditor.includes('RECIPE_COVER_THUMBNAIL_ASPECT') || !recipesPage.includes('RECIPE_COVER_THUMBNAIL_ASPECT')) {
+  throw new Error('Crop preview and Recipe list must reuse the shared thumbnail aspect authority.')
+}
+for (const staleAspect of ['targetAspect={16 / 9}', 'targetAspect={16 / 10}']) {
+  if (recipeEditor.includes(staleAspect) || focalEditor.includes(staleAspect) || recipesPage.includes(staleAspect)) {
+    throw new Error(`Hard-coded Recipe hero crop aspect survived: ${staleAspect}`)
+  }
+}
+if (globalCss.includes('aspect-ratio: 16 / 9;')) {
+  throw new Error('Recipe editor must not keep the obsolete 16:9 cover frame.')
+}
+
 const imageProcessor = await readFile('src/features/recipes/recipeImageProcessor.ts', 'utf8')
 for (const marker of [
   "encodeExact(canvas, 'image/avif'",
@@ -929,7 +956,7 @@ for (const [contract, markers] of [
   [recipesUiContract, ['read surfaces', 'exactly one Recipe edit entry point']],
   [recipeAuthoringContract, ['One Recipe authoring draft', 'save_recipe_snapshot', 'Cancel discards the draft']],
   [recipeSharedContract, ['canonical Product resolver/create authority', 'shared Quantity', 'must not globally rename']],
-  [recipeImageContract, ['full source image', 'pure crop geometry authority', 'Cleanup retries never block Recipe reading']],
+  [recipeImageContract, ['full source image', 'pure crop geometry authority', 'RECIPE_COVER_HERO_ASPECT', 'must therefore match', 'Cleanup retries never block Recipe reading']],
 ]) {
   for (const marker of markers) {
     if (!contract.includes(marker)) throw new Error(`Current Recipe contract marker missing: ${marker}`)

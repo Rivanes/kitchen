@@ -29,6 +29,14 @@ The same renderer is used by:
 
 The crop editor shows the full source image and maps pointer coordinates into the displayed source rectangle.
 
+## Aspect consistency
+
+One shared aspect authority defines:
+- Recipe hero/editor/crop preview = `RECIPE_COVER_HERO_ASPECT` (16:10)
+- list thumbnail = `RECIPE_COVER_THUMBNAIL_ASPECT` (1:1)
+
+The `Widok przepisu` preview inside crop editing MUST use the exact same target aspect and crop renderer as the Recipe editor preview and final Recipe detail hero. What the user sees in crop preview must therefore match what appears after `Zastosuj`.
+
 ## Cleanup
 
 Superseded/deleted cover paths are queued transactionally. Cleanup retries never block Recipe reading. Queue insertion errors are not silently ignored. A cleanup path is checked against current Recipe references before Storage deletion.

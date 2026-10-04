@@ -2516,7 +2516,6 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
 .recipe-detail-heading h1 { overflow-wrap: anywhere; }
 .recipe-detail-cover {
   width: 100%;
-  aspect-ratio: 16 / 10;
   overflow: hidden;
   display: grid;
   place-items: center;
@@ -2679,7 +2678,6 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
 .recipe-cover-preview {
   position: relative;
   width: 100%;
-  aspect-ratio: 16 / 9;
   overflow: hidden;
   display: grid;
   place-items: center;
@@ -2911,8 +2909,6 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
   border-radius: 13px;
   background: #edf1ec;
 }
-.recipe-focus-wide { aspect-ratio: 16 / 10; }
-.recipe-focus-square { aspect-ratio: 1; }
 .recipe-focus-actions {
   display: grid;
   grid-template-columns: .9fr 1.1fr;

@@ -1,3 +1,6 @@
+export const RECIPE_COVER_HERO_ASPECT = 16 / 10
+export const RECIPE_COVER_THUMBNAIL_ASPECT = 1
+
 export type NormalizedFocus = {
   x: number
   y: number
