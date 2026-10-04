@@ -11,6 +11,8 @@ type RawRecipe = {
   servings: number
   instructions: string | null
   cover_image_path: string | null
+  cover_focus_x: number | string
+  cover_focus_y: number | string
   updated_at: string
 }
 
@@ -21,6 +23,7 @@ type RawRecipeIngredient = {
   quantity: number | string
   unit_code: string
   sort_order: number
+  section_label: string | null
   note: string | null
   created_at: string
 }
@@ -45,7 +48,7 @@ export async function loadRecipesReadModel(ownerId: string): Promise<RecipesRead
 
   const recipesResult = await supabase
     .from('recipes')
-    .select('id, name, servings, instructions, cover_image_path, updated_at')
+    .select('id, name, servings, instructions, cover_image_path, cover_focus_x, cover_focus_y, updated_at')
     .eq('owner_id', ownerId)
     .order('updated_at', { ascending: false })
 
@@ -57,7 +60,7 @@ export async function loadRecipesReadModel(ownerId: string): Promise<RecipesRead
   const [ingredientsResult, products, units] = await Promise.all([
     supabase
       .from('recipe_ingredients')
-      .select('id, recipe_id, product_id, quantity, unit_code, sort_order, note, created_at')
+      .select('id, recipe_id, product_id, quantity, unit_code, sort_order, section_label, note, created_at')
       .eq('owner_id', ownerId),
     loadOwnerProductCatalog(ownerId),
     loadMeasurementUnits(),
@@ -93,6 +96,7 @@ export async function loadRecipesReadModel(ownerId: string): Promise<RecipesRead
       unitCode: unit.code,
       unitSymbol: unit.symbol,
       sortOrder: row.sort_order,
+      sectionLabel: row.section_label?.trim() || null,
       note: row.note?.trim() || null,
       createdAt: row.created_at,
     }
@@ -120,6 +124,8 @@ export async function loadRecipesReadModel(ownerId: string): Promise<RecipesRead
     instructions: recipe.instructions?.trim() || null,
     coverImagePath: recipe.cover_image_path,
     coverImageUrl: coverUrls.get(recipe.id) ?? null,
+    coverFocusX: Number(recipe.cover_focus_x),
+    coverFocusY: Number(recipe.cover_focus_y),
     updatedAt: recipe.updated_at,
     ingredients: (ingredientsByRecipe.get(recipe.id) ?? []).map(({ createdAt: _createdAt, ...ingredient }) => ingredient),
   }))

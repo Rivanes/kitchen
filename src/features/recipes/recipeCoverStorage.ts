@@ -4,6 +4,11 @@ import type { ProcessedRecipeImage } from './recipeImageProcessor'
 export const RECIPE_IMAGE_BUCKET = 'recipe-images'
 const SIGNED_URL_SECONDS = 60 * 60
 
+type CleanupRow = {
+  id: string
+  storage_path: string
+}
+
 function assertUuidLike(value: string, label: string) {
   if (!/^[0-9a-f-]{36}$/i.test(value)) {
     throw new Error(`Nieprawidłowy identyfikator: ${label}.`)
@@ -51,12 +56,50 @@ export async function removeRecipeCover(path: string) {
   }
 }
 
-export async function removeRecipeCoverBestEffort(path: string | null) {
+export async function queueRecipeCoverCleanup(ownerId: string, path: string) {
+  if (!supabase) return
+
+  await supabase
+    .from('recipe_image_cleanup_queue')
+    .upsert(
+      { owner_id: ownerId, storage_path: path },
+      { onConflict: 'owner_id,storage_path', ignoreDuplicates: true },
+    )
+}
+
+export async function cleanupUnreferencedRecipeCover(ownerId: string, path: string | null) {
   if (!path || !supabase) return
+
   try {
     await removeRecipeCover(path)
   } catch {
-    // Database state stays authoritative. A later Storage GC may remove a rare orphan.
+    await queueRecipeCoverCleanup(ownerId, path)
+  }
+}
+
+export async function flushRecipeImageCleanupQueue(ownerId: string) {
+  if (!supabase) return
+
+  const result = await supabase
+    .from('recipe_image_cleanup_queue')
+    .select('id, storage_path')
+    .eq('owner_id', ownerId)
+    .order('created_at', { ascending: true })
+    .limit(25)
+
+  if (result.error) return
+
+  for (const row of (result.data ?? []) as CleanupRow[]) {
+    try {
+      await removeRecipeCover(row.storage_path)
+      await supabase
+        .from('recipe_image_cleanup_queue')
+        .delete()
+        .eq('id', row.id)
+        .eq('owner_id', ownerId)
+    } catch {
+      // Keep the row. The next Recipe load retries cleanup.
+    }
   }
 }
 

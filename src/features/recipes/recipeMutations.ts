@@ -1,6 +1,7 @@
 import { supabase } from '../../lib/supabase/client'
 import {
-  removeRecipeCoverBestEffort,
+  cleanupUnreferencedRecipeCover,
+  flushRecipeImageCleanupQueue,
   uploadRecipeCover,
 } from './recipeCoverStorage'
 import type { ProcessedRecipeImage } from './recipeImageProcessor'
@@ -15,6 +16,8 @@ export type RecipeWriteInput = {
   name: string
   servings: number
   instructions: string
+  coverFocusX: number
+  coverFocusY: number
 }
 
 export type CreateRecipeInput = RecipeWriteInput & {
@@ -25,6 +28,11 @@ export type UpdateRecipeInput = RecipeWriteInput & {
   recipeId: string
   currentCoverPath: string | null
   cover: RecipeCoverChange
+}
+
+function clampFocus(value: number) {
+  if (!Number.isFinite(value)) return 0.5
+  return Math.min(1, Math.max(0, Math.round(value * 10000) / 10000))
 }
 
 export function cleanRecipeName(value: string) {
@@ -53,6 +61,8 @@ function recipePayload(input: RecipeWriteInput) {
     name: cleanRecipeName(input.name),
     servings: validateRecipeServings(input.servings),
     instructions: cleanRecipeInstructions(input.instructions),
+    cover_focus_x: clampFocus(input.coverFocusX),
+    cover_focus_y: clampFocus(input.coverFocusY),
   }
 }
 
@@ -87,7 +97,7 @@ export async function createRecipe(input: CreateRecipeInput) {
 
     return result.data.id as string
   } catch (error) {
-    await removeRecipeCoverBestEffort(uploadedCoverPath)
+    await cleanupUnreferencedRecipeCover(input.ownerId, uploadedCoverPath)
     throw error
   }
 }
@@ -95,74 +105,56 @@ export async function createRecipe(input: CreateRecipeInput) {
 export async function updateRecipe(input: UpdateRecipeInput) {
   if (!supabase) throw new Error('Supabase is not configured.')
 
-  let nextCoverPath = input.currentCoverPath
   let uploadedReplacementPath: string | null = null
 
-  if (input.cover.kind === 'replace') {
-    uploadedReplacementPath = await uploadRecipeCover({
-      ownerId: input.ownerId,
-      recipeId: input.recipeId,
-      image: input.cover.image,
+  try {
+    if (input.cover.kind === 'replace') {
+      uploadedReplacementPath = await uploadRecipeCover({
+        ownerId: input.ownerId,
+        recipeId: input.recipeId,
+        image: input.cover.image,
+      })
+    }
+
+    const payload = recipePayload(input)
+    const result = await supabase.rpc('update_recipe_with_cover_cleanup', {
+      p_owner_id: input.ownerId,
+      p_recipe_id: input.recipeId,
+      p_name: payload.name,
+      p_servings: payload.servings,
+      p_instructions: payload.instructions,
+      p_cover_action: input.cover.kind,
+      p_cover_image_path: input.cover.kind === 'replace' ? uploadedReplacementPath : null,
+      p_cover_focus_x: payload.cover_focus_x,
+      p_cover_focus_y: payload.cover_focus_y,
     })
-    nextCoverPath = uploadedReplacementPath
-  } else if (input.cover.kind === 'remove') {
-    nextCoverPath = null
+
+    if (result.error) {
+      throw new Error(`Nie udało się zapisać przepisu: ${result.error.message}`)
+    }
+
+    await flushRecipeImageCleanupQueue(input.ownerId)
+    return input.recipeId
+  } catch (error) {
+    await cleanupUnreferencedRecipeCover(input.ownerId, uploadedReplacementPath)
+    throw error
   }
-
-  const result = await supabase
-    .from('recipes')
-    .update({
-      ...recipePayload(input),
-      ...(input.cover.kind === 'keep' ? {} : { cover_image_path: nextCoverPath }),
-    })
-    .eq('id', input.recipeId)
-    .eq('owner_id', input.ownerId)
-    .select('id')
-    .maybeSingle()
-
-  if (result.error) {
-    await removeRecipeCoverBestEffort(uploadedReplacementPath)
-    throw new Error(`Nie udało się zapisać przepisu: ${result.error.message}`)
-  }
-
-  if (!result.data) {
-    await removeRecipeCoverBestEffort(uploadedReplacementPath)
-    throw new Error('Nie znaleziono przepisu do zapisania.')
-  }
-
-  if (
-    input.cover.kind !== 'keep'
-    && input.currentCoverPath
-    && input.currentCoverPath !== nextCoverPath
-  ) {
-    await removeRecipeCoverBestEffort(input.currentCoverPath)
-  }
-
-  return input.recipeId
 }
 
 export async function deleteRecipe(input: {
   ownerId: string
   recipeId: string
-  coverImagePath: string | null
 }) {
   if (!supabase) throw new Error('Supabase is not configured.')
 
-  const result = await supabase
-    .from('recipes')
-    .delete()
-    .eq('id', input.recipeId)
-    .eq('owner_id', input.ownerId)
-    .select('id')
-    .maybeSingle()
+  const result = await supabase.rpc('delete_recipe_with_cover_cleanup', {
+    p_owner_id: input.ownerId,
+    p_recipe_id: input.recipeId,
+  })
 
   if (result.error) {
     throw new Error(`Nie udało się usunąć przepisu: ${result.error.message}`)
   }
 
-  if (!result.data) {
-    throw new Error('Nie znaleziono przepisu do usunięcia.')
-  }
-
-  await removeRecipeCoverBestEffort(input.coverImagePath)
+  await flushRecipeImageCleanupQueue(input.ownerId)
 }

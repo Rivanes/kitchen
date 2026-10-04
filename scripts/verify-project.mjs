@@ -76,6 +76,11 @@ const requiredFiles = [
   'src/features/recipes/recipeImageProcessor.ts',
   'tests/RECIPE_MUTATION_CONTRACT.md',
   'tests/RECIPE_IMAGE_CONTRACT.md',
+  'src/features/recipes/RecipeIngredientsEditor.tsx',
+  'src/features/recipes/recipeIngredientMutations.ts',
+  'src/features/recipes/RecipeCoverFocusEditor.tsx',
+  'tests/RECIPE_INGREDIENT_SHARED_CORE_CONTRACT.md',
+  'tests/RECIPE_COVER_FOCAL_CLEANUP_CONTRACT.md',
   'vite.config.ts',
 ]
 
@@ -883,8 +888,8 @@ for (const marker of [
   'updateRecipe',
   'deleteRecipe',
   'uploadRecipeCover',
-  'removeRecipeCoverBestEffort',
-  ".eq('owner_id', input.ownerId)",
+  'cleanupUnreferencedRecipeCover',
+  'p_owner_id: input.ownerId',
 ]) {
   if (!recipeMutations.includes(marker)) {
     throw new Error(`V3.3 Recipe mutation authority marker missing: ${marker}`)
@@ -952,6 +957,117 @@ for (const marker of [
   if (!globalCss.includes(marker)) {
     throw new Error(`V3.3 Recipe cover style marker missing: ${marker}`)
   }
+}
+
+
+// V3.4 — Ingredient shared-core + focal crop + durable cover cleanup.
+const ingredientEditor = await readFile('src/features/recipes/RecipeIngredientsEditor.tsx', 'utf8')
+for (const marker of [
+  'ProductAutocompleteField',
+  'useProductAutocomplete',
+  'QuantityStepperInput',
+  'loadMeasurementUnits',
+  'getDefaultUnitCode',
+  'Dodaj pierwszy składnik',
+  'sectionLabel',
+  'reorderRecipeIngredients',
+]) {
+  if (!ingredientEditor.includes(marker)) {
+    throw new Error(`V3.4 ingredient editor marker missing: ${marker}`)
+  }
+}
+
+const ingredientMutations = await readFile('src/features/recipes/recipeIngredientMutations.ts', 'utf8')
+for (const marker of [
+  'resolveOrCreateCanonicalProduct',
+  'cleanupCreatedCanonicalProduct',
+  ".from('recipe_ingredients')",
+  "supabase.rpc('reorder_recipe_ingredients'",
+  ".eq('owner_id', input.ownerId)",
+]) {
+  if (!ingredientMutations.includes(marker)) {
+    throw new Error(`V3.4 ingredient authority marker missing: ${marker}`)
+  }
+}
+if (/renameCanonicalProduct|resolveCanonicalProductForEdit/.test(ingredientMutations)) {
+  throw new Error('V3.4 Recipe ingredient editing must switch Product identity, not rename an existing canonical Product.')
+}
+
+const focalEditor = await readFile('src/features/recipes/RecipeCoverFocusEditor.tsx', 'utf8')
+for (const marker of [
+  'Ustaw kadr',
+  'Widok przepisu',
+  'Miniatura',
+  'setPointerCapture',
+  'objectPosition',
+]) {
+  if (!focalEditor.includes(marker)) {
+    throw new Error(`V3.4 focal crop marker missing: ${marker}`)
+  }
+}
+
+const recipeCoverStorageV34 = await readFile('src/features/recipes/recipeCoverStorage.ts', 'utf8')
+for (const marker of [
+  'recipe_image_cleanup_queue',
+  'flushRecipeImageCleanupQueue',
+  'queueRecipeCoverCleanup',
+  'cleanupUnreferencedRecipeCover',
+]) {
+  if (!recipeCoverStorageV34.includes(marker)) {
+    throw new Error(`V3.4 cover cleanup marker missing: ${marker}`)
+  }
+}
+
+const recipeMutationsV34 = await readFile('src/features/recipes/recipeMutations.ts', 'utf8')
+for (const marker of [
+  "supabase.rpc('update_recipe_with_cover_cleanup'",
+  "supabase.rpc('delete_recipe_with_cover_cleanup'",
+  'coverFocusX',
+  'coverFocusY',
+  'flushRecipeImageCleanupQueue',
+]) {
+  if (!recipeMutationsV34.includes(marker)) {
+    throw new Error(`V3.4 Recipe cleanup/focal mutation marker missing: ${marker}`)
+  }
+}
+
+const v34SharedContract = await readFile('tests/RECIPE_INGREDIENT_SHARED_CORE_CONTRACT.md', 'utf8')
+for (const marker of [
+  'canonical Product UUID',
+  'resolveOrCreateCanonicalProduct',
+  'QuantityStepperInput',
+  'No Recipe-only unit dictionary',
+]) {
+  if (!v34SharedContract.includes(marker)) {
+    throw new Error(`V3.4 shared-core contract marker missing: ${marker}`)
+  }
+}
+
+const v34CoverContract = await readFile('tests/RECIPE_COVER_FOCAL_CLEANUP_CONTRACT.md', 'utf8')
+for (const marker of [
+  'cover_focus_x',
+  'recipe_image_cleanup_queue',
+  'same database transaction',
+  'retries queued cleanup',
+]) {
+  if (!v34CoverContract.includes(marker)) {
+    throw new Error(`V3.4 cover contract marker missing: ${marker}`)
+  }
+}
+
+for (const marker of [
+  '.recipe-focus-main',
+  '.recipe-focus-square',
+  '.recipe-ingredients-editor-list',
+  '.recipe-ingredient-form-card',
+  '.recipe-detail-empty-action',
+]) {
+  if (!globalCss.includes(marker)) {
+    throw new Error(`V3.4 style marker missing: ${marker}`)
+  }
+}
+if (!globalCss.includes('.recipes-empty-with-action .primary-button') || !globalCss.includes('color: #fff !important')) {
+  throw new Error('V3.4 must explicitly fix Recipe empty-state primary-button text contrast.')
 }
 
 console.log('Kitchen project contract verification: PASS')

@@ -6,6 +6,7 @@ export type RecipeIngredientRead = {
   unitCode: string
   unitSymbol: string
   sortOrder: number
+  sectionLabel: string | null
   note: string | null
 }
 
@@ -16,6 +17,8 @@ export type RecipeReadItem = {
   instructions: string | null
   coverImagePath: string | null
   coverImageUrl: string | null
+  coverFocusX: number
+  coverFocusY: number
   updatedAt: string
   ingredients: RecipeIngredientRead[]
 }

@@ -344,7 +344,7 @@ Ingredient mutation remains V3.4.
 No SQL migration is required for V3.2.
 
 
-## V3.3 — Recipe CRUD + Cover Image Foundation
+## V3.3 — Recipe CRUD + Cover Image Foundation [PASS / CLOSED]
 
 Recipe metadata is now mutable:
 - create
@@ -373,3 +373,28 @@ Image pipeline:
 Covers live in private Supabase Storage (`recipe-images`) and are rendered through signed URLs.
 
 Ingredient mutation is intentionally deferred to V3.4, where it must reuse the existing canonical Product resolver/create authority.
+
+
+## V3.4 — Ingredient Editor + Focal Crop + Durable Cover Cleanup
+
+Recipe Ingredients now reuse the existing shared Kitchen core:
+- canonical Product autocomplete/resolve/create
+- shared QuantityStepperInput + quantity validation
+- shared Measurement Units
+- optional section label
+- optional ingredient note
+- add/edit/remove
+- atomic complete reorder
+
+Missing ingredient names create canonical Products through the same authority used by Inventory/Shopping.
+
+Recipe cover cropping now stores one focal point and reuses it for:
+- list thumbnail
+- detail hero
+
+Changing crop does not upload another image.
+
+Superseded/deleted Recipe cover paths are transactionally queued in `recipe_image_cleanup_queue`.
+The client deletes Storage objects immediately when possible and retries queued failures on later Recipe loads.
+
+The Recipe empty-state primary action also receives an explicit high-contrast text fix.

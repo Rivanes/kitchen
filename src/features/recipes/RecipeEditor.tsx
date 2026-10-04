@@ -2,6 +2,7 @@ import { FormEvent, useEffect, useMemo, useRef, useState } from 'react'
 import { KitchenIcon } from '../../components/KitchenIcon'
 import { toUserErrorMessage } from '../../lib/userError'
 import { processRecipeCoverImage, type ProcessedRecipeImage } from './recipeImageProcessor'
+import { RecipeCoverFocusEditor } from './RecipeCoverFocusEditor'
 import {
   cleanRecipeName,
   createRecipe,
@@ -39,6 +40,9 @@ export function RecipeEditor({ ownerId, mode, onClose, onSaved }: RecipeEditorPr
   const [servings, setServings] = useState(String(initial?.servings ?? 1))
   const [instructions, setInstructions] = useState(initial?.instructions ?? '')
   const [coverChange, setCoverChange] = useState<RecipeCoverChange>({ kind: 'keep' })
+  const [coverFocusX, setCoverFocusX] = useState(initial?.coverFocusX ?? 0.5)
+  const [coverFocusY, setCoverFocusY] = useState(initial?.coverFocusY ?? 0.5)
+  const [focusEditorOpen, setFocusEditorOpen] = useState(false)
   const [processedImage, setProcessedImage] = useState<ProcessedRecipeImage | null>(null)
   const [processedPreviewUrl, setProcessedPreviewUrl] = useState<string | null>(null)
   const [imageBusy, setImageBusy] = useState(false)
@@ -95,6 +99,8 @@ export function RecipeEditor({ ownerId, mode, onClose, onSaved }: RecipeEditorPr
       const processed = await processRecipeCoverImage(file)
       setProcessedImage(processed)
       setCoverChange({ kind: 'replace', image: processed })
+      setCoverFocusX(0.5)
+      setCoverFocusY(0.5)
     } catch (error) {
       setProcessedImage(null)
       setCoverChange({ kind: 'keep' })
@@ -110,6 +116,8 @@ export function RecipeEditor({ ownerId, mode, onClose, onSaved }: RecipeEditorPr
     if (busy) return
     setProcessedImage(null)
     setCoverChange({ kind: 'remove' })
+    setCoverFocusX(0.5)
+    setCoverFocusY(0.5)
     setErrorMessage('')
   }
 
@@ -140,6 +148,8 @@ export function RecipeEditor({ ownerId, mode, onClose, onSaved }: RecipeEditorPr
           name,
           servings: parsedServings,
           instructions,
+          coverFocusX,
+          coverFocusY,
           cover: createCover,
         })
         onSaved(recipeId)
@@ -151,6 +161,8 @@ export function RecipeEditor({ ownerId, mode, onClose, onSaved }: RecipeEditorPr
           name,
           servings: parsedServings,
           instructions,
+          coverFocusX,
+          coverFocusY,
           cover: coverChange,
         })
         onSaved(recipeId)
@@ -170,7 +182,6 @@ export function RecipeEditor({ ownerId, mode, onClose, onSaved }: RecipeEditorPr
       await deleteRecipe({
         ownerId,
         recipeId: mode.recipe.id,
-        coverImagePath: mode.recipe.coverImagePath,
       })
       onSaved(null)
     } catch (error) {
@@ -240,7 +251,11 @@ export function RecipeEditor({ ownerId, mode, onClose, onSaved }: RecipeEditorPr
 
             <div className={`recipe-cover-preview${currentCoverUrl ? ' has-image' : ''}`}>
               {currentCoverUrl ? (
-                <img src={currentCoverUrl} alt="" />
+                <img
+                  src={currentCoverUrl}
+                  alt=""
+                  style={{ objectPosition: `${coverFocusX * 100}% ${coverFocusY * 100}%` }}
+                />
               ) : (
                 <span className="recipe-cover-placeholder" aria-hidden="true"><KitchenIcon name="image" size={30} /></span>
               )}
@@ -264,6 +279,12 @@ export function RecipeEditor({ ownerId, mode, onClose, onSaved }: RecipeEditorPr
                 <KitchenIcon name="camera" size={18} />
                 <span>Zrób zdjęcie</span>
               </button>
+              {currentCoverUrl && (
+                <button className="recipe-media-button" type="button" onClick={() => setFocusEditorOpen(true)} disabled={busy}>
+                  <KitchenIcon name="edit" size={17} />
+                  <span>Ustaw kadr</span>
+                </button>
+              )}
               {(currentCoverUrl || initial?.coverImagePath || processedImage) && (
                 <button className="recipe-media-button recipe-media-remove" type="button" onClick={removeCover} disabled={busy}>
                   <KitchenIcon name="trash" size={17} />
@@ -338,6 +359,20 @@ export function RecipeEditor({ ownerId, mode, onClose, onSaved }: RecipeEditorPr
           </section>
         )}
       </section>
+
+      {focusEditorOpen && currentCoverUrl && (
+        <RecipeCoverFocusEditor
+          imageUrl={currentCoverUrl}
+          initialX={coverFocusX}
+          initialY={coverFocusY}
+          onCancel={() => setFocusEditorOpen(false)}
+          onApply={(x, y) => {
+            setCoverFocusX(x)
+            setCoverFocusY(y)
+            setFocusEditorOpen(false)
+          }}
+        />
+      )}
     </div>
   )
 }
