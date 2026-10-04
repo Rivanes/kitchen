@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { KitchenIcon } from '../../components/KitchenIcon'
 import { formatQuantity } from '../quantity/quantity'
+import { RecipeCoverImage } from './RecipeCoverImage'
 import { RecipeEditor } from './RecipeEditor'
-import { RecipeIngredientsEditor } from './RecipeIngredientsEditor'
 import { flushRecipeImageCleanupQueue } from './recipeCoverStorage'
 import { loadRecipesReadModel } from './recipesReadModel'
 import type { RecipeReadItem, RecipesReadModel } from './types'
@@ -26,9 +26,7 @@ function recipesLabel(count: number) {
   if (count === 1) return '1 przepis'
   const mod10 = count % 10
   const mod100 = count % 100
-  if (mod10 >= 2 && mod10 <= 4 && !(mod100 >= 12 && mod100 <= 14)) {
-    return `${count} przepisy`
-  }
+  if (mod10 >= 2 && mod10 <= 4 && !(mod100 >= 12 && mod100 <= 14)) return `${count} przepisy`
   return `${count} przepisów`
 }
 
@@ -36,9 +34,7 @@ function servingsLabel(count: number) {
   if (count === 1) return '1 porcja'
   const mod10 = count % 10
   const mod100 = count % 100
-  if (mod10 >= 2 && mod10 <= 4 && !(mod100 >= 12 && mod100 <= 14)) {
-    return `${count} porcje`
-  }
+  if (mod10 >= 2 && mod10 <= 4 && !(mod100 >= 12 && mod100 <= 14)) return `${count} porcje`
   return `${count} porcji`
 }
 
@@ -46,9 +42,7 @@ function ingredientsLabel(count: number) {
   if (count === 1) return '1 składnik'
   const mod10 = count % 10
   const mod100 = count % 100
-  if (mod10 >= 2 && mod10 <= 4 && !(mod100 >= 12 && mod100 <= 14)) {
-    return `${count} składniki`
-  }
+  if (mod10 >= 2 && mod10 <= 4 && !(mod100 >= 12 && mod100 <= 14)) return `${count} składniki`
   return `${count} składników`
 }
 
@@ -56,33 +50,27 @@ export function RecipesPage({ ownerId, overviewRequestToken }: RecipesPageProps)
   const [recipesStatus, setRecipesStatus] = useState<RecipesStatus>({ status: 'loading', model: null })
   const [selectedRecipeId, setSelectedRecipeId] = useState<string | null>(null)
   const [editorMode, setEditorMode] = useState<EditorMode>(null)
-  const [ingredientsEditorOpen, setIngredientsEditorOpen] = useState(false)
 
   const load = useCallback(async (preserveSelection = true, selectedAfterLoad: string | null = null) => {
     setRecipesStatus({ status: 'loading', model: null })
     try {
-      await flushRecipeImageCleanupQueue(ownerId)
       const model = await loadRecipesReadModel(ownerId)
       setRecipesStatus({ status: 'ready', model })
       setSelectedRecipeId((currentId) => {
         const targetId = preserveSelection ? currentId : selectedAfterLoad
-        return targetId && model.recipes.some((recipe) => recipe.id === targetId)
-          ? targetId
-          : null
+        return targetId && model.recipes.some((recipe) => recipe.id === targetId) ? targetId : null
       })
+      void flushRecipeImageCleanupQueue(ownerId)
     } catch {
       setRecipesStatus({ status: 'error', model: null })
     }
   }, [ownerId])
 
-  useEffect(() => {
-    void load()
-  }, [load])
+  useEffect(() => { void load() }, [load])
 
   useEffect(() => {
     if (overviewRequestToken <= 0) return
     setEditorMode(null)
-    setIngredientsEditorOpen(false)
     setSelectedRecipeId(null)
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }, [overviewRequestToken])
@@ -93,74 +81,36 @@ export function RecipesPage({ ownerId, overviewRequestToken }: RecipesPageProps)
     [model, selectedRecipeId],
   )
 
-  function openRecipe(recipe: RecipeReadItem) {
-    setSelectedRecipeId(recipe.id)
-    window.scrollTo({ top: 0, behavior: 'smooth' })
-  }
-
-  function closeRecipe() {
-    setSelectedRecipeId(null)
-    window.scrollTo({ top: 0, behavior: 'smooth' })
-  }
-
   async function handleEditorSaved(recipeId: string | null) {
     setEditorMode(null)
     await load(false, recipeId)
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
-
-  function handleCoverFocusSaved(recipeId: string, coverFocusX: number, coverFocusY: number) {
-    setRecipesStatus((current) => {
-      if (current.status !== 'ready') return current
-      return {
-        status: 'ready',
-        model: {
-          recipes: current.model.recipes.map((recipe) => (
-            recipe.id === recipeId
-              ? { ...recipe, coverFocusX, coverFocusY }
-              : recipe
-          )),
-        },
-      }
-    })
-
-    setEditorMode((current) => (
-      current?.kind === 'edit' && current.recipe.id === recipeId
-        ? {
-            kind: 'edit',
-            recipe: {
-              ...current.recipe,
-              coverFocusX,
-              coverFocusY,
-            },
-          }
-        : current
-    ))
-  }
-
   if (selectedRecipe) {
     return (
       <section className="recipes-page recipe-detail-page" aria-label={`Przepis ${selectedRecipe.name}`}>
         <div className="recipe-detail-heading">
-          <button className="icon-button" type="button" onClick={closeRecipe} aria-label="Wróć do listy przepisów" title="Wróć">
+          <button className="icon-button" type="button" onClick={() => setSelectedRecipeId(null)} aria-label="Wróć do listy przepisów" title="Wróć">
             <KitchenIcon name="chevronLeft" />
           </button>
           <div>
             <p className="eyebrow">Przepis</p>
             <h1>{selectedRecipe.name}</h1>
           </div>
-          <button className="icon-button" type="button" onClick={() => setEditorMode({ kind: 'edit', recipe: selectedRecipe })} aria-label="Edytuj przepis" title="Edytuj">
+          <button className="icon-button" type="button" onClick={() => setEditorMode({ kind: 'edit', recipe: selectedRecipe })} aria-label="Edytuj przepis" title="Edytuj przepis">
             <KitchenIcon name="edit" />
           </button>
         </div>
 
         <div className={`recipe-detail-cover${selectedRecipe.coverImageUrl ? ' has-image' : ''}`}>
           {selectedRecipe.coverImageUrl ? (
-            <img
+            <RecipeCoverImage
               src={selectedRecipe.coverImageUrl}
               alt={`Zdjęcie przepisu ${selectedRecipe.name}`}
-              style={{ objectPosition: `${selectedRecipe.coverFocusX * 100}% ${selectedRecipe.coverFocusY * 100}%` }}
+              focusX={selectedRecipe.coverFocusX}
+              focusY={selectedRecipe.coverFocusY}
+              targetAspect={16 / 10}
             />
           ) : (
             <span aria-hidden="true"><KitchenIcon name="recipes" size={34} /></span>
@@ -176,13 +126,9 @@ export function RecipesPage({ ownerId, overviewRequestToken }: RecipesPageProps)
         </section>
 
         <section className="recipe-detail-section" aria-labelledby="recipe-ingredients-title">
-          <div className="recipe-detail-section-heading recipe-detail-section-heading-action">
+          <div className="recipe-detail-section-heading">
             <span className="recipe-detail-section-icon" aria-hidden="true"><KitchenIcon name="inventory" size={18} /></span>
             <h2 id="recipe-ingredients-title">Składniki</h2>
-            <button className="recipe-section-action" type="button" onClick={() => setIngredientsEditorOpen(true)}>
-              <KitchenIcon name={selectedRecipe.ingredients.length > 0 ? 'edit' : 'plus'} size={17} />
-              <span>{selectedRecipe.ingredients.length > 0 ? 'Edytuj' : 'Dodaj'}</span>
-            </button>
           </div>
 
           {selectedRecipe.ingredients.length > 0 ? (
@@ -199,19 +145,14 @@ export function RecipesPage({ ownerId, overviewRequestToken }: RecipesPageProps)
                         <strong>{ingredient.productName}</strong>
                         {ingredient.note && <small>{ingredient.note}</small>}
                       </span>
-                      <span className="recipe-ingredient-quantity">
-                        {formatQuantity(ingredient.quantity)} {ingredient.unitSymbol}
-                      </span>
+                      <span className="recipe-ingredient-quantity">{formatQuantity(ingredient.quantity)} {ingredient.unitSymbol}</span>
                     </div>
                   </div>
                 )
               })}
             </div>
           ) : (
-            <button className="recipe-detail-empty-action" type="button" onClick={() => setIngredientsEditorOpen(true)}>
-              <KitchenIcon name="plus" size={18} />
-              <span>Dodaj pierwszy składnik</span>
-            </button>
+            <p className="recipe-detail-muted">Brak składników.</p>
           )}
         </section>
 
@@ -223,7 +164,7 @@ export function RecipesPage({ ownerId, overviewRequestToken }: RecipesPageProps)
           {selectedRecipe.instructions ? (
             <p className="recipe-instructions">{selectedRecipe.instructions}</p>
           ) : (
-            <p className="recipe-detail-muted">Ten przepis nie ma jeszcze instrukcji przygotowania.</p>
+            <p className="recipe-detail-muted">Brak instrukcji przygotowania.</p>
           )}
         </section>
 
@@ -233,18 +174,6 @@ export function RecipesPage({ ownerId, overviewRequestToken }: RecipesPageProps)
             mode={editorMode}
             onClose={() => setEditorMode(null)}
             onSaved={(recipeId) => void handleEditorSaved(recipeId)}
-            onCoverFocusSaved={handleCoverFocusSaved}
-          />
-        )}
-
-        {ingredientsEditorOpen && (
-          <RecipeIngredientsEditor
-            ownerId={ownerId}
-            recipe={selectedRecipe}
-            onClose={() => setIngredientsEditorOpen(false)}
-            onChanged={async () => {
-              await load(false, selectedRecipe.id)
-            }}
           />
         )}
       </section>
@@ -281,9 +210,7 @@ export function RecipesPage({ ownerId, overviewRequestToken }: RecipesPageProps)
         <section className="recipes-state-card recipes-state-error">
           <KitchenIcon name="recipes" size={24} />
           <strong>Nie udało się wczytać przepisów.</strong>
-          <button className="secondary-button compact-button" type="button" onClick={() => void load()}>
-            Spróbuj ponownie
-          </button>
+          <button className="secondary-button compact-button" type="button" onClick={() => void load()}>Spróbuj ponownie</button>
         </section>
       )}
 
@@ -292,7 +219,7 @@ export function RecipesPage({ ownerId, overviewRequestToken }: RecipesPageProps)
           <span className="recipes-empty-icon" aria-hidden="true"><KitchenIcon name="recipes" size={23} /></span>
           <div>
             <strong>Dodaj pierwszy przepis</strong>
-            <span>Zdjęcie, porcje i sposób przygotowania zapiszesz od razu. Składniki dołożymy w V3.4.</span>
+            <span>Zapisz przepis w swojej książce kucharskiej.</span>
           </div>
           <button className="primary-button" type="button" onClick={() => setEditorMode({ kind: 'create' })}>
             <KitchenIcon name="plus" size={18} />
@@ -306,14 +233,10 @@ export function RecipesPage({ ownerId, overviewRequestToken }: RecipesPageProps)
           <ul className="recipes-list">
             {model.recipes.map((recipe) => (
               <li key={recipe.id}>
-                <button className="recipe-row" type="button" onClick={() => openRecipe(recipe)}>
+                <button className="recipe-row" type="button" onClick={() => { setSelectedRecipeId(recipe.id); window.scrollTo({ top: 0, behavior: 'smooth' }) }}>
                   <span className={`recipe-row-cover${recipe.coverImageUrl ? ' has-image' : ''}`} aria-hidden={!recipe.coverImageUrl}>
                     {recipe.coverImageUrl ? (
-                      <img
-                        src={recipe.coverImageUrl}
-                        alt=""
-                        style={{ objectPosition: `${recipe.coverFocusX * 100}% ${recipe.coverFocusY * 100}%` }}
-                      />
+                      <RecipeCoverImage src={recipe.coverImageUrl} alt="" focusX={recipe.coverFocusX} focusY={recipe.coverFocusY} targetAspect={1} />
                     ) : (
                       <KitchenIcon name="recipes" size={19} />
                     )}

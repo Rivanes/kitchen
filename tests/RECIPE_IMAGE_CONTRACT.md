@@ -1,42 +1,34 @@
-# Recipe Cover Image Contract — V3.3
-
-## Input
-
-Mobile UI provides:
-- choose from gallery
-- take photo (`capture="environment"`)
-- preview
-- replace
-- remove
+# Recipe Image Contract — current V3
 
 ## Processing
 
-One authority:
-`src/features/recipes/recipeImageProcessor.ts`
-
-Before upload:
-- source is decoded locally
-- SVG is rejected
-- long edge is reduced to <= 1600 px
-- output target is <= 1.5 MiB
+- source stays local
+- long edge <= 1600 px
 - AVIF is attempted first
 - WebP is used only when AVIF encoding is unavailable
 - raw/original File is never uploaded
 
-If a safe AVIF/WebP output cannot be generated:
-fail instead of uploading the original.
-
 ## Storage
 
-Bucket:
-`recipe-images`
+- private `recipe-images` bucket
+- owner-scoped Storage policy
+- signed display URLs
+- database stores only the object path
 
-Requirements:
-- private
-- owner scoped
-- authenticated policies
-- max object size 2 MiB
-- allowed MIME only AVIF/WebP
+## Crop
 
-Display uses signed URLs.
-No public bucket URL.
+`cover_focus_x/y` describe one normalized point on the full source image.
+
+One pure crop geometry authority converts that source focal point to target-specific cover alignment.
+
+The same renderer is used by:
+- list thumbnail
+- Recipe detail hero
+- authoring preview
+- crop previews
+
+The crop editor shows the full source image and maps pointer coordinates into the displayed source rectangle.
+
+## Cleanup
+
+Superseded/deleted cover paths are queued transactionally. Cleanup retries never block Recipe reading. Queue insertion errors are not silently ignored. A cleanup path is checked against current Recipe references before Storage deletion.

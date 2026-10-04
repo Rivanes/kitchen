@@ -56,22 +56,47 @@ export async function removeRecipeCover(path: string) {
   }
 }
 
-export async function queueRecipeCoverCleanup(ownerId: string, path: string) {
-  if (!supabase) return
 
-  await supabase
+async function isRecipeCoverReferenced(ownerId: string, path: string) {
+  if (!supabase) return false
+
+  const result = await supabase
+    .from('recipes')
+    .select('id')
+    .eq('owner_id', ownerId)
+    .eq('cover_image_path', path)
+    .limit(1)
+
+  if (result.error) {
+    throw new Error(`Nie udało się sprawdzić użycia zdjęcia: ${result.error.message}`)
+  }
+
+  return (result.data ?? []).length > 0
+}
+
+export async function queueRecipeCoverCleanup(ownerId: string, path: string) {
+  if (!supabase) throw new Error('Supabase is not configured.')
+
+  const result = await supabase
     .from('recipe_image_cleanup_queue')
     .upsert(
       { owner_id: ownerId, storage_path: path },
       { onConflict: 'owner_id,storage_path', ignoreDuplicates: true },
     )
+
+  if (result.error) {
+    throw new Error(`Nie udało się zabezpieczyć sprzątania zdjęcia: ${result.error.message}`)
+  }
 }
 
 export async function cleanupUnreferencedRecipeCover(ownerId: string, path: string | null) {
   if (!path || !supabase) return
 
+  if (await isRecipeCoverReferenced(ownerId, path)) return
+
   try {
     await removeRecipeCover(path)
+    return
   } catch {
     await queueRecipeCoverCleanup(ownerId, path)
   }
@@ -91,14 +116,27 @@ export async function flushRecipeImageCleanupQueue(ownerId: string) {
 
   for (const row of (result.data ?? []) as CleanupRow[]) {
     try {
+      if (await isRecipeCoverReferenced(ownerId, row.storage_path)) {
+        const staleQueueResult = await supabase
+          .from('recipe_image_cleanup_queue')
+          .delete()
+          .eq('id', row.id)
+          .eq('owner_id', ownerId)
+        if (staleQueueResult.error) return
+        continue
+      }
+
       await removeRecipeCover(row.storage_path)
-      await supabase
+      const deleteResult = await supabase
         .from('recipe_image_cleanup_queue')
         .delete()
         .eq('id', row.id)
         .eq('owner_id', ownerId)
+
+      if (deleteResult.error) return
     } catch {
-      // Keep the row. The next Recipe load retries cleanup.
+      // Maintenance is retried on a later Recipe visit. It never blocks Recipe reading.
+      return
     }
   }
 }

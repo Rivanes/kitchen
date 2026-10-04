@@ -1,5 +1,10 @@
 import { supabase } from '../../lib/supabase/client'
 import {
+  cleanupCreatedCanonicalProduct,
+  resolveOrCreateCanonicalProduct,
+} from '../products/productCatalogMutations'
+import { assertValidQuantity } from '../quantity/quantity'
+import {
   cleanupUnreferencedRecipeCover,
   flushRecipeImageCleanupQueue,
   uploadRecipeCover,
@@ -11,68 +16,32 @@ export type RecipeCoverChange =
   | { kind: 'remove' }
   | { kind: 'replace'; image: ProcessedRecipeImage }
 
-export type RecipeWriteInput = {
+export type RecipeIngredientDraftInput = {
+  id: string
+  productId: string | null
+  productName: string
+  quantity: number
+  unitCode: string
+  sectionLabel: string
+  note: string
+}
+
+export type SaveRecipeSnapshotInput = {
   ownerId: string
+  mode: 'create' | 'update'
+  recipeId: string | null
   name: string
   servings: number
   instructions: string
   coverFocusX: number
   coverFocusY: number
-}
-
-export type CreateRecipeInput = RecipeWriteInput & {
-  cover: Extract<RecipeCoverChange, { kind: 'replace' }> | { kind: 'remove' }
-}
-
-export type UpdateRecipeInput = RecipeWriteInput & {
-  recipeId: string
-  currentCoverPath: string | null
   cover: RecipeCoverChange
+  ingredients: RecipeIngredientDraftInput[]
 }
 
 function clampFocus(value: number) {
   if (!Number.isFinite(value)) return 0.5
   return Math.min(1, Math.max(0, Math.round(value * 10000) / 10000))
-}
-
-
-export async function updateRecipeCoverFocus(input: {
-  ownerId: string
-  recipeId: string
-  coverFocusX: number
-  coverFocusY: number
-}) {
-  if (!supabase) throw new Error('Supabase is not configured.')
-
-  const expectedX = clampFocus(input.coverFocusX)
-  const expectedY = clampFocus(input.coverFocusY)
-
-  const result = await supabase
-    .from('recipes')
-    .update({
-      cover_focus_x: expectedX,
-      cover_focus_y: expectedY,
-    })
-    .eq('id', input.recipeId)
-    .eq('owner_id', input.ownerId)
-    .select('cover_focus_x, cover_focus_y')
-    .maybeSingle()
-
-  if (result.error) {
-    throw new Error(`Nie udało się zapisać kadru: ${result.error.message}`)
-  }
-  if (!result.data) {
-    throw new Error('Nie znaleziono przepisu do zapisania kadru.')
-  }
-
-  const storedX = clampFocus(Number(result.data.cover_focus_x))
-  const storedY = clampFocus(Number(result.data.cover_focus_y))
-
-  if (Math.abs(storedX - expectedX) > 0.0001 || Math.abs(storedY - expectedY) > 0.0001) {
-    throw new Error('Nie udało się potwierdzić zapisanego kadru.')
-  }
-
-  return { coverFocusX: storedX, coverFocusY: storedY }
 }
 
 export function cleanRecipeName(value: string) {
@@ -95,24 +64,77 @@ export function validateRecipeServings(value: number) {
   return value
 }
 
-function recipePayload(input: RecipeWriteInput) {
-  return {
-    owner_id: input.ownerId,
-    name: cleanRecipeName(input.name),
-    servings: validateRecipeServings(input.servings),
-    instructions: cleanRecipeInstructions(input.instructions),
-    cover_focus_x: clampFocus(input.coverFocusX),
-    cover_focus_y: clampFocus(input.coverFocusY),
+function cleanOptional(value: string, maxLength: number, label: string) {
+  const clean = value.trim().replace(/\s+/g, ' ')
+  if (!clean) return null
+  if (clean.length > maxLength) {
+    throw new Error(`${label} może mieć maksymalnie ${maxLength} znaków.`)
+  }
+  return clean
+}
+
+async function cleanupNewProducts(ownerId: string, productIds: string[]) {
+  for (const productId of [...productIds].reverse()) {
+    await cleanupCreatedCanonicalProduct(ownerId, productId)
   }
 }
 
-export async function createRecipe(input: CreateRecipeInput) {
+async function cleanupFailedCover(ownerId: string, coverPath: string | null) {
+  if (!coverPath) return
+  await cleanupUnreferencedRecipeCover(ownerId, coverPath)
+}
+
+export async function saveRecipeSnapshot(input: SaveRecipeSnapshotInput) {
   if (!supabase) throw new Error('Supabase is not configured.')
 
-  const recipeId = crypto.randomUUID()
+  const recipeId = input.mode === 'create'
+    ? (input.recipeId ?? crypto.randomUUID())
+    : input.recipeId
+
+  if (!recipeId) throw new Error('Brakuje identyfikatora przepisu.')
+
+  const createdProductIds: string[] = []
   let uploadedCoverPath: string | null = null
 
   try {
+    const resolvedIngredients = [] as Array<{
+      id: string
+      product_id: string
+      quantity: number
+      unit_code: string
+      section_label: string | null
+      note: string | null
+    }>
+
+    const seenIngredientIds = new Set<string>()
+    for (const ingredient of input.ingredients) {
+      if (seenIngredientIds.has(ingredient.id)) {
+        throw new Error('Lista składników zawiera zduplikowaną pozycję.')
+      }
+      seenIngredientIds.add(ingredient.id)
+
+      const quantity = assertValidQuantity(ingredient.quantity)
+      if (!ingredient.unitCode) throw new Error('Wybierz jednostkę składnika.')
+
+      const product = await resolveOrCreateCanonicalProduct({
+        ownerId: input.ownerId,
+        name: ingredient.productName,
+        existingProductId: ingredient.productId,
+        defaultUnitCode: ingredient.unitCode,
+      })
+
+      if (product.created) createdProductIds.push(product.id)
+
+      resolvedIngredients.push({
+        id: ingredient.id,
+        product_id: product.id,
+        quantity,
+        unit_code: ingredient.unitCode,
+        section_label: cleanOptional(ingredient.sectionLabel, 80, 'Nazwa sekcji'),
+        note: cleanOptional(ingredient.note, 240, 'Notatka'),
+      })
+    }
+
     if (input.cover.kind === 'replace') {
       uploadedCoverPath = await uploadRecipeCover({
         ownerId: input.ownerId,
@@ -121,62 +143,41 @@ export async function createRecipe(input: CreateRecipeInput) {
       })
     }
 
-    const result = await supabase
-      .from('recipes')
-      .insert({
-        id: recipeId,
-        ...recipePayload(input),
-        cover_image_path: uploadedCoverPath,
-      })
-      .select('id')
-      .single()
-
-    if (result.error) {
-      throw new Error(`Nie udało się utworzyć przepisu: ${result.error.message}`)
-    }
-
-    return result.data.id as string
-  } catch (error) {
-    await cleanupUnreferencedRecipeCover(input.ownerId, uploadedCoverPath)
-    throw error
-  }
-}
-
-export async function updateRecipe(input: UpdateRecipeInput) {
-  if (!supabase) throw new Error('Supabase is not configured.')
-
-  let uploadedReplacementPath: string | null = null
-
-  try {
-    if (input.cover.kind === 'replace') {
-      uploadedReplacementPath = await uploadRecipeCover({
-        ownerId: input.ownerId,
-        recipeId: input.recipeId,
-        image: input.cover.image,
-      })
-    }
-
-    const payload = recipePayload(input)
-    const result = await supabase.rpc('update_recipe_with_cover_cleanup', {
+    const result = await supabase.rpc('save_recipe_snapshot', {
       p_owner_id: input.ownerId,
-      p_recipe_id: input.recipeId,
-      p_name: payload.name,
-      p_servings: payload.servings,
-      p_instructions: payload.instructions,
+      p_recipe_id: recipeId,
+      p_mode: input.mode,
+      p_name: cleanRecipeName(input.name),
+      p_servings: validateRecipeServings(input.servings),
+      p_instructions: cleanRecipeInstructions(input.instructions),
       p_cover_action: input.cover.kind,
-      p_cover_image_path: input.cover.kind === 'replace' ? uploadedReplacementPath : null,
-      p_cover_focus_x: payload.cover_focus_x,
-      p_cover_focus_y: payload.cover_focus_y,
+      p_cover_image_path: input.cover.kind === 'replace' ? uploadedCoverPath : null,
+      p_cover_focus_x: clampFocus(input.coverFocusX),
+      p_cover_focus_y: clampFocus(input.coverFocusY),
+      p_ingredients: resolvedIngredients,
     })
 
     if (result.error) {
       throw new Error(`Nie udało się zapisać przepisu: ${result.error.message}`)
     }
 
-    await flushRecipeImageCleanupQueue(input.ownerId)
-    return input.recipeId
+    void flushRecipeImageCleanupQueue(input.ownerId)
+    return recipeId
   } catch (error) {
-    await cleanupUnreferencedRecipeCover(input.ownerId, uploadedReplacementPath)
+    let cleanupFailed = false
+
+    try {
+      await cleanupFailedCover(input.ownerId, uploadedCoverPath)
+    } catch {
+      cleanupFailed = true
+    }
+
+    await cleanupNewProducts(input.ownerId, createdProductIds)
+
+    if (cleanupFailed) {
+      throw new Error('Nie udało się zapisać przepisu ani zabezpieczyć sprzątania nowego zdjęcia. Odśwież stronę i spróbuj ponownie.')
+    }
+
     throw error
   }
 }
@@ -196,5 +197,5 @@ export async function deleteRecipe(input: {
     throw new Error(`Nie udało się usunąć przepisu: ${result.error.message}`)
   }
 
-  await flushRecipeImageCleanupQueue(input.ownerId)
+  void flushRecipeImageCleanupQueue(input.ownerId)
 }

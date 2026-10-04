@@ -412,3 +412,20 @@ Runtime-only corrective after V3.4 production smoke.
 - parent Recipe Save is no longer required only to persist crop
 
 No SQL/schema/Storage-policy change.
+
+
+## V3.4.2 — Recipes Authoring Architecture Corrective
+
+Corrects the V3 authoring architecture instead of layering another hotfix.
+
+- Recipe detail is read-only again
+- one Recipe editor owns metadata, cover/crop, ingredients and preparation
+- ingredient changes remain draft until Recipe Save
+- missing ingredients still resolve/create through the shared canonical Product authority
+- final save uses one atomic `save_recipe_snapshot(...)` Recipe authority
+- ingredient order is always contiguous
+- faulty standalone reorder/update authorities are removed
+- focal point is selected on the full source image
+- one shared crop geometry/renderer drives hero, thumbnail and previews
+- Storage cleanup maintenance no longer blocks Recipe reads
+- Recipe CSS/contracts/verifier are consolidated to current architecture

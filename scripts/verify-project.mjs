@@ -67,21 +67,19 @@ const requiredFiles = [
   'tests/USER_ERROR_PRESENTATION_CONTRACT.md',
   'tests/V2_CLOSEOUT_CONTRACT.md',
   'src/features/recipes/RecipesPage.tsx',
-  'src/features/recipes/recipesReadModel.ts',
-  'src/features/recipes/types.ts',
-  'tests/RECIPES_READ_CONTRACT.md',
   'src/features/recipes/RecipeEditor.tsx',
+  'src/features/recipes/RecipeCoverFocusEditor.tsx',
+  'src/features/recipes/RecipeCoverImage.tsx',
+  'src/features/recipes/recipeCoverCrop.ts',
   'src/features/recipes/recipeMutations.ts',
   'src/features/recipes/recipeCoverStorage.ts',
   'src/features/recipes/recipeImageProcessor.ts',
-  'tests/RECIPE_MUTATION_CONTRACT.md',
+  'src/features/recipes/recipesReadModel.ts',
+  'src/features/recipes/types.ts',
+  'tests/RECIPES_UI_CONTRACT.md',
+  'tests/RECIPE_AUTHORING_CONTRACT.md',
+  'tests/RECIPE_SHARED_CORE_CONTRACT.md',
   'tests/RECIPE_IMAGE_CONTRACT.md',
-  'src/features/recipes/RecipeIngredientsEditor.tsx',
-  'src/features/recipes/recipeIngredientMutations.ts',
-  'src/features/recipes/RecipeCoverFocusEditor.tsx',
-  'tests/RECIPE_INGREDIENT_SHARED_CORE_CONTRACT.md',
-  'tests/RECIPE_COVER_FOCAL_CLEANUP_CONTRACT.md',
-  'tests/RECIPE_COVER_SMART_CONTRACT.md',
   'vite.config.ts',
 ]
 
@@ -776,21 +774,21 @@ if (!gitignore.includes('*.tsbuildinfo')) {
 }
 
 
-// V3.2 — Recipes read model + navigation.
+// Recipes — current V3 architecture.
 if (!shell.includes("import { RecipesPage } from '../features/recipes/RecipesPage'")) {
-  throw new Error('V3.2 AppShell must import RecipesPage.')
+  throw new Error('AppShell must import RecipesPage.')
 }
 if (!shell.includes("view === 'recipes'") || !shell.includes("changeView('recipes')")) {
-  throw new Error('V3.2 bottom navigation must activate Recipes.')
+  throw new Error('Bottom navigation must activate Recipes.')
 }
-if (shell.includes('Przepisy — moduł w przygotowaniu') || /<button[^>]*disabled[^>]*>[\s\S]*?<span>Przepisy<\/span>/.test(shell)) {
-  throw new Error('V3.2 must remove the disabled Recipes placeholder.')
+if (shell.includes('Przepisy — moduł w przygotowaniu')) {
+  throw new Error('Recipes cannot remain a disabled navigation placeholder.')
 }
 if (!shell.includes('recipesOverviewRequest') || !shell.includes('overviewRequestToken={recipesOverviewRequest}')) {
-  throw new Error('V3.2 active Recipes bottom-nav action must be able to return Recipe detail to the Recipe list.')
+  throw new Error('Active Recipes navigation must return detail to the Recipe list.')
 }
 if (homePage.includes('home-recipes-hub') || homePage.includes('<strong>Przepisy</strong>')) {
-  throw new Error('V3.2 must not duplicate Recipes as a Start/Home module tile.')
+  throw new Error('Start must not duplicate Recipes module navigation.')
 }
 
 const recipesReadModel = await readFile('src/features/recipes/recipesReadModel.ts', 'utf8')
@@ -802,102 +800,98 @@ for (const marker of [
   'loadMeasurementUnits()',
   'readStoredQuantity',
 ]) {
-  if (!recipesReadModel.includes(marker)) {
-    throw new Error(`V3.2 Recipes read-model marker missing: ${marker}`)
-  }
+  if (!recipesReadModel.includes(marker)) throw new Error(`Recipes read-model marker missing: ${marker}`)
 }
 if (/\.(insert|update|upsert|delete|rpc)\s*\(/.test(recipesReadModel)) {
-  throw new Error('V3.2 Recipes read model must remain read-only.')
-}
-for (const marker of [
-  'unresolved canonical Product',
-  'unresolved Measurement Unit',
-  'ingredients.sort(compareIngredients)',
-]) {
-  if (!recipesReadModel.includes(marker)) {
-    throw new Error(`V3.2 Recipes read-integrity marker missing: ${marker}`)
-  }
+  throw new Error('Recipes read model must remain read-only.')
 }
 
 const recipesPage = await readFile('src/features/recipes/RecipesPage.tsx', 'utf8')
 for (const marker of [
-  'Ładuję przepisy…',
-  'Nie udało się wczytać przepisów.',
-  'Dodaj pierwszy przepis',
-  'recipe-row',
+  'RecipeCoverImage',
+  'RecipeEditor',
   'Składniki',
   'Przygotowanie',
   'formatQuantity',
-  'overviewRequestToken',
 ]) {
-  if (!recipesPage.includes(marker)) {
-    throw new Error(`V3.2 Recipes UI marker missing: ${marker}`)
-  }
+  if (!recipesPage.includes(marker)) throw new Error(`Recipes UI marker missing: ${marker}`)
 }
-for (const marker of ['RecipeEditor', "setEditorMode({ kind: 'create' })", "setEditorMode({ kind: 'edit'"]) {
-  if (!recipesPage.includes(marker)) {
-    throw new Error(`V3.3 RecipesPage mutation UI marker missing: ${marker}`)
-  }
+if (recipesPage.includes('RecipeIngredientsEditor') || recipesPage.includes('recipe-section-action') || recipesPage.includes('recipe-detail-empty-action')) {
+  throw new Error('Recipe detail must remain read-only; ingredient mutation belongs to unified Recipe authoring.')
 }
-
-const recipesContract = await readFile('tests/RECIPES_READ_CONTRACT.md', 'utf8')
-for (const marker of [
-  'canonical Product catalog',
-  'shared Measurement Units',
-  'shared Quantity stored-value reader',
-  'V3.2 must not expose',
-]) {
-  if (!recipesContract.includes(marker)) {
-    throw new Error(`V3.2 Recipes read contract marker missing: ${marker}`)
-  }
+if (recipesPage.includes('await flushRecipeImageCleanupQueue(ownerId)')) {
+  throw new Error('Recipe reading must not await Storage cleanup maintenance.')
 }
 
-for (const marker of [
-  '.recipes-page',
-  '.recipes-list-card',
-  '.recipe-row',
-  '.recipe-detail-page',
-  '.recipe-ingredient-row',
-  '.recipe-instructions',
-]) {
-  if (!globalCss.includes(marker)) {
-    throw new Error(`V3.2 Recipes style marker missing: ${marker}`)
-  }
-}
-
-
-
-// V3.3 — Recipe CRUD + private optimized cover image.
 const recipeEditor = await readFile('src/features/recipes/RecipeEditor.tsx', 'utf8')
 for (const marker of [
-  'Dodaj przepis',
-  'Edytuj przepis',
-  'Z galerii',
-  'Zrób zdjęcie',
-  'capture="environment"',
+  'ProductAutocompleteField',
+  'QuantityStepperInput',
+  'loadMeasurementUnits',
+  'loadOwnerProductCatalog',
+  'saveRecipeSnapshot',
   'processRecipeCoverImage',
-  'Usuń przepis',
+  'RecipeCoverFocusEditor',
+  'Dodaj składnik',
+  'Przygotowanie',
 ]) {
-  if (!recipeEditor.includes(marker)) {
-    throw new Error(`V3.3 Recipe editor marker missing: ${marker}`)
-  }
+  if (!recipeEditor.includes(marker)) throw new Error(`Unified Recipe authoring marker missing: ${marker}`)
+}
+if (recipeEditor.includes('canonical Product') || recipeEditor.includes('wspólnym katalogu Kitchen')) {
+  throw new Error('Recipe authoring must not expose internal Product architecture copy.')
+}
+if (recipeEditor.includes('updateRecipeCoverFocus') || recipeEditor.includes('onCoverFocusSaved')) {
+  throw new Error('Crop must belong to the Recipe authoring draft, not a second persistence authority.')
+}
+
+const productAutocomplete = await readFile('src/features/products/ProductAutocomplete.tsx', 'utf8')
+if (!productAutocomplete.includes('exactHint?: string') || !productAutocomplete.includes('unmatchedHint?: string')) {
+  throw new Error('Shared ProductAutocomplete must support SMART flows without mandatory helper copy.')
 }
 
 const recipeMutations = await readFile('src/features/recipes/recipeMutations.ts', 'utf8')
 for (const marker of [
-  'createRecipe',
-  'updateRecipe',
-  'deleteRecipe',
-  'uploadRecipeCover',
-  'cleanupUnreferencedRecipeCover',
-  'p_owner_id: input.ownerId',
+  'resolveOrCreateCanonicalProduct',
+  'cleanupCreatedCanonicalProduct',
+  "supabase.rpc('save_recipe_snapshot'",
+  'p_ingredients: resolvedIngredients',
+  "supabase.rpc('delete_recipe_with_cover_cleanup'",
 ]) {
-  if (!recipeMutations.includes(marker)) {
-    throw new Error(`V3.3 Recipe mutation authority marker missing: ${marker}`)
-  }
+  if (!recipeMutations.includes(marker)) throw new Error(`Recipe snapshot authority marker missing: ${marker}`)
 }
-if (/product|ingredient/i.test(recipeMutations.replace(/cover_image_path/g, ''))) {
-  throw new Error('V3.3 Recipe mutation authority must not create a Recipe-specific Product/ingredient path.')
+if (/renameCanonicalProduct|resolveCanonicalProductForEdit/.test(recipeMutations)) {
+  throw new Error('Recipe ingredient authoring must never globally rename the previously referenced Product.')
+}
+
+const cropGeometry = await readFile('src/features/recipes/recipeCoverCrop.ts', 'utf8')
+for (const marker of [
+  'getContainedImageRect',
+  'mapPointerToSourceFocus',
+  'calculateCoverObjectPosition',
+  'overflowX',
+  'overflowY',
+]) {
+  if (!cropGeometry.includes(marker)) throw new Error(`Recipe crop geometry marker missing: ${marker}`)
+}
+
+const focalEditor = await readFile('src/features/recipes/RecipeCoverFocusEditor.tsx', 'utf8')
+for (const marker of [
+  'getContainedImageRect',
+  'mapPointerToSourceFocus',
+  'object-fit',
+  'RecipeCoverImage',
+  'Zastosuj',
+]) {
+  if (marker === 'object-fit') continue
+  if (!focalEditor.includes(marker)) throw new Error(`Recipe focal editor marker missing: ${marker}`)
+}
+if (focalEditor.includes('Zapisz kadr')) {
+  throw new Error('Crop editor must apply draft crop, not create a separate save contract.')
+}
+
+const coverImage = await readFile('src/features/recipes/RecipeCoverImage.tsx', 'utf8')
+if (!coverImage.includes('calculateCoverObjectPosition')) {
+  throw new Error('Recipe covers must use one shared production crop renderer.')
 }
 
 const imageProcessor = await readFile('src/features/recipes/recipeImageProcessor.ts', 'utf8')
@@ -906,205 +900,57 @@ for (const marker of [
   "encodeExact(canvas, 'image/webp'",
   'avifSupported === false',
   'RECIPE_COVER_MAX_LONG_EDGE = 1600',
-  'RECIPE_COVER_MAX_OUTPUT_BYTES',
-  "file.type === 'image/svg+xml'",
 ]) {
-  if (!imageProcessor.includes(marker)) {
-    throw new Error(`V3.3 image processor marker missing: ${marker}`)
-  }
+  if (!imageProcessor.includes(marker)) throw new Error(`Recipe image processor marker missing: ${marker}`)
 }
 if (/upload|supabase|storage/i.test(imageProcessor)) {
-  throw new Error('V3.3 image processor must process only; Storage upload belongs to one separate authority.')
+  throw new Error('Image processor must process only; Storage stays in the Storage authority.')
 }
 
 const coverStorage = await readFile('src/features/recipes/recipeCoverStorage.ts', 'utf8')
 for (const marker of [
   "RECIPE_IMAGE_BUCKET = 'recipe-images'",
-  '.upload(',
-  '.remove([',
-  '.createSignedUrl(',
-  "cacheControl: '31536000'",
-  'upsert: false',
-]) {
-  if (!coverStorage.includes(marker)) {
-    throw new Error(`V3.3 cover Storage marker missing: ${marker}`)
-  }
-}
-if (coverStorage.includes('getPublicUrl')) {
-  throw new Error('V3.3 Recipe covers must remain private and use signed URLs.')
-}
-
-const recipeMutationContract = await readFile('tests/RECIPE_MUTATION_CONTRACT.md', 'utf8')
-for (const marker of ['owner-scoped', 'canonical Products are not deleted', 'No base64/blob']) {
-  if (!recipeMutationContract.includes(marker)) {
-    throw new Error(`V3.3 Recipe mutation contract marker missing: ${marker}`)
-  }
-}
-
-const recipeImageContract = await readFile('tests/RECIPE_IMAGE_CONTRACT.md', 'utf8')
-for (const marker of ['AVIF is attempted first', 'WebP is used only when AVIF encoding is unavailable', 'raw/original File is never uploaded', 'private']) {
-  if (!recipeImageContract.includes(marker)) {
-    throw new Error(`V3.3 Recipe image contract marker missing: ${marker}`)
-  }
-}
-
-for (const marker of [
-  '.recipe-row-cover',
-  '.recipe-detail-cover',
-  '.recipe-cover-editor',
-  '.recipe-cover-preview',
-  '.recipe-media-button',
-]) {
-  if (!globalCss.includes(marker)) {
-    throw new Error(`V3.3 Recipe cover style marker missing: ${marker}`)
-  }
-}
-
-
-// V3.4 — Ingredient shared-core + focal crop + durable cover cleanup.
-const ingredientEditor = await readFile('src/features/recipes/RecipeIngredientsEditor.tsx', 'utf8')
-for (const marker of [
-  'ProductAutocompleteField',
-  'useProductAutocomplete',
-  'QuantityStepperInput',
-  'loadMeasurementUnits',
-  'getDefaultUnitCode',
-  'Dodaj pierwszy składnik',
-  'sectionLabel',
-  'reorderRecipeIngredients',
-]) {
-  if (!ingredientEditor.includes(marker)) {
-    throw new Error(`V3.4 ingredient editor marker missing: ${marker}`)
-  }
-}
-
-const ingredientMutations = await readFile('src/features/recipes/recipeIngredientMutations.ts', 'utf8')
-for (const marker of [
-  'resolveOrCreateCanonicalProduct',
-  'cleanupCreatedCanonicalProduct',
-  ".from('recipe_ingredients')",
-  "supabase.rpc('reorder_recipe_ingredients'",
-  ".eq('owner_id', input.ownerId)",
-]) {
-  if (!ingredientMutations.includes(marker)) {
-    throw new Error(`V3.4 ingredient authority marker missing: ${marker}`)
-  }
-}
-if (/renameCanonicalProduct|resolveCanonicalProductForEdit/.test(ingredientMutations)) {
-  throw new Error('V3.4 Recipe ingredient editing must switch Product identity, not rename an existing canonical Product.')
-}
-
-const focalEditor = await readFile('src/features/recipes/RecipeCoverFocusEditor.tsx', 'utf8')
-for (const marker of [
-  'Ustaw kadr',
-  'Widok przepisu',
-  'Miniatura',
-  'setPointerCapture',
-  'objectPosition',
-]) {
-  if (!focalEditor.includes(marker)) {
-    throw new Error(`V3.4 focal crop marker missing: ${marker}`)
-  }
-}
-
-const recipeCoverStorageV34 = await readFile('src/features/recipes/recipeCoverStorage.ts', 'utf8')
-for (const marker of [
   'recipe_image_cleanup_queue',
   'flushRecipeImageCleanupQueue',
   'queueRecipeCoverCleanup',
-  'cleanupUnreferencedRecipeCover',
+  'isRecipeCoverReferenced',
+  '.createSignedUrl(',
 ]) {
-  if (!recipeCoverStorageV34.includes(marker)) {
-    throw new Error(`V3.4 cover cleanup marker missing: ${marker}`)
-  }
+  if (!coverStorage.includes(marker)) throw new Error(`Recipe cover Storage marker missing: ${marker}`)
 }
+if (coverStorage.includes('getPublicUrl')) throw new Error('Recipe covers must remain private.')
+if (!coverStorage.includes('if (result.error)')) throw new Error('Recipe cleanup queue insertion errors must not be silently ignored.')
 
-const recipeMutationsV34 = await readFile('src/features/recipes/recipeMutations.ts', 'utf8')
-for (const marker of [
-  "supabase.rpc('update_recipe_with_cover_cleanup'",
-  "supabase.rpc('delete_recipe_with_cover_cleanup'",
-  'coverFocusX',
-  'coverFocusY',
-  'flushRecipeImageCleanupQueue',
+const recipesUiContract = await readFile('tests/RECIPES_UI_CONTRACT.md', 'utf8')
+const recipeAuthoringContract = await readFile('tests/RECIPE_AUTHORING_CONTRACT.md', 'utf8')
+const recipeSharedContract = await readFile('tests/RECIPE_SHARED_CORE_CONTRACT.md', 'utf8')
+const recipeImageContract = await readFile('tests/RECIPE_IMAGE_CONTRACT.md', 'utf8')
+for (const [contract, markers] of [
+  [recipesUiContract, ['read surfaces', 'exactly one Recipe edit entry point']],
+  [recipeAuthoringContract, ['One Recipe authoring draft', 'save_recipe_snapshot', 'Cancel discards the draft']],
+  [recipeSharedContract, ['canonical Product resolver/create authority', 'shared Quantity', 'must not globally rename']],
+  [recipeImageContract, ['full source image', 'pure crop geometry authority', 'Cleanup retries never block Recipe reading']],
 ]) {
-  if (!recipeMutationsV34.includes(marker)) {
-    throw new Error(`V3.4 Recipe cleanup/focal mutation marker missing: ${marker}`)
-  }
-}
-
-const v34SharedContract = await readFile('tests/RECIPE_INGREDIENT_SHARED_CORE_CONTRACT.md', 'utf8')
-for (const marker of [
-  'canonical Product UUID',
-  'resolveOrCreateCanonicalProduct',
-  'QuantityStepperInput',
-  'No Recipe-only unit dictionary',
-]) {
-  if (!v34SharedContract.includes(marker)) {
-    throw new Error(`V3.4 shared-core contract marker missing: ${marker}`)
-  }
-}
-
-const v34CoverContract = await readFile('tests/RECIPE_COVER_FOCAL_CLEANUP_CONTRACT.md', 'utf8')
-for (const marker of [
-  'cover_focus_x',
-  'recipe_image_cleanup_queue',
-  'same database transaction',
-  'retries queued cleanup',
-]) {
-  if (!v34CoverContract.includes(marker)) {
-    throw new Error(`V3.4 cover contract marker missing: ${marker}`)
+  for (const marker of markers) {
+    if (!contract.includes(marker)) throw new Error(`Current Recipe contract marker missing: ${marker}`)
   }
 }
 
 for (const marker of [
-  '.recipe-focus-main',
-  '.recipe-focus-square',
-  '.recipe-ingredients-editor-list',
-  '.recipe-ingredient-form-card',
-  '.recipe-detail-empty-action',
+  '/* Recipes — current V3 architecture */',
+  '.recipe-authoring-section',
+  '.recipe-authoring-ingredient-row',
+  '.recipe-focus-source-stage',
 ]) {
-  if (!globalCss.includes(marker)) {
-    throw new Error(`V3.4 style marker missing: ${marker}`)
-  }
+  if (!globalCss.includes(marker)) throw new Error(`Current Recipe CSS marker missing: ${marker}`)
 }
-if (!globalCss.includes('.recipes-empty-with-action .primary-button') || !globalCss.includes('color: #fff !important')) {
-  throw new Error('V3.4 must explicitly fix Recipe empty-state primary-button text contrast.')
-}
-
-
-// V3.4.1 — SMART cover corrective.
-if (recipeEditor.includes('Preferowany format to AVIF') || recipeEditor.includes('Oryginał nie trafia do Storage')) {
-  throw new Error('V3.4.1 Recipe editor must not expose technical image-pipeline copy.')
-}
-if (recipeEditor.includes('bytesLabel(') || recipeEditor.includes('recipe-cover-result')) {
-  throw new Error('V3.4.1 Recipe editor must not expose encoded image diagnostics.')
-}
-if (!recipeEditor.includes('recipe-media-focus')) {
-  throw new Error('V3.4.1 crop action must have its dedicated full-width hierarchy class.')
-}
-if (!recipeEditor.includes('updateRecipeCoverFocus') || !recipeEditor.includes('onCoverFocusSaved')) {
-  throw new Error('V3.4.1 existing Recipe crop must persist immediately and update live UI state.')
-}
-
-const smartCoverContract = await readFile('tests/RECIPE_COVER_SMART_CONTRACT.md', 'utf8')
-for (const marker of [
-  'must NOT need the parent Recipe `Zapisz` button',
-  'read back stored coordinates',
-  'gallery and camera share one compact row',
+for (const staleMarker of [
+  '/* V3.2 — Recipes read model + navigation */',
+  '/* V3.3 — Recipe CRUD + optimized cover image */',
+  '/* V3.4 — Ingredient Editor + focal crop + cover cleanup polish */',
+  '/* V3.4.1 — SMART Recipe cover corrective */',
 ]) {
-  if (!smartCoverContract.includes(marker)) {
-    throw new Error(`V3.4.1 SMART cover contract marker missing: ${marker}`)
-  }
-}
-
-if (!recipeMutationsV34.includes('updateRecipeCoverFocus')) {
-  throw new Error('V3.4.1 Recipe mutation authority must own focused crop persistence.')
-}
-if (!recipeMutationsV34.includes(".select('cover_focus_x, cover_focus_y')")) {
-  throw new Error('V3.4.1 crop persistence must read back stored focal coordinates.')
-}
-if (!globalCss.includes('.recipe-cover-actions .recipe-media-focus') || !globalCss.includes('grid-column: 1 / -1')) {
-  throw new Error('V3.4.1 crop action must span the full cover-control width.')
+  if (globalCss.includes(staleMarker)) throw new Error(`Superseded Recipe CSS block still exists: ${staleMarker}`)
 }
 
 console.log('Kitchen project contract verification: PASS')

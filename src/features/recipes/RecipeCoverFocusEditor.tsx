@@ -1,62 +1,80 @@
-import { PointerEvent, useMemo, useState } from 'react'
-import { toUserErrorMessage } from '../../lib/userError'
+import { PointerEvent, useEffect, useMemo, useRef, useState } from 'react'
 import { KitchenIcon } from '../../components/KitchenIcon'
+import { RecipeCoverImage } from './RecipeCoverImage'
+import {
+  getContainedImageRect,
+  mapPointerToSourceFocus,
+} from './recipeCoverCrop'
 
 type RecipeCoverFocusEditorProps = {
   imageUrl: string
   initialX: number
   initialY: number
   onCancel: () => void
-  applyLabel: string
-  onApply: (x: number, y: number) => Promise<void> | void
+  onApply: (x: number, y: number) => void
 }
 
-function clamp01(value: number) {
-  return Math.min(1, Math.max(0, value))
-}
+type Size = { width: number; height: number }
 
 export function RecipeCoverFocusEditor({
   imageUrl,
   initialX,
   initialY,
   onCancel,
-  applyLabel,
   onApply,
 }: RecipeCoverFocusEditorProps) {
-  const [x, setX] = useState(clamp01(initialX))
-  const [y, setY] = useState(clamp01(initialY))
-  const [applying, setApplying] = useState(false)
-  const [errorMessage, setErrorMessage] = useState('')
-  const objectPosition = useMemo(() => `${x * 100}% ${y * 100}%`, [x, y])
+  const stageRef = useRef<HTMLDivElement>(null)
+  const [sourceSize, setSourceSize] = useState<Size>({ width: 0, height: 0 })
+  const [stageSize, setStageSize] = useState<Size>({ width: 0, height: 0 })
+  const [x, setX] = useState(initialX)
+  const [y, setY] = useState(initialY)
+
+  useEffect(() => {
+    const stage = stageRef.current
+    if (!stage) return
+
+    const update = () => {
+      const rect = stage.getBoundingClientRect()
+      setStageSize({ width: rect.width, height: rect.height })
+    }
+
+    update()
+    const observer = new ResizeObserver(update)
+    observer.observe(stage)
+    return () => observer.disconnect()
+  }, [])
+
+  const containedRect = useMemo(() => getContainedImageRect({
+    containerWidth: stageSize.width,
+    containerHeight: stageSize.height,
+    sourceWidth: sourceSize.width,
+    sourceHeight: sourceSize.height,
+  }), [sourceSize.height, sourceSize.width, stageSize.height, stageSize.width])
+
+  const markerStyle = useMemo(() => ({
+    left: containedRect.x + x * containedRect.width,
+    top: containedRect.y + y * containedRect.height,
+  }), [containedRect.height, containedRect.width, containedRect.x, containedRect.y, x, y])
 
   function updateFromPointer(event: PointerEvent<HTMLDivElement>) {
     const rect = event.currentTarget.getBoundingClientRect()
-    if (!rect.width || !rect.height) return
-    setX(clamp01((event.clientX - rect.left) / rect.width))
-    setY(clamp01((event.clientY - rect.top) / rect.height))
+    const next = mapPointerToSourceFocus({
+      pointerX: event.clientX - rect.left,
+      pointerY: event.clientY - rect.top,
+      containedRect,
+    })
+    setX(next.x)
+    setY(next.y)
   }
 
   function handlePointerDown(event: PointerEvent<HTMLDivElement>) {
-    if (applying) return
     event.currentTarget.setPointerCapture(event.pointerId)
     updateFromPointer(event)
   }
 
   function handlePointerMove(event: PointerEvent<HTMLDivElement>) {
-    if (applying || !event.currentTarget.hasPointerCapture(event.pointerId)) return
+    if (!event.currentTarget.hasPointerCapture(event.pointerId)) return
     updateFromPointer(event)
-  }
-
-  async function applyCrop() {
-    if (applying) return
-    setApplying(true)
-    setErrorMessage('')
-    try {
-      await onApply(x, y)
-    } catch (error) {
-      setErrorMessage(toUserErrorMessage(error, 'Nie udało się zapisać kadru.'))
-      setApplying(false)
-    }
   }
 
   return (
@@ -67,44 +85,55 @@ export function RecipeCoverFocusEditor({
             <p className="eyebrow">Zdjęcie przepisu</p>
             <h2 id="recipe-focus-title">Ustaw kadr</h2>
           </div>
-          <button className="icon-button" type="button" onClick={onCancel} disabled={applying} aria-label="Zamknij ustawianie kadru">
+          <button className="icon-button" type="button" onClick={onCancel} aria-label="Zamknij ustawianie kadru">
             <KitchenIcon name="close" />
           </button>
         </header>
 
-        <p className="recipe-focus-intro">
-          Dotknij lub przeciągnij na zdjęciu, aby wskazać najważniejsze miejsce. Ten sam punkt działa dla miniatury i dużego zdjęcia.
-        </p>
+        <p className="recipe-focus-intro">Wskaż na pełnym zdjęciu najważniejsze miejsce.</p>
 
         <div
-          className="recipe-focus-main"
+          ref={stageRef}
+          className="recipe-focus-source-stage"
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
-          aria-label="Ustaw punkt kadrowania"
+          aria-label="Wybierz punkt kadrowania"
         >
-          <img src={imageUrl} alt="" style={{ objectPosition }} draggable={false} />
-          <span className="recipe-focus-target" style={{ left: `${x * 100}%`, top: `${y * 100}%` }} aria-hidden="true" />
+          <img
+            src={imageUrl}
+            alt=""
+            draggable={false}
+            onLoad={(event) => setSourceSize({
+              width: event.currentTarget.naturalWidth,
+              height: event.currentTarget.naturalHeight,
+            })}
+          />
+          {containedRect.width > 0 && containedRect.height > 0 && (
+            <span className="recipe-focus-target" style={markerStyle} aria-hidden="true" />
+          )}
         </div>
 
         <div className="recipe-focus-previews" aria-label="Podgląd kadru">
           <div>
             <span>Widok przepisu</span>
-            <div className="recipe-focus-wide"><img src={imageUrl} alt="" style={{ objectPosition }} /></div>
+            <div className="recipe-focus-wide">
+              <RecipeCoverImage src={imageUrl} alt="" focusX={x} focusY={y} targetAspect={16 / 10} />
+            </div>
           </div>
           <div>
             <span>Miniatura</span>
-            <div className="recipe-focus-square"><img src={imageUrl} alt="" style={{ objectPosition }} /></div>
+            <div className="recipe-focus-square">
+              <RecipeCoverImage src={imageUrl} alt="" focusX={x} focusY={y} targetAspect={1} />
+            </div>
           </div>
         </div>
 
-        {errorMessage && <p className="form-error" role="alert">{errorMessage}</p>}
-
         <div className="recipe-focus-actions">
-          <button className="secondary-button" type="button" disabled={applying} onClick={() => { setX(0.5); setY(0.5) }}>
+          <button className="secondary-button" type="button" onClick={() => { setX(0.5); setY(0.5) }}>
             Wyśrodkuj
           </button>
-          <button className="primary-button" type="button" disabled={applying} onClick={() => void applyCrop()}>
-            {applying ? 'Zapisuję…' : applyLabel}
+          <button className="primary-button" type="button" onClick={() => onApply(x, y)}>
+            Zastosuj
           </button>
         </div>
       </section>

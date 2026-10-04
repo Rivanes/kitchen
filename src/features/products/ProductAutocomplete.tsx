@@ -30,8 +30,8 @@ type ProductAutocompleteFieldProps<T extends ProductIdentityOption> = {
   placeholder?: string
   maxLength?: number
   inputRef?: RefObject<HTMLInputElement | null>
-  exactHint: string
-  unmatchedHint: string
+  exactHint?: string
+  unmatchedHint?: string
   onChange: (value: string) => void
   onChoose: (product: T) => void
 }
@@ -71,8 +71,8 @@ export function ProductAutocompleteField<T extends ProductIdentityOption>({
         aria-controls={suggestions.length > 0 ? `${inputId}-suggestions` : undefined}
       />
 
-      {exactProduct && <p className="field-hint product-autocomplete-status">{exactHint}</p>}
-      {!exactProduct && hasValue && <p className="field-hint product-autocomplete-status">{unmatchedHint}</p>}
+      {exactProduct && exactHint && <p className="field-hint product-autocomplete-status">{exactHint}</p>}
+      {!exactProduct && hasValue && unmatchedHint && <p className="field-hint product-autocomplete-status">{unmatchedHint}</p>}
 
       {suggestions.length > 0 && (
         <div id={`${inputId}-suggestions`} className="product-suggestions" aria-label="Pasujące produkty">
