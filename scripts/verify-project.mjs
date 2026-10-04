@@ -66,6 +66,10 @@ const requiredFiles = [
   'tests/SHOPPING_QUICK_PURCHASE_CONTRACT.md',
   'tests/USER_ERROR_PRESENTATION_CONTRACT.md',
   'tests/V2_CLOSEOUT_CONTRACT.md',
+  'src/features/recipes/RecipesPage.tsx',
+  'src/features/recipes/recipesReadModel.ts',
+  'src/features/recipes/types.ts',
+  'tests/RECIPES_READ_CONTRACT.md',
   'vite.config.ts',
 ]
 
@@ -140,8 +144,8 @@ if (!shell.includes('overviewRequestToken={inventoryOverviewRequest}') || !shell
   throw new Error('V1.5 bottom-nav Inventory action must be able to return a location detail page to the Zapasy overview.')
 }
 
-if (!shell.includes("type AppView = 'home' | 'inventory' | 'expiry' | 'shopping'")) {
-  throw new Error('V2.3 AppShell must expose Shopping as a first-class view.')
+if (!shell.includes("type AppView = 'home' | 'inventory' | 'expiry' | 'shopping' | 'recipes'")) {
+  throw new Error('V3.2 AppShell must expose Inventory, Shopping and Recipes as first-class views.')
 }
 if (!shell.includes("<ShoppingPage ownerId={user.id} />") || !shell.includes("changeView('shopping')")) {
   throw new Error('V2.3 bottom navigation must activate the Shopping List.')
@@ -758,5 +762,94 @@ const gitignore = await readFile('.gitignore', 'utf8')
 if (!gitignore.includes('*.tsbuildinfo')) {
   throw new Error('V2.7 repo hygiene must ignore generated TypeScript build-info files.')
 }
+
+
+// V3.2 — Recipes read model + navigation.
+if (!shell.includes("import { RecipesPage } from '../features/recipes/RecipesPage'")) {
+  throw new Error('V3.2 AppShell must import RecipesPage.')
+}
+if (!shell.includes("view === 'recipes'") || !shell.includes("changeView('recipes')")) {
+  throw new Error('V3.2 bottom navigation must activate Recipes.')
+}
+if (shell.includes('Przepisy — moduł w przygotowaniu') || /<button[^>]*disabled[^>]*>[\s\S]*?<span>Przepisy<\/span>/.test(shell)) {
+  throw new Error('V3.2 must remove the disabled Recipes placeholder.')
+}
+if (!shell.includes('recipesOverviewRequest') || !shell.includes('overviewRequestToken={recipesOverviewRequest}')) {
+  throw new Error('V3.2 active Recipes bottom-nav action must be able to return Recipe detail to the Recipe list.')
+}
+if (homePage.includes('home-recipes-hub') || homePage.includes('<strong>Przepisy</strong>')) {
+  throw new Error('V3.2 must not duplicate Recipes as a Start/Home module tile.')
+}
+
+const recipesReadModel = await readFile('src/features/recipes/recipesReadModel.ts', 'utf8')
+for (const marker of [
+  ".from('recipes')",
+  ".from('recipe_ingredients')",
+  ".eq('owner_id', ownerId)",
+  'loadOwnerProductCatalog(ownerId)',
+  'loadMeasurementUnits()',
+  'readStoredQuantity',
+]) {
+  if (!recipesReadModel.includes(marker)) {
+    throw new Error(`V3.2 Recipes read-model marker missing: ${marker}`)
+  }
+}
+if (/\.(insert|update|upsert|delete|rpc)\s*\(/.test(recipesReadModel)) {
+  throw new Error('V3.2 Recipes read model must remain read-only.')
+}
+for (const marker of [
+  'unresolved canonical Product',
+  'unresolved Measurement Unit',
+  'ingredients.sort(compareIngredients)',
+]) {
+  if (!recipesReadModel.includes(marker)) {
+    throw new Error(`V3.2 Recipes read-integrity marker missing: ${marker}`)
+  }
+}
+
+const recipesPage = await readFile('src/features/recipes/RecipesPage.tsx', 'utf8')
+for (const marker of [
+  'Ładuję przepisy…',
+  'Nie udało się wczytać przepisów.',
+  'Tu pojawią się Twoje przepisy',
+  'recipe-row',
+  'Składniki',
+  'Przygotowanie',
+  'formatQuantity',
+  'overviewRequestToken',
+]) {
+  if (!recipesPage.includes(marker)) {
+    throw new Error(`V3.2 Recipes UI marker missing: ${marker}`)
+  }
+}
+if (/Recipe(Editor|Create|Mutation)|createRecipe|updateRecipe|deleteRecipe/.test(recipesPage)) {
+  throw new Error('V3.2 RecipesPage must not expose Recipe mutations.')
+}
+
+const recipesContract = await readFile('tests/RECIPES_READ_CONTRACT.md', 'utf8')
+for (const marker of [
+  'canonical Product catalog',
+  'shared Measurement Units',
+  'shared Quantity stored-value reader',
+  'V3.2 must not expose',
+]) {
+  if (!recipesContract.includes(marker)) {
+    throw new Error(`V3.2 Recipes read contract marker missing: ${marker}`)
+  }
+}
+
+for (const marker of [
+  '.recipes-page',
+  '.recipes-list-card',
+  '.recipe-row',
+  '.recipe-detail-page',
+  '.recipe-ingredient-row',
+  '.recipe-instructions',
+]) {
+  if (!globalCss.includes(marker)) {
+    throw new Error(`V3.2 Recipes style marker missing: ${marker}`)
+  }
+}
+
 
 console.log('Kitchen project contract verification: PASS')

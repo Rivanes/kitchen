@@ -5,18 +5,20 @@ import { HomePage } from '../features/home/HomePage'
 import { ExpiryPage } from '../features/inventory/ExpiryPage'
 import { InventoryPage } from '../features/inventory/InventoryPage'
 import { ShoppingPage } from '../features/shopping/ShoppingPage'
+import { RecipesPage } from '../features/recipes/RecipesPage'
 import { KitchenIcon } from './KitchenIcon'
 
 type AppShellProps = {
   user: User
 }
 
-type AppView = 'home' | 'inventory' | 'expiry' | 'shopping'
+type AppView = 'home' | 'inventory' | 'expiry' | 'shopping' | 'recipes'
 
 export function AppShell({ user }: AppShellProps) {
   const [view, setView] = useState<AppView>('home')
   const [inventoryCreateRequest, setInventoryCreateRequest] = useState(0)
   const [inventoryOverviewRequest, setInventoryOverviewRequest] = useState(0)
+  const [recipesOverviewRequest, setRecipesOverviewRequest] = useState(0)
 
   async function handleLogout() {
     await supabase?.auth.signOut()
@@ -25,6 +27,9 @@ export function AppShell({ user }: AppShellProps) {
   function changeView(nextView: AppView) {
     if (nextView === 'inventory' && view === 'inventory') {
       setInventoryOverviewRequest((value) => value + 1)
+    }
+    if (nextView === 'recipes' && view === 'recipes') {
+      setRecipesOverviewRequest((value) => value + 1)
     }
     setView(nextView)
     window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -81,6 +86,10 @@ export function AppShell({ user }: AppShellProps) {
 
       {view === 'shopping' && <ShoppingPage ownerId={user.id} />}
 
+      {view === 'recipes' && (
+        <RecipesPage ownerId={user.id} overviewRequestToken={recipesOverviewRequest} />
+      )}
+
       <nav className="bottom-nav" aria-label="Główna nawigacja Kitchen">
         <button className={`nav-item${startSectionActive ? ' is-active' : ''}`} type="button" onClick={() => changeView('home')} aria-current={startSectionActive ? 'page' : undefined}>
           <KitchenIcon name="home" />
@@ -94,7 +103,7 @@ export function AppShell({ user }: AppShellProps) {
           <KitchenIcon name="shopping" />
           <span>Zakupy</span>
         </button>
-        <button className="nav-item" type="button" disabled aria-label="Przepisy — moduł w przygotowaniu">
+        <button className={`nav-item${view === 'recipes' ? ' is-active' : ''}`} type="button" onClick={() => changeView('recipes')} aria-current={view === 'recipes' ? 'page' : undefined}>
           <KitchenIcon name="recipes" />
           <span>Przepisy</span>
         </button>

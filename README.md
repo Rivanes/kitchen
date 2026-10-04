@@ -293,7 +293,7 @@ When the corrected purchased quantity is reduced, the difference still returns t
 The correction remains atomic in `public.adjust_purchased_shopping_quantity(...)`.
 
 
-## V2.7 — V2 Final Polish / Closeout Candidate
+## V2.7 — V2 Final Polish / Closeout [PASS / CLOSED]
 
 V2.6 through V2.6.5 are production PASS/CLOSED.
 
@@ -308,3 +308,37 @@ Raw Supabase/Postgres detail appended after a Polish `Nie udało się ...:` acti
 The full backend/data authority remains unchanged.
 
 After GitHub QA, Pages deploy and full V2 production/mobile smoke PASS, V2 Shopping can be marked PASS/CLOSED and V3 Recipes becomes next.
+
+
+## V3.1 — Recipe Data Foundation [PASS / CLOSED]
+
+The production database now contains owner-scoped `recipes` and `recipe_ingredients`.
+
+Recipe ingredients reference:
+- canonical Product UUID
+- shared Measurement Units
+- shared `numeric(12,3)` quantity precision
+
+RLS, owner policies, cascade/restrict relationships and production postcheck all passed.
+
+## V3.2 — Recipes Read Model + Navigation
+
+The existing `Przepisy` bottom-navigation destination is now active.
+
+V3.2 is intentionally read-only:
+- Recipe list
+- loading/error/empty states
+- Recipe detail
+- base servings
+- ordered ingredients
+- canonical Product names
+- shared quantity/unit display
+- optional ingredient notes
+- preparation instructions
+
+Recipe reads explicitly scope `owner_id` and reuse the existing Product, Quantity and Measurement Unit authorities.
+
+Create/edit/delete remains V3.3.
+Ingredient mutation remains V3.4.
+
+No SQL migration is required for V3.2.
