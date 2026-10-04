@@ -1,4 +1,4 @@
-# Recipe Structured Sections Contract — V3.6A
+# Recipe Structured Sections Contract — V3.6A + V3.6A.1
 
 Recipe sections are real Recipe-local identities stored in `recipe_sections`.
 
@@ -21,10 +21,20 @@ Recipe sections are real Recipe-local identities stored in `recipe_sections`.
 - Duplicate normalized section names are rejected.
 - An empty secondary section may be deleted.
 - A secondary section containing an ingredient cannot be deleted until its ingredients are moved elsewhere.
-- Section add/rename/delete remain local Recipe draft operations until the single final `save_recipe_snapshot(...)` commit.
+- Section rename/delete remain local Recipe draft operations until the single final `save_recipe_snapshot(...)` commit.
 - Ingredient section assignment uses fast button/chip choices, not a dropdown and not free-text per ingredient.
 - New ingredients default to the primary section.
 - `Bez sekcji` no longer exists.
+
+## V3.6A.1 section-creation UX
+
+- The section manager has no independent `Dodaj sekcję` authority.
+- A secondary section is created only from ingredient authoring via `+ Nowa`.
+- `+ Nowa` starts a pending child draft, not a parent-state mutation.
+- Pending section creation and ingredient Apply commit together to the Recipe draft.
+- Canceling Add/Edit Ingredient discards the pending section.
+- Existing sections remain one-tap chips for assignment.
+- Whole-section rename remains a manager operation because section identity is first-class.
 
 ## Presentation/order
 
@@ -38,4 +48,4 @@ Recipe sections are real Recipe-local identities stored in `recipe_sections`.
 - Legacy section labels are migrated only when their contiguous block topology is unambiguous.
 - Migration never silently reorders ingredients.
 - The V3.5.3 snapshot signature remains temporarily available as a compatibility wrapper during the SQL -> Pages deployment window.
-- V3.6A does not perform package semantics, unit conversion, Inventory sufficiency or Recipe matching.
+- V3.6A/V3.6A.1 does not perform package semantics, unit conversion, Inventory sufficiency or Recipe matching.

@@ -2930,7 +2930,6 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
   border-radius: 12px;
   background: #fff;
 }
-.recipe-section-inline-editor-ingredient { background: #f5f8f4; }
 .recipe-section-inline-actions {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -3007,21 +3006,6 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
   font-size: 12px;
   font-weight: 850;
 }
-.recipe-ingredient-draft-card {
-  display: grid;
-  gap: 11px;
-  padding: 12px;
-  border: 1px solid #dce6dc;
-  border-radius: 15px;
-  background: #fbfcfa;
-}
-.recipe-ingredient-draft-heading {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-}
-.recipe-ingredient-draft-heading strong { font-size: 13px; }
 .compact-icon-button { width: 40px; min-height: 40px; border-radius: 12px; }
 .recipe-ingredient-quantity-unit {
   display: grid;
@@ -3042,13 +3026,6 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
   gap: 5px;
   margin: 0;
 }
-.recipe-ingredient-draft-actions {
-  display: grid;
-  grid-template-columns: .8fr 1.2fr;
-  gap: 8px;
-  align-items: stretch;
-}
-.recipe-ingredient-draft-actions .primary-button { margin: 0; }
 .recipe-ingredient-delete {
   min-height: 46px;
   display: inline-flex;
@@ -3179,4 +3156,38 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
 
 @media (min-width: 620px) {
   .recipe-editor-sheet { max-width: 600px; }
+}
+
+/* V3.6A.1 — Recipe ingredient sheet + deterministic authoring state */
+.recipe-ingredient-editor-backdrop {
+  z-index: 70;
+  background: rgba(26, 34, 29, .50);
+  backdrop-filter: blur(5px);
+}
+.recipe-ingredient-editor-sheet {
+  width: min(100%, 560px);
+  max-height: calc(100dvh - 8px);
+}
+.recipe-ingredient-editor-form { gap: 11px; }
+.recipe-ingredient-editor-actions {
+  display: grid;
+  grid-template-columns: minmax(0, .85fr) minmax(0, 1.15fr);
+  gap: 8px;
+  align-items: stretch;
+}
+.recipe-ingredient-editor-actions .primary-button,
+.recipe-ingredient-editor-actions .secondary-button { margin: 0; }
+.recipe-new-section-field > small {
+  color: var(--color-muted);
+  font-size: 10px;
+  line-height: 1.4;
+}
+.recipe-section-save-hint {
+  margin: -2px 0 0;
+  font-size: 10px;
+}
+.recipe-section-error { margin: 0; }
+
+@media (min-width: 620px) {
+  .recipe-ingredient-editor-sheet { max-width: 560px; }
 }

@@ -1,5 +1,9 @@
 import { readFile, access } from 'node:fs/promises'
 import { constants } from 'node:fs'
+import { execFile } from 'node:child_process'
+import { promisify } from 'node:util'
+
+const execFileAsync = promisify(execFile)
 
 const requiredFiles = [
   '.env.example',
@@ -68,6 +72,9 @@ const requiredFiles = [
   'tests/V2_CLOSEOUT_CONTRACT.md',
   'src/features/recipes/RecipesPage.tsx',
   'src/features/recipes/RecipeEditor.tsx',
+  'src/features/recipes/RecipeIngredientEditorSheet.tsx',
+  'src/features/recipes/recipeIngredientDraft.ts',
+  'scripts/test-recipe-ingredient-draft.mjs',
   'src/features/recipes/RecipeCoverFocusEditor.tsx',
   'src/features/recipes/RecipeCoverImage.tsx',
   'src/features/recipes/RecipeServingsControl.tsx',
@@ -941,8 +948,6 @@ for (const marker of [
 
 const recipeEditor = await readFile('src/features/recipes/RecipeEditor.tsx', 'utf8')
 for (const marker of [
-  'ProductAutocompleteField',
-  'QuantityStepperInput',
   'loadMeasurementUnits',
   'loadOwnerProductCatalog',
   'saveRecipeSnapshot',
@@ -967,10 +972,9 @@ for (const marker of [
   'Czas gotowania / pieczenia',
   'DEFAULT_PRIMARY_RECIPE_SECTION_NAME',
   'Sekcje składników',
-  'Pierwsza sekcja jest zawsze główna.',
-  'recipe-section-choice',
-  'aria-pressed',
-  "beginCreateSection('ingredient')",
+  'Nową sekcję dodasz podczas dodawania składnika.',
+  'RecipeIngredientEditorSheet',
+  'commitRecipeIngredientRow',
   'beginRenameSection',
   'removeSection',
   'validateRecipeSections',
@@ -983,6 +987,52 @@ if (recipeEditor.includes('Bez sekcji') || recipeEditor.includes('sectionLabel')
 if (recipeEditor.includes('id="recipe-ingredient-section"') || /<select[\s\S]{0,500}Sekcja/.test(recipeEditor)) {
   throw new Error('V3.6A ingredient section assignment must use fast buttons/chips, not a dropdown.')
 }
+
+const recipeIngredientEditor = await readFile('src/features/recipes/RecipeIngredientEditorSheet.tsx', 'utf8')
+const recipeIngredientDraft = await readFile('src/features/recipes/recipeIngredientDraft.ts', 'utf8')
+for (const marker of [
+  'recipe-ingredient-editor-backdrop',
+  'pendingSectionOpen',
+  'Sekcja powstanie dopiero po zastosowaniu składnika.',
+  'desiredSectionIndex',
+  'Wybierz sekcję składnika',
+  'recipe-section-choice',
+  'aria-pressed',
+  'ProductAutocompleteField',
+  'QuantityStepperInput',
+  "event.key !== 'Escape'",
+]) {
+  if (!recipeIngredientEditor.includes(marker)) throw new Error(`V3.6A.1 ingredient sheet marker missing: ${marker}`)
+}
+if (recipeIngredientEditor.includes('setSections(') || /\.(from|rpc)\s*\(/.test(recipeIngredientEditor)) {
+  throw new Error('V3.6A.1 ingredient sheet must own only a local child draft and must not mutate section persistence directly.')
+}
+if (recipeEditor.includes('Dodaj sekcję')) {
+  throw new Error('V3.6A.1 section manager must not expose an independent Add Section action.')
+}
+if (recipeEditor.includes('recipe-ingredient-draft-card')) {
+  throw new Error('V3.6A.1 ingredient authoring must not fall back to the old inline draft card.')
+}
+if (!recipeEditor.includes('disabled={busy || sectionEditor !== null}')) {
+  throw new Error('V3.6A.1 final Recipe Save must expose the local section-rename blocker directly.')
+}
+if (recipeEditor.includes('type="submit" disabled={busy || catalogLoading}')) {
+  throw new Error('V3.6A.1 final Recipe Save must not depend on Product Catalog loading.')
+}
+const parentRecipeFormEnd = recipeEditor.indexOf('</form>')
+const ingredientSheetRender = recipeEditor.indexOf('<RecipeIngredientEditorSheet')
+if (parentRecipeFormEnd < 0 || ingredientSheetRender < 0 || ingredientSheetRender < parentRecipeFormEnd) {
+  throw new Error('V3.6A.1 RecipeIngredientEditorSheet must render outside the parent Recipe form.')
+}
+for (const marker of ['commitRecipeIngredientRow', 'desiredSectionIndex', 'withoutCurrent', 'targetSectionRows']) {
+  if (!recipeIngredientDraft.includes(marker)) throw new Error(`V3.6A.1 ingredient draft helper marker missing: ${marker}`)
+}
+if (/supabase|\.from\(|\.rpc\(/i.test(recipeIngredientDraft)) {
+  throw new Error('V3.6A.1 ingredient draft transaction helper must remain pure.')
+}
+await execFileAsync(process.execPath, ['--experimental-strip-types', 'scripts/test-recipe-ingredient-draft.mjs'], {
+  env: { ...process.env, NODE_NO_WARNINGS: '1' },
+})
 
 const recipeSections = await readFile('src/features/recipes/recipeSections.ts', 'utf8')
 for (const marker of [
@@ -1177,9 +1227,9 @@ const recipeImageContract = await readFile('tests/RECIPE_IMAGE_CONTRACT.md', 'ut
 const recipeToShoppingContract = await readFile('tests/RECIPE_TO_SHOPPING_CONTRACT.md', 'utf8')
 const recipeSectionsContract = await readFile('tests/RECIPE_SECTIONS_CONTRACT.md', 'utf8')
 for (const [contract, markers] of [
-  [recipesUiContract, ['read surfaces', 'exactly one Recipe edit entry point', 'compact horizontal summary row', 'Ingredient count is not repeated', 'Product-presence indicator only', 'Inventory has priority', 'mandatory primary section', 'fast buttons/chips', 'no `Bez sekcji`']],
-  [recipeAuthoringContract, ['One Recipe authoring draft', 'save_recipe_snapshot', 'Cancel discards the draft', 'optional preparation time', 'optional cooking/baking time', 'structured Recipe-local sections', 'primary `Główne`']],
-  [recipeSectionsContract, ['exactly one mandatory primary section', 'section_id', 'compatibility mirror', 'fast button/chip choices', '`Bez sekcji` no longer exists', 'does not perform package semantics']],
+  [recipesUiContract, ['read surfaces', 'exactly one Recipe edit entry point', 'compact horizontal summary row', 'Ingredient count is not repeated', 'Product-presence indicator only', 'Inventory has priority', 'mandatory primary section', 'fast buttons/chips', 'no `Bez sekcji`', 'same dedicated bottom sheet/modal', 'nested forms are forbidden', 'Global Recipe Save is not disabled by Product Catalog loading', 'Escape from Ingredient Editor closes only Ingredient Editor']],
+  [recipeAuthoringContract, ['One Recipe authoring draft', 'save_recipe_snapshot', 'Canceling the whole Recipe editor discards', 'optional preparation time', 'optional cooking/baking time', 'structured Recipe-local sections', 'primary `Główne`', 'RecipeIngredientEditorSheet', 'transactional with ingredient Apply', 'Final Recipe Save must not depend on Product Catalog loading']],
+  [recipeSectionsContract, ['exactly one mandatory primary section', 'section_id', 'compatibility mirror', 'fast button/chip choices', '`Bez sekcji` no longer exists', 'no independent `Dodaj sekcję` authority', 'Pending section creation and ingredient Apply commit together', 'does not perform package semantics']],
   [recipeSharedContract, ['canonical Product resolver/create authority', 'shared Quantity', 'must not globally rename', 'canonical Product UUID only', 'must not claim quantity sufficiency']],
   [recipeImageContract, ['full source image', 'pure crop geometry authority', 'RECIPE_COVER_HERO_ASPECT', 'must therefore match', 'Cleanup retries never block Recipe reading']],
   [recipeToShoppingContract, ["presence === 'missing'", 'current target-servings requirement', 'grouped by canonical Product + unit', 'createShoppingItem()', 'sequential', 'no unit conversion', 'V3.6']],
@@ -1207,6 +1257,9 @@ for (const marker of [
   '.recipe-section-choice',
   '.recipe-section-choice.is-active',
   '.recipe-section-inline-editor',
+  '.recipe-ingredient-editor-backdrop',
+  '.recipe-ingredient-editor-sheet',
+  '.recipe-ingredient-editor-actions',
   '.recipes-search-empty',
 ]) {
   if (!globalCss.includes(marker)) throw new Error(`Current Recipe CSS marker missing: ${marker}`)

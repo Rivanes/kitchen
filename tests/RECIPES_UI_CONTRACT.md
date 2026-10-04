@@ -49,12 +49,24 @@
 - Structured Recipe sections are Recipe-local identities, not repeated ingredient labels.
 - Every Recipe has one mandatory primary section; a new Recipe starts with `Główne`.
 - Primary section can be renamed but cannot be deleted or replaced.
-- Secondary sections are optional and can be created explicitly.
+- Secondary sections are optional.
 - Ingredient section assignment uses fast buttons/chips; no dropdown and no `Bez sekcji`.
-- `+ Nowa` may create and immediately select a secondary section while editing an ingredient.
-- Section rename is one section-level edit and immediately affects every linked ingredient in the draft.
+- `+ Nowa` exists inside the Add/Edit Ingredient sheet and creates a secondary section only together with ingredient Apply.
+- The section manager has no separate `Dodaj sekcję` button.
+- Section rename is one section-level edit and immediately affects every linked ingredient in the Recipe draft.
 - Duplicate section names after whitespace/case normalization are rejected.
 - Empty secondary sections can be removed; non-empty secondary deletion is blocked until ingredients are moved.
 - With exactly one section, Recipe Detail omits a redundant section heading.
 - With multiple sections, Recipe Detail shows ordered section headings and preserves ingredient order within each section.
 - Structured sections must not change serving scaling, Product presence or Recipe -> Shopping behavior.
+
+## Recipe Editor child sheets / save state — V3.6A.1
+
+- Add Ingredient and Edit Ingredient use the same dedicated bottom sheet/modal, never an inline form appended below the section manager.
+- The ingredient sheet is outside the parent Recipe `<form>`; nested forms are forbidden.
+- Ingredient Cancel is transactional: Product, quantity, unit, note, section, pending new section and staged reorder are all discarded.
+- Ingredient Apply changes only the local Recipe draft; final persistence still requires the parent Recipe `Zapisz`.
+- Global Recipe Save is not disabled by Product Catalog loading.
+- A visible section-rename subdraft must be completed/canceled before final Recipe Save; the UI shows the reason locally.
+- Escape from Ingredient Editor closes only Ingredient Editor, not the whole Recipe Editor.
+- Ingredient validation errors are rendered in the ingredient sheet, not behind the overlay.

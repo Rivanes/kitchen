@@ -2,7 +2,7 @@
 
 Private, single-user mobile-first PWA for household inventory, shopping and recipes.
 
-Closed milestones: **V1 Inventory — PASS/CLOSED**, **V2 Shopping — PASS/CLOSED**, **V3.1–V3.5 — PASS/CLOSED**. Current candidate: **V3.6A — Structured Recipe Sections**.
+Closed milestones: **V1 Inventory — PASS/CLOSED**, **V2 Shopping — PASS/CLOSED**, **V3.1–V3.5 — PASS/CLOSED**. Current candidate: **V3.6A.1 — Recipe Editor UX + Save-State Corrective**.
 
 Active Inventory capabilities:
 - owner-scoped stock read model
@@ -429,3 +429,21 @@ Current candidate. V3.6A promotes Recipe sections from repeated presentation lab
 - no Package Semantics / Recipe matching in V3.6A
 
 Production upgrade requires `OUTSIDE_REPO/SQL/V3_6A_PRECHECK.sql` -> migration -> postcheck before runtime deploy.
+
+
+## V3.6A.1 — Recipe Editor UX + Save-State Corrective
+
+V3.6A.1 is runtime-only and sits on the already-installed V3.6A structured-section database model.
+
+- Add/Edit Ingredient uses one dedicated bottom sheet/modal instead of expanding an inline form below section management.
+- The ingredient sheet is rendered outside the parent Recipe `<form>`, preventing nested-form submit ambiguity.
+- Existing section assignment remains one-tap chips.
+- Secondary `+ Nowa` section creation is staged inside the ingredient child draft and is committed only together with ingredient Apply.
+- Canceling ingredient authoring leaves Product/quantity/unit/note/section/order and parent sections unchanged.
+- Ingredient reorder is staged and committed only on `Zastosuj`.
+- The section manager no longer creates empty sections independently; it remains the rename/delete surface for existing sections.
+- Parent Recipe `Zapisz` is no longer blocked by Product Catalog loading; only ingredient authoring waits for Product/Unit data.
+- Section rename owns a visible local completion/error state before final Recipe Save.
+- Ingredient validation stays inside the ingredient sheet, and Escape closes only the child sheet.
+
+No SQL/schema/RLS/Auth/Storage-policy change is required for V3.6A.1. The existing V3.6A production postcheck remains the database baseline.
