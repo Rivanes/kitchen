@@ -119,13 +119,13 @@ export function RecipeCoverFocusEditor({
           <div>
             <span>Widok przepisu</span>
             <div className="recipe-focus-wide" style={{ aspectRatio: RECIPE_COVER_HERO_ASPECT }}>
-              <RecipeCoverImage src={imageUrl} alt="" focusX={x} focusY={y} targetAspect={RECIPE_COVER_HERO_ASPECT} />
+              <RecipeCoverImage src={imageUrl} alt="" focusX={x} focusY={y} />
             </div>
           </div>
           <div>
             <span>Miniatura</span>
             <div className="recipe-focus-square" style={{ aspectRatio: RECIPE_COVER_THUMBNAIL_ASPECT }}>
-              <RecipeCoverImage src={imageUrl} alt="" focusX={x} focusY={y} targetAspect={RECIPE_COVER_THUMBNAIL_ASPECT} />
+              <RecipeCoverImage src={imageUrl} alt="" focusX={x} focusY={y} />
             </div>
           </div>
         </div>

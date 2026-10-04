@@ -19,9 +19,9 @@
 
 `cover_focus_x/y` describe one normalized point on the full source image.
 
-One pure crop geometry authority converts that source focal point to target-specific cover alignment.
+One pure crop geometry authority converts that source focal point to an exact pixel layout for the actual rendered container.
 
-The same renderer is used by:
+The shared renderer measures the actual CSS container and is used by:
 - list thumbnail
 - Recipe detail hero
 - authoring preview
@@ -35,8 +35,13 @@ One shared aspect authority defines:
 - Recipe hero/editor/crop preview = `RECIPE_COVER_HERO_ASPECT` (16:10)
 - list thumbnail = `RECIPE_COVER_THUMBNAIL_ASPECT` (1:1)
 
-The `Widok przepisu` preview inside crop editing MUST use the exact same target aspect and crop renderer as the Recipe editor preview and final Recipe detail hero. What the user sees in crop preview must therefore match what appears after `Zastosuj`.
+The `Widok przepisu` preview inside crop editing MUST use the exact same 16:10 frame and the same pixel-layout renderer as the Recipe editor preview and final Recipe detail hero. The renderer must not accept a separate nominal `targetAspect`; it derives crop geometry from the actual rendered box. What the user sees in crop preview must therefore match what appears after `Zastosuj`.
 
 ## Cleanup
 
 Superseded/deleted cover paths are queued transactionally. Cleanup retries never block Recipe reading. Queue insertion errors are not silently ignored. A cleanup path is checked against current Recipe references before Storage deletion.
+
+
+## SMART empty state
+
+Muted explanatory copy must target only the descriptive copy. It must not style nested labels inside primary action buttons. `Dodaj przepis` remains white/high-contrast on the green primary button.

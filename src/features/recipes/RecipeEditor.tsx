@@ -427,7 +427,6 @@ export function RecipeEditor({ ownerId, mode, onClose, onSaved }: RecipeEditorPr
                   alt=""
                   focusX={coverFocusX}
                   focusY={coverFocusY}
-                  targetAspect={RECIPE_COVER_HERO_ASPECT}
                 />
               ) : (
                 <span className="recipe-cover-placeholder" aria-hidden="true"><KitchenIcon name="image" size={30} /></span>

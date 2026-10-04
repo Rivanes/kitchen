@@ -13,14 +13,20 @@ export type ContainedImageRect = {
   height: number
 }
 
-export type CoverObjectPosition = {
-  x: number
-  y: number
+export type CoverPixelLayout = {
+  left: number
+  top: number
+  width: number
+  height: number
 }
 
 export function clampNormalized(value: number) {
   if (!Number.isFinite(value)) return 0.5
   return Math.min(1, Math.max(0, value))
+}
+
+function clamp(value: number, minimum: number, maximum: number) {
+  return Math.min(maximum, Math.max(minimum, value))
 }
 
 export function getContainedImageRect(input: {
@@ -67,40 +73,53 @@ export function mapPointerToSourceFocus(input: {
   }
 }
 
-export function calculateCoverObjectPosition(input: {
+/**
+ * Exact `object-fit: cover` geometry for the ACTUAL rendered box.
+ *
+ * cover_focus_x/y are normalized coordinates on the full source image.
+ * The requested source point is kept at the center of the container whenever
+ * enough overflow exists, and is clamped only when an image edge is reached.
+ */
+export function calculateCoverPixelLayout(input: {
   sourceWidth: number
   sourceHeight: number
-  targetAspect: number
+  containerWidth: number
+  containerHeight: number
   focusX: number
   focusY: number
-}): CoverObjectPosition {
-  const sourceWidth = input.sourceWidth
-  const sourceHeight = input.sourceHeight
-  const targetAspect = input.targetAspect
-  const focusX = clampNormalized(input.focusX)
-  const focusY = clampNormalized(input.focusY)
+}): CoverPixelLayout {
+  const {
+    sourceWidth,
+    sourceHeight,
+    containerWidth,
+    containerHeight,
+  } = input
 
-  if (sourceWidth <= 0 || sourceHeight <= 0 || targetAspect <= 0) {
-    return { x: 0.5, y: 0.5 }
+  if (
+    sourceWidth <= 0
+    || sourceHeight <= 0
+    || containerWidth <= 0
+    || containerHeight <= 0
+  ) {
+    return { left: 0, top: 0, width: 0, height: 0 }
   }
 
-  // Normalize the target to targetAspect x 1. This keeps the math independent
-  // from rendered pixel size while preserving exact cover geometry.
-  const targetWidth = targetAspect
-  const targetHeight = 1
-  const scale = Math.max(targetWidth / sourceWidth, targetHeight / sourceHeight)
-  const renderedWidth = sourceWidth * scale
-  const renderedHeight = sourceHeight * scale
-  const overflowX = renderedWidth - targetWidth
-  const overflowY = renderedHeight - targetHeight
+  const focusX = clampNormalized(input.focusX)
+  const focusY = clampNormalized(input.focusY)
+  const scale = Math.max(containerWidth / sourceWidth, containerHeight / sourceHeight)
+  const width = sourceWidth * scale
+  const height = sourceHeight * scale
 
-  const x = overflowX <= 1e-9
-    ? 0.5
-    : clampNormalized((focusX * renderedWidth - targetWidth / 2) / overflowX)
+  const minimumLeft = Math.min(0, containerWidth - width)
+  const minimumTop = Math.min(0, containerHeight - height)
 
-  const y = overflowY <= 1e-9
-    ? 0.5
-    : clampNormalized((focusY * renderedHeight - targetHeight / 2) / overflowY)
+  const desiredLeft = containerWidth / 2 - focusX * width
+  const desiredTop = containerHeight / 2 - focusY * height
 
-  return { x, y }
+  return {
+    left: clamp(desiredLeft, minimumLeft, 0),
+    top: clamp(desiredTop, minimumTop, 0),
+    width,
+    height,
+  }
 }

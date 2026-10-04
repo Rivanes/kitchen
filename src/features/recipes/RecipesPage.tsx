@@ -111,7 +111,6 @@ export function RecipesPage({ ownerId, overviewRequestToken }: RecipesPageProps)
               alt={`Zdjęcie przepisu ${selectedRecipe.name}`}
               focusX={selectedRecipe.coverFocusX}
               focusY={selectedRecipe.coverFocusY}
-              targetAspect={RECIPE_COVER_HERO_ASPECT}
             />
           ) : (
             <span aria-hidden="true"><KitchenIcon name="recipes" size={34} /></span>
@@ -237,7 +236,7 @@ export function RecipesPage({ ownerId, overviewRequestToken }: RecipesPageProps)
                 <button className="recipe-row" type="button" onClick={() => { setSelectedRecipeId(recipe.id); window.scrollTo({ top: 0, behavior: 'smooth' }) }}>
                   <span className={`recipe-row-cover${recipe.coverImageUrl ? ' has-image' : ''}`} aria-hidden={!recipe.coverImageUrl}>
                     {recipe.coverImageUrl ? (
-                      <RecipeCoverImage src={recipe.coverImageUrl} alt="" focusX={recipe.coverFocusX} focusY={recipe.coverFocusY} targetAspect={RECIPE_COVER_THUMBNAIL_ASPECT} />
+                      <RecipeCoverImage src={recipe.coverImageUrl} alt="" focusX={recipe.coverFocusX} focusY={recipe.coverFocusY} />
                     ) : (
                       <KitchenIcon name="recipes" size={19} />
                     )}

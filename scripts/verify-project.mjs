@@ -867,9 +867,11 @@ const cropGeometry = await readFile('src/features/recipes/recipeCoverCrop.ts', '
 for (const marker of [
   'getContainedImageRect',
   'mapPointerToSourceFocus',
-  'calculateCoverObjectPosition',
-  'overflowX',
-  'overflowY',
+  'calculateCoverPixelLayout',
+  'containerWidth',
+  'containerHeight',
+  'desiredLeft',
+  'desiredTop',
 ]) {
   if (!cropGeometry.includes(marker)) throw new Error(`Recipe crop geometry marker missing: ${marker}`)
 }
@@ -890,8 +892,14 @@ if (focalEditor.includes('Zapisz kadr')) {
 }
 
 const coverImage = await readFile('src/features/recipes/RecipeCoverImage.tsx', 'utf8')
-if (!coverImage.includes('calculateCoverObjectPosition')) {
-  throw new Error('Recipe covers must use one shared production crop renderer.')
+if (!coverImage.includes('calculateCoverPixelLayout')) {
+  throw new Error('Recipe covers must use one shared exact-pixel production crop renderer.')
+}
+if (!coverImage.includes('ResizeObserver') || !coverImage.includes('parentElement')) {
+  throw new Error('Recipe cover renderer must measure the actual rendered container.')
+}
+if (coverImage.includes('targetAspect')) {
+  throw new Error('Recipe cover renderer must not accept a nominal targetAspect.')
 }
 
 for (const marker of [
@@ -912,13 +920,23 @@ for (const [sourceName, source] of [
 if (!focalEditor.includes('RECIPE_COVER_THUMBNAIL_ASPECT') || !recipesPage.includes('RECIPE_COVER_THUMBNAIL_ASPECT')) {
   throw new Error('Crop preview and Recipe list must reuse the shared thumbnail aspect authority.')
 }
-for (const staleAspect of ['targetAspect={16 / 9}', 'targetAspect={16 / 10}']) {
-  if (recipeEditor.includes(staleAspect) || focalEditor.includes(staleAspect) || recipesPage.includes(staleAspect)) {
-    throw new Error(`Hard-coded Recipe hero crop aspect survived: ${staleAspect}`)
+for (const [sourceName, source] of [
+  ['RecipeEditor', recipeEditor],
+  ['RecipeCoverFocusEditor', focalEditor],
+  ['RecipesPage', recipesPage],
+]) {
+  if (source.includes('targetAspect=')) {
+    throw new Error(`${sourceName} must not pass a second crop geometry authority through targetAspect.`)
   }
 }
 if (globalCss.includes('aspect-ratio: 16 / 9;')) {
   throw new Error('Recipe editor must not keep the obsolete 16:9 cover frame.')
+}
+if (globalCss.includes('.recipes-empty-card span {')) {
+  throw new Error('Recipe empty-card muted text selector is too broad and recolors primary-button labels.')
+}
+if (!globalCss.includes('.recipes-empty-card > div > span {')) {
+  throw new Error('Recipe empty-card descriptive copy must use the narrowed SMART selector.')
 }
 
 const imageProcessor = await readFile('src/features/recipes/recipeImageProcessor.ts', 'utf8')

@@ -438,3 +438,14 @@ Runtime-only corrective after V3.4.2 mobile smoke.
 The crop preview, Recipe editor preview and final Recipe detail hero now share one source-of-truth aspect (`RECIPE_COVER_HERO_ASPECT = 16/10`) and the same crop renderer. The list thumbnail uses the shared 1:1 thumbnail aspect.
 
 Removed the obsolete Recipe editor 16:9 frame and removed duplicated hard-coded Recipe aspect ratios from CSS. No SQL/schema/Storage-policy change.
+
+
+## V3.4.4 — Recipe Cover Rendering + SMART Empty-State Corrective
+
+Runtime-only corrective.
+
+- fixes gray `Dodaj przepis` label at its selector source
+- replaces nominal-aspect/object-position crop rendering with exact pixel layout measured from the real rendered container
+- removes `targetAspect` from RecipeCoverImage
+- crop preview, editor preview, detail hero and thumbnail all use the same measured renderer
+- no SQL/schema/Storage-policy change
