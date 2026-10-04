@@ -2,7 +2,7 @@
 
 Private, single-user mobile-first PWA for household inventory, shopping and recipes.
 
-Closed milestones: **V1 Inventory — PASS/CLOSED**, **V2 Shopping — PASS/CLOSED**, **V3.1–V3.5 — PASS/CLOSED**, **V3.6A Structured Recipe Sections — PASS/CLOSED**. Current candidate: **V3.6B — Package Semantics Prerequisite**.
+Closed milestones: **V1 Inventory — PASS/CLOSED**, **V2 Shopping — PASS/CLOSED**, **V3.1–V3.6 — PASS/CLOSED**. Current candidate: **V3.7 — V3 Closeout**. V4 Recipe Matching remains blocked until V3.7 PASS/CLOSED.
 
 Active Inventory capabilities:
 - owner-scoped stock read model
@@ -413,9 +413,9 @@ Delivered through V3.5.3:
 V3.5.2 introduced only the two optional duration columns and extended the existing atomic `save_recipe_snapshot(...)` authority. V3.5.3 adds no SQL/schema/RLS/Auth/Storage-policy change: final add/merge remains owned by shared Shopping mutation authority. Product-presence color remains presence-only and does not claim quantity sufficiency or Recipe matching.
 
 
-## V3.6A — Structured Recipe Sections
+## V3.6A — Structured Recipe Sections [PASS / CLOSED]
 
-Current candidate. V3.6A promotes Recipe sections from repeated presentation labels to real Recipe-local identities because section-level rename and a mandatory base section are now product requirements.
+V3.6A V3.6A promotes Recipe sections from repeated presentation labels to real Recipe-local identities because section-level rename and a mandatory base section are now product requirements.
 
 - `recipe_sections` is the section authority
 - every Recipe has one mandatory primary section (`Główne` by default)
@@ -424,7 +424,7 @@ Current candidate. V3.6A promotes Recipe sections from repeated presentation lab
 - every ingredient has mandatory same-Recipe `section_id`
 - RecipeEditor assigns sections with fast chips/buttons and supports `+ Nowa`
 - whole-section rename is draft state until the one atomic Recipe Save
-- legacy `section_label` and old snapshot signature are retained temporarily only for rollout compatibility
+- V3.7 closeout removes the completed `section_label` and old snapshot-signature rollout compatibility
 - Recipe Detail hides a single redundant section heading and shows headings when 2+ non-empty sections exist
 - no Package Semantics / Recipe matching in V3.6A
 
@@ -449,7 +449,7 @@ V3.6A.1 is runtime-only and sits on the already-installed V3.6A structured-secti
 No SQL/schema/RLS/Auth/Storage-policy change is required for V3.6A.1. The existing V3.6A production postcheck remains the database baseline.
 
 
-## V3.6B — Package Semantics Prerequisite
+## V3.6B — Package Semantics Prerequisite [PASS / CLOSED]
 
 V3.6B makes household container quantities explicit before Recipe matching.
 
@@ -464,3 +464,17 @@ V3.6B makes household container quantities explicit before Recipe matching.
 - Recipe quantity matching remains outside this stage.
 
 V3.6B requires its Supabase migration before the frontend is deployed.
+
+
+## V3.7 — V3 Closeout [IMPLEMENTED / READY FOR PRODUCTION QA]
+
+V3.7 is a closeout/cleanup stage, not a new feature surface.
+
+- removes rollout-only `recipe_ingredients.section_label`;
+- removes the V3.5.3 `save_recipe_snapshot(...)` compatibility signature;
+- leaves the structured Recipe snapshot as the sole Recipe save authority;
+- preserves V3.6B Package Semantics unchanged;
+- performs no Recipe matching or shortage calculation;
+- updates project contracts/documentation so V4 starts from one unambiguous V3 baseline.
+
+Production closeout requires `V3_7_PRECHECK.sql` -> `V3_7_V3_CLOSEOUT.sql` -> `V3_7_POSTCHECK.sql`, then GitHub QA / Pages and focused phone-first smoke.

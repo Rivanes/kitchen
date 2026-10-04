@@ -10,7 +10,8 @@ Recipe sections are real Recipe-local identities stored in `recipe_sections`.
 - Secondary sections are optional.
 - Every Recipe ingredient references exactly one section from the same Recipe and owner through `section_id`.
 - `recipe_sections.name` is the section-name authority.
-- Legacy `recipe_ingredients.section_label` is only a temporary rollout compatibility mirror and must not be read as runtime domain state.
+- `recipe_ingredients.section_id` + `recipe_sections` are the only Recipe section authority after V3.7 closeout.
+- The legacy `recipe_ingredients.section_label` compatibility column no longer exists.
 
 ## Authoring
 
@@ -43,9 +44,10 @@ Recipe sections are real Recipe-local identities stored in `recipe_sections`.
 - Ingredient order is preserved within each section.
 - Final Recipe Save flattens sections in section order and writes one contiguous global ingredient `sort_order`.
 
-## Migration/rollout
+## V3 closeout
 
-- Legacy section labels are migrated only when their contiguous block topology is unambiguous.
-- Migration never silently reorders ingredients.
-- The V3.5.3 snapshot signature remains temporarily available as a compatibility wrapper during the SQL -> Pages deployment window.
-- V3.6A/V3.6A.1 does not perform package semantics, unit conversion, Inventory sufficiency or Recipe matching.
+- Legacy V3.5 section labels were migrated only when their contiguous block topology was unambiguous.
+- Migration never silently reordered ingredients.
+- V3.7 removes the rollout-only `section_label` column and the V3.5.3 snapshot compatibility signature.
+- The structured snapshot signature with `p_sections` + `p_ingredients` is the only Recipe save authority.
+- V3 closeout does not perform Recipe matching, unit-aware sufficiency or shortage calculation.

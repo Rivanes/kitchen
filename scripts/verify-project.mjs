@@ -1169,6 +1169,10 @@ if (recipeMutations.includes('section_label')) {
   throw new Error('V3.6A runtime mutation payload must not use legacy section_label as section authority.')
 }
 
+for (const [sourceName, source] of [['Recipe mutations', recipeMutations], ['Recipe read model', recipesReadModel], ['Recipe editor', recipeEditor], ['Recipes page', recipesPage]]) {
+  if (source.includes('section_label')) throw new Error(`V3.7 Recipe runtime must not reference legacy section_label: ${sourceName}.`)
+}
+
 const cropGeometry = await readFile('src/features/recipes/recipeCoverCrop.ts', 'utf8')
 for (const marker of [
   'getContainedImageRect',
@@ -1278,10 +1282,12 @@ const recipeSharedContract = await readFile('tests/RECIPE_SHARED_CORE_CONTRACT.m
 const recipeImageContract = await readFile('tests/RECIPE_IMAGE_CONTRACT.md', 'utf8')
 const recipeToShoppingContract = await readFile('tests/RECIPE_TO_SHOPPING_CONTRACT.md', 'utf8')
 const recipeSectionsContract = await readFile('tests/RECIPE_SECTIONS_CONTRACT.md', 'utf8')
+const v3CloseoutContract = await readFile('tests/V3_CLOSEOUT_CONTRACT.md', 'utf8')
 for (const [contract, markers] of [
+  [v3CloseoutContract, ['No runtime or database compatibility authority remains', 'structured 14-argument', 'does not add', 'Recipe cookability matching']],
   [recipesUiContract, ['read surfaces', 'exactly one Recipe edit entry point', 'compact horizontal summary row', 'Ingredient count is not repeated', 'Product-presence indicator only', 'Inventory has priority', 'mandatory primary section', 'fast buttons/chips', 'no `Bez sekcji`', 'same dedicated bottom sheet/modal', 'nested forms are forbidden', 'Global Recipe Save is not disabled by Product Catalog loading', 'Escape from Ingredient Editor closes only Ingredient Editor']],
   [recipeAuthoringContract, ['One Recipe authoring draft', 'save_recipe_snapshot', 'Canceling the whole Recipe editor discards', 'optional preparation time', 'optional cooking/baking time', 'structured Recipe-local sections', 'primary `Główne`', 'RecipeIngredientEditorSheet', 'transactional with ingredient Apply', 'Final Recipe Save must not depend on Product Catalog loading']],
-  [recipeSectionsContract, ['exactly one mandatory primary section', 'section_id', 'compatibility mirror', 'fast button/chip choices', '`Bez sekcji` no longer exists', 'no independent `Dodaj sekcję` authority', 'Pending section creation and ingredient Apply commit together', 'does not perform package semantics']],
+  [recipeSectionsContract, ['exactly one mandatory primary section', 'section_id', 'only Recipe section authority', 'legacy `recipe_ingredients.section_label` compatibility column no longer exists', 'fast button/chip choices', '`Bez sekcji` no longer exists', 'no independent `Dodaj sekcję` authority', 'Pending section creation and ingredient Apply commit together', 'does not perform Recipe matching']],
   [recipeSharedContract, ['canonical Product resolver/create authority', 'shared Quantity', 'must not globally rename', 'canonical Product UUID only', 'must not claim quantity sufficiency']],
   [recipeImageContract, ['full source image', 'pure crop geometry authority', 'RECIPE_COVER_HERO_ASPECT', 'must therefore match', 'Cleanup retries never block Recipe reading']],
   [recipeToShoppingContract, ["presence === 'missing'", 'current target-servings requirement', 'grouped by canonical Product + unit', 'createShoppingItem()', 'sequential', 'no unit conversion', 'V3.6']],
