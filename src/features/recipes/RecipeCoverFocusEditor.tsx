@@ -1,4 +1,5 @@
 import { PointerEvent, useMemo, useState } from 'react'
+import { toUserErrorMessage } from '../../lib/userError'
 import { KitchenIcon } from '../../components/KitchenIcon'
 
 type RecipeCoverFocusEditorProps = {
@@ -6,7 +7,8 @@ type RecipeCoverFocusEditorProps = {
   initialX: number
   initialY: number
   onCancel: () => void
-  onApply: (x: number, y: number) => void
+  applyLabel: string
+  onApply: (x: number, y: number) => Promise<void> | void
 }
 
 function clamp01(value: number) {
@@ -18,10 +20,13 @@ export function RecipeCoverFocusEditor({
   initialX,
   initialY,
   onCancel,
+  applyLabel,
   onApply,
 }: RecipeCoverFocusEditorProps) {
   const [x, setX] = useState(clamp01(initialX))
   const [y, setY] = useState(clamp01(initialY))
+  const [applying, setApplying] = useState(false)
+  const [errorMessage, setErrorMessage] = useState('')
   const objectPosition = useMemo(() => `${x * 100}% ${y * 100}%`, [x, y])
 
   function updateFromPointer(event: PointerEvent<HTMLDivElement>) {
@@ -32,13 +37,26 @@ export function RecipeCoverFocusEditor({
   }
 
   function handlePointerDown(event: PointerEvent<HTMLDivElement>) {
+    if (applying) return
     event.currentTarget.setPointerCapture(event.pointerId)
     updateFromPointer(event)
   }
 
   function handlePointerMove(event: PointerEvent<HTMLDivElement>) {
-    if (!event.currentTarget.hasPointerCapture(event.pointerId)) return
+    if (applying || !event.currentTarget.hasPointerCapture(event.pointerId)) return
     updateFromPointer(event)
+  }
+
+  async function applyCrop() {
+    if (applying) return
+    setApplying(true)
+    setErrorMessage('')
+    try {
+      await onApply(x, y)
+    } catch (error) {
+      setErrorMessage(toUserErrorMessage(error, 'Nie udało się zapisać kadru.'))
+      setApplying(false)
+    }
   }
 
   return (
@@ -49,7 +67,7 @@ export function RecipeCoverFocusEditor({
             <p className="eyebrow">Zdjęcie przepisu</p>
             <h2 id="recipe-focus-title">Ustaw kadr</h2>
           </div>
-          <button className="icon-button" type="button" onClick={onCancel} aria-label="Zamknij ustawianie kadru">
+          <button className="icon-button" type="button" onClick={onCancel} disabled={applying} aria-label="Zamknij ustawianie kadru">
             <KitchenIcon name="close" />
           </button>
         </header>
@@ -79,12 +97,14 @@ export function RecipeCoverFocusEditor({
           </div>
         </div>
 
+        {errorMessage && <p className="form-error" role="alert">{errorMessage}</p>}
+
         <div className="recipe-focus-actions">
-          <button className="secondary-button" type="button" onClick={() => { setX(0.5); setY(0.5) }}>
+          <button className="secondary-button" type="button" disabled={applying} onClick={() => { setX(0.5); setY(0.5) }}>
             Wyśrodkuj
           </button>
-          <button className="primary-button" type="button" onClick={() => onApply(x, y)}>
-            Zapisz kadr
+          <button className="primary-button" type="button" disabled={applying} onClick={() => void applyCrop()}>
+            {applying ? 'Zapisuję…' : applyLabel}
           </button>
         </div>
       </section>

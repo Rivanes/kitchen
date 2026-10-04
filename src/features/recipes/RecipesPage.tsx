@@ -109,6 +109,36 @@ export function RecipesPage({ ownerId, overviewRequestToken }: RecipesPageProps)
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
+
+  function handleCoverFocusSaved(recipeId: string, coverFocusX: number, coverFocusY: number) {
+    setRecipesStatus((current) => {
+      if (current.status !== 'ready') return current
+      return {
+        status: 'ready',
+        model: {
+          recipes: current.model.recipes.map((recipe) => (
+            recipe.id === recipeId
+              ? { ...recipe, coverFocusX, coverFocusY }
+              : recipe
+          )),
+        },
+      }
+    })
+
+    setEditorMode((current) => (
+      current?.kind === 'edit' && current.recipe.id === recipeId
+        ? {
+            kind: 'edit',
+            recipe: {
+              ...current.recipe,
+              coverFocusX,
+              coverFocusY,
+            },
+          }
+        : current
+    ))
+  }
+
   if (selectedRecipe) {
     return (
       <section className="recipes-page recipe-detail-page" aria-label={`Przepis ${selectedRecipe.name}`}>
@@ -203,6 +233,7 @@ export function RecipesPage({ ownerId, overviewRequestToken }: RecipesPageProps)
             mode={editorMode}
             onClose={() => setEditorMode(null)}
             onSaved={(recipeId) => void handleEditorSaved(recipeId)}
+            onCoverFocusSaved={handleCoverFocusSaved}
           />
         )}
 

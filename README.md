@@ -398,3 +398,17 @@ Superseded/deleted Recipe cover paths are transactionally queued in `recipe_imag
 The client deletes Storage objects immediately when possible and retries queued failures on later Recipe loads.
 
 The Recipe empty-state primary action also receives an explicit high-contrast text fix.
+
+
+## V3.4.1 — SMART Recipe Cover Corrective
+
+Runtime-only corrective after V3.4 production smoke.
+
+- removes technical compression/Storage copy from daily Recipe UI
+- makes `Ustaw kadr` a full-width cover action
+- existing Recipe `Zapisz kadr` now persists focal coordinates immediately
+- persistence is read back and verified
+- live Recipe list/detail state updates immediately
+- parent Recipe Save is no longer required only to persist crop
+
+No SQL/schema/Storage-policy change.

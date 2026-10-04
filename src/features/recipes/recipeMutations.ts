@@ -35,6 +35,46 @@ function clampFocus(value: number) {
   return Math.min(1, Math.max(0, Math.round(value * 10000) / 10000))
 }
 
+
+export async function updateRecipeCoverFocus(input: {
+  ownerId: string
+  recipeId: string
+  coverFocusX: number
+  coverFocusY: number
+}) {
+  if (!supabase) throw new Error('Supabase is not configured.')
+
+  const expectedX = clampFocus(input.coverFocusX)
+  const expectedY = clampFocus(input.coverFocusY)
+
+  const result = await supabase
+    .from('recipes')
+    .update({
+      cover_focus_x: expectedX,
+      cover_focus_y: expectedY,
+    })
+    .eq('id', input.recipeId)
+    .eq('owner_id', input.ownerId)
+    .select('cover_focus_x, cover_focus_y')
+    .maybeSingle()
+
+  if (result.error) {
+    throw new Error(`Nie udało się zapisać kadru: ${result.error.message}`)
+  }
+  if (!result.data) {
+    throw new Error('Nie znaleziono przepisu do zapisania kadru.')
+  }
+
+  const storedX = clampFocus(Number(result.data.cover_focus_x))
+  const storedY = clampFocus(Number(result.data.cover_focus_y))
+
+  if (Math.abs(storedX - expectedX) > 0.0001 || Math.abs(storedY - expectedY) > 0.0001) {
+    throw new Error('Nie udało się potwierdzić zapisanego kadru.')
+  }
+
+  return { coverFocusX: storedX, coverFocusY: storedY }
+}
+
 export function cleanRecipeName(value: string) {
   const clean = value.trim().replace(/\s+/g, ' ')
   if (!clean || clean.length > 160) {

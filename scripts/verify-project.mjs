@@ -81,6 +81,7 @@ const requiredFiles = [
   'src/features/recipes/RecipeCoverFocusEditor.tsx',
   'tests/RECIPE_INGREDIENT_SHARED_CORE_CONTRACT.md',
   'tests/RECIPE_COVER_FOCAL_CLEANUP_CONTRACT.md',
+  'tests/RECIPE_COVER_SMART_CONTRACT.md',
   'vite.config.ts',
 ]
 
@@ -1068,6 +1069,42 @@ for (const marker of [
 }
 if (!globalCss.includes('.recipes-empty-with-action .primary-button') || !globalCss.includes('color: #fff !important')) {
   throw new Error('V3.4 must explicitly fix Recipe empty-state primary-button text contrast.')
+}
+
+
+// V3.4.1 — SMART cover corrective.
+if (recipeEditor.includes('Preferowany format to AVIF') || recipeEditor.includes('Oryginał nie trafia do Storage')) {
+  throw new Error('V3.4.1 Recipe editor must not expose technical image-pipeline copy.')
+}
+if (recipeEditor.includes('bytesLabel(') || recipeEditor.includes('recipe-cover-result')) {
+  throw new Error('V3.4.1 Recipe editor must not expose encoded image diagnostics.')
+}
+if (!recipeEditor.includes('recipe-media-focus')) {
+  throw new Error('V3.4.1 crop action must have its dedicated full-width hierarchy class.')
+}
+if (!recipeEditor.includes('updateRecipeCoverFocus') || !recipeEditor.includes('onCoverFocusSaved')) {
+  throw new Error('V3.4.1 existing Recipe crop must persist immediately and update live UI state.')
+}
+
+const smartCoverContract = await readFile('tests/RECIPE_COVER_SMART_CONTRACT.md', 'utf8')
+for (const marker of [
+  'must NOT need the parent Recipe `Zapisz` button',
+  'read back stored coordinates',
+  'gallery and camera share one compact row',
+]) {
+  if (!smartCoverContract.includes(marker)) {
+    throw new Error(`V3.4.1 SMART cover contract marker missing: ${marker}`)
+  }
+}
+
+if (!recipeMutationsV34.includes('updateRecipeCoverFocus')) {
+  throw new Error('V3.4.1 Recipe mutation authority must own focused crop persistence.')
+}
+if (!recipeMutationsV34.includes(".select('cover_focus_x, cover_focus_y')")) {
+  throw new Error('V3.4.1 crop persistence must read back stored focal coordinates.')
+}
+if (!globalCss.includes('.recipe-cover-actions .recipe-media-focus') || !globalCss.includes('grid-column: 1 / -1')) {
+  throw new Error('V3.4.1 crop action must span the full cover-control width.')
 }
 
 console.log('Kitchen project contract verification: PASS')

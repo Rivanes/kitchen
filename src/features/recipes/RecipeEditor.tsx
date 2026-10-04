@@ -8,6 +8,7 @@ import {
   createRecipe,
   deleteRecipe,
   updateRecipe,
+  updateRecipeCoverFocus,
   validateRecipeServings,
   type RecipeCoverChange,
 } from './recipeMutations'
@@ -22,15 +23,10 @@ type RecipeEditorProps = {
   mode: RecipeEditorMode
   onClose: () => void
   onSaved: (recipeId: string | null) => void
+  onCoverFocusSaved?: (recipeId: string, x: number, y: number) => void
 }
 
-function bytesLabel(bytes: number) {
-  if (bytes < 1024) return `${bytes} B`
-  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`
-  return `${(bytes / 1024 / 1024).toFixed(1)} MB`
-}
-
-export function RecipeEditor({ ownerId, mode, onClose, onSaved }: RecipeEditorProps) {
+export function RecipeEditor({ ownerId, mode, onClose, onSaved, onCoverFocusSaved }: RecipeEditorProps) {
   const initial = mode.kind === 'edit' ? mode.recipe : null
   const firstInputRef = useRef<HTMLInputElement>(null)
   const galleryInputRef = useRef<HTMLInputElement>(null)
@@ -245,7 +241,6 @@ export function RecipeEditor({ ownerId, mode, onClose, onSaved }: RecipeEditorPr
             <div className="recipe-cover-editor-heading">
               <div>
                 <strong>Zdjęcie przepisu</strong>
-                <span>Opcjonalne, ale ułatwi szybkie znalezienie przepisu.</span>
               </div>
             </div>
 
@@ -262,14 +257,6 @@ export function RecipeEditor({ ownerId, mode, onClose, onSaved }: RecipeEditorPr
               {imageBusy && <span className="recipe-cover-processing">Optymalizuję…</span>}
             </div>
 
-            {processedImage && coverChange.kind === 'replace' && (
-              <p className="recipe-cover-result">
-                {processedImage.mimeType === 'image/avif' ? 'AVIF' : 'WebP'}
-                {' · '}{processedImage.width}×{processedImage.height}
-                {' · '}{bytesLabel(processedImage.byteSize)}
-              </p>
-            )}
-
             <div className="recipe-cover-actions">
               <button className="recipe-media-button" type="button" onClick={() => galleryInputRef.current?.click()} disabled={busy}>
                 <KitchenIcon name="image" size={18} />
@@ -280,7 +267,7 @@ export function RecipeEditor({ ownerId, mode, onClose, onSaved }: RecipeEditorPr
                 <span>Zrób zdjęcie</span>
               </button>
               {currentCoverUrl && (
-                <button className="recipe-media-button" type="button" onClick={() => setFocusEditorOpen(true)} disabled={busy}>
+                <button className="recipe-media-button recipe-media-focus" type="button" onClick={() => setFocusEditorOpen(true)} disabled={busy}>
                   <KitchenIcon name="edit" size={17} />
                   <span>Ustaw kadr</span>
                 </button>
@@ -310,10 +297,6 @@ export function RecipeEditor({ ownerId, mode, onClose, onSaved }: RecipeEditorPr
               tabIndex={-1}
               onChange={(event) => void chooseImage(event.target.files?.[0] ?? null)}
             />
-
-            <p className="recipe-cover-hint">
-              Zdjęcie jest zmniejszane przed wysłaniem. Preferowany format to AVIF; gdy urządzenie nie potrafi go zakodować, używany jest WebP. Oryginał nie trafia do Storage.
-            </p>
           </section>
 
           <label className="form-field" htmlFor="recipe-instructions">
@@ -365,10 +348,27 @@ export function RecipeEditor({ ownerId, mode, onClose, onSaved }: RecipeEditorPr
           imageUrl={currentCoverUrl}
           initialX={coverFocusX}
           initialY={coverFocusY}
+          applyLabel={mode.kind === 'edit' ? 'Zapisz kadr' : 'Zastosuj kadr'}
           onCancel={() => setFocusEditorOpen(false)}
-          onApply={(x, y) => {
-            setCoverFocusX(x)
-            setCoverFocusY(y)
+          onApply={async (x, y) => {
+            if (mode.kind === 'edit') {
+              const stored = await updateRecipeCoverFocus({
+                ownerId,
+                recipeId: mode.recipe.id,
+                coverFocusX: x,
+                coverFocusY: y,
+              })
+              setCoverFocusX(stored.coverFocusX)
+              setCoverFocusY(stored.coverFocusY)
+              onCoverFocusSaved?.(
+                mode.recipe.id,
+                stored.coverFocusX,
+                stored.coverFocusY,
+              )
+            } else {
+              setCoverFocusX(x)
+              setCoverFocusY(y)
+            }
             setFocusEditorOpen(false)
           }}
         />
