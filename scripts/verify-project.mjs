@@ -836,6 +836,9 @@ if (!recipesPage.includes('ingredient.productName.toLocaleLowerCase')) {
 if (!recipesPage.includes("'Pozostałe składniki'")) {
   throw new Error('V3.5 section polish must naturally label unlabeled blocks when named sections exist.')
 }
+if (recipesPage.includes('recipe-detail-ingredient-count')) {
+  throw new Error('V3.5.1 Recipe detail must not repeat ingredient count directly above the ingredient list.')
+}
 
 const recipeServings = await readFile('src/features/recipes/recipeServings.ts', 'utf8')
 for (const marker of [
@@ -1013,7 +1016,7 @@ const recipeAuthoringContract = await readFile('tests/RECIPE_AUTHORING_CONTRACT.
 const recipeSharedContract = await readFile('tests/RECIPE_SHARED_CORE_CONTRACT.md', 'utf8')
 const recipeImageContract = await readFile('tests/RECIPE_IMAGE_CONTRACT.md', 'utf8')
 for (const [contract, markers] of [
-  [recipesUiContract, ['read surfaces', 'exactly one Recipe edit entry point']],
+  [recipesUiContract, ['read surfaces', 'exactly one Recipe edit entry point', 'compact horizontal summary row', 'Ingredient count is not repeated']],
   [recipeAuthoringContract, ['One Recipe authoring draft', 'save_recipe_snapshot', 'Cancel discards the draft']],
   [recipeSharedContract, ['canonical Product resolver/create authority', 'shared Quantity', 'must not globally rename']],
   [recipeImageContract, ['full source image', 'pure crop geometry authority', 'RECIPE_COVER_HERO_ASPECT', 'must therefore match', 'Cleanup retries never block Recipe reading']],
@@ -1033,6 +1036,10 @@ for (const marker of [
 ]) {
   if (!globalCss.includes(marker)) throw new Error(`Current Recipe CSS marker missing: ${marker}`)
 }
+if (globalCss.includes('.recipe-detail-ingredient-count')) {
+  throw new Error('V3.5.1 obsolete Recipe detail ingredient-count chip CSS must stay removed.')
+}
+
 for (const staleMarker of [
   '/* V3.2 — Recipes read model + navigation */',
   '/* V3.3 — Recipe CRUD + optimized cover image */',

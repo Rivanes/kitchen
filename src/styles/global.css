@@ -2557,19 +2557,18 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
 }
 .recipe-detail-summary-content {
   min-width: 0;
-  display: grid;
-  gap: 8px;
 }
 .recipe-servings-preview {
   min-width: 0;
-  display: flex;
+  width: 100%;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  flex-wrap: wrap;
-  gap: 7px;
+  gap: 6px 10px;
 }
 .recipe-servings-label {
   color: #536057;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 800;
 }
 .recipe-servings-stepper {
@@ -2603,7 +2602,9 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
   text-align: center;
 }
 .recipe-servings-reset {
-  min-height: 44px;
+  grid-column: 2;
+  justify-self: end;
+  min-height: 30px;
   padding: 0 9px;
   border: 0;
   border-radius: 11px;
@@ -2611,18 +2612,6 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
   color: var(--color-accent-strong);
   font-size: 10.5px;
   font-weight: 800;
-}
-.recipe-detail-ingredient-count {
-  width: fit-content;
-  min-height: 30px;
-  display: inline-flex;
-  align-items: center;
-  padding: 4px 9px;
-  border-radius: 999px;
-  background: #f3f6f2;
-  color: #536057;
-  font-size: 11px;
-  font-weight: 750;
 }
 .recipe-detail-section {
   overflow: hidden;
@@ -2991,12 +2980,6 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
 .recipe-focus-actions .secondary-button { margin: 0; }
 
 @media (max-width: 380px) {
-  .recipe-servings-preview {
-    align-items: flex-start;
-  }
-  .recipe-servings-label {
-    width: 100%;
-  }
   .recipe-ingredient-row {
     grid-template-columns: 8px minmax(0, 1fr);
   }

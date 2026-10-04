@@ -15,6 +15,8 @@
 - Preview scaling is read-only and must not mutate Recipe, Product, Shopping or Inventory data.
 - Ingredient display quantity is scaled from base quantity and base servings.
 - A changed target exposes a concise reset to the base serving count.
+- The base servings state stays in one compact horizontal summary row on mobile.
+- Ingredient count is not repeated inside the detail servings summary because the ingredient list is immediately below it.
 
 ## Contextual Recipe search
 

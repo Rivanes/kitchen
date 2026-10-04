@@ -154,7 +154,6 @@ export function RecipesPage({ ownerId, overviewRequestToken }: RecipesPageProps)
               value={targetServings}
               onChange={setTargetServings}
             />
-            <span className="recipe-detail-ingredient-count">{ingredientsLabel(selectedRecipe.ingredients.length)}</span>
           </div>
         </section>
 
