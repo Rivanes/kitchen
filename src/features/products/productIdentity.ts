@@ -2,6 +2,8 @@ export type ProductIdentityOption = {
   id: string
   name: string
   defaultUnitCode: string
+  packageContentValue: number | null
+  packageContentUnitCode: string | null
 }
 
 export function normalizeProductName(value: string) {

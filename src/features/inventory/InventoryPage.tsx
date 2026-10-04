@@ -254,6 +254,11 @@ function InventoryLocationView({
                   <button className="inventory-row inventory-row-action" type="button" onClick={() => onEdit(lot)}>
                     <div className="inventory-product-copy">
                       <strong>{lot.productName}</strong>
+                      {lot.packageContentValue !== null && lot.packageContentUnitSymbol && (
+                        <span className="inventory-package-content">
+                          1 {lot.unitSymbol} = {formatQuantity(lot.packageContentValue)} {lot.packageContentUnitSymbol}
+                        </span>
+                      )}
                       {(lot.expiryDate || lot.openedUseByDate) && (() => {
                         const expiry = getInventoryExpiryMeta(lot.expiryDate, lot.openedUseByDate)
                         const openedPrefix = expiry.effectiveSource === 'opened' ? 'Otwarty · ' : ''

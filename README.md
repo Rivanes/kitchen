@@ -2,7 +2,7 @@
 
 Private, single-user mobile-first PWA for household inventory, shopping and recipes.
 
-Closed milestones: **V1 Inventory — PASS/CLOSED**, **V2 Shopping — PASS/CLOSED**, **V3.1–V3.5 — PASS/CLOSED**. Current candidate: **V3.6A.1 — Recipe Editor UX + Save-State Corrective**.
+Closed milestones: **V1 Inventory — PASS/CLOSED**, **V2 Shopping — PASS/CLOSED**, **V3.1–V3.5 — PASS/CLOSED**, **V3.6A Structured Recipe Sections — PASS/CLOSED**. Current candidate: **V3.6B — Package Semantics Prerequisite**.
 
 Active Inventory capabilities:
 - owner-scoped stock read model
@@ -447,3 +447,20 @@ V3.6A.1 is runtime-only and sits on the already-installed V3.6A structured-secti
 - Ingredient validation stays inside the ingredient sheet, and Escape closes only the child sheet.
 
 No SQL/schema/RLS/Auth/Storage-policy change is required for V3.6A.1. The existing V3.6A production postcheck remains the database baseline.
+
+
+## V3.6B — Package Semantics Prerequisite
+
+V3.6B makes household container quantities explicit before Recipe matching.
+
+- canonical Products may store an optional default content per one container;
+- physical Inventory lots store their own resolved package-content snapshot;
+- new `opak. / słoik / but. / puszka / sasz.` stock requires explicit or default content;
+- direct `szt. / g / kg / ml / l` stock remains unchanged;
+- changing a Product default does not rewrite existing stock;
+- Inventory merge distinguishes different package sizes;
+- Shopping -> Inventory carries the actual package content through the shared Inventory authority;
+- legacy unresolved container lots are not guessed or backfilled;
+- Recipe quantity matching remains outside this stage.
+
+V3.6B requires its Supabase migration before the frontend is deployed.

@@ -323,6 +323,8 @@ export type TransferPurchasedShoppingItemInput = {
   storageLocationId: string
   expiryDate: string | null
   afterOpenDays: number | null
+  packageContentValue: number | null
+  packageContentUnitCode: string | null
 }
 
 export async function transferPurchasedShoppingItemToInventory(input: TransferPurchasedShoppingItemInput) {
@@ -335,6 +337,8 @@ export async function transferPurchasedShoppingItemToInventory(input: TransferPu
       p_storage_location_id: input.storageLocationId,
       p_expiry_date: input.expiryDate,
       p_after_open_days: input.afterOpenDays,
+      p_package_content_value: input.packageContentValue,
+      p_package_content_unit: input.packageContentUnitCode,
     })
     .maybeSingle()
 

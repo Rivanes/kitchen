@@ -1,6 +1,6 @@
-# Inventory Add / Edit Contract — V1.3
+# Inventory Add / Edit Contract — V1.3 carried forward through V3.6B
 
-V1.3 may create stock and edit an existing stock lot, but it does not consume or delete stock.
+Inventory may create stock and edit an existing physical stock lot.
 
 Required invariants:
 
@@ -9,13 +9,27 @@ Required invariants:
 - A genuinely new Product is created once and its selected unit becomes `default_unit_code`.
 - Database case-insensitive Product uniqueness remains the final duplicate-safety authority.
 - If a newly-created Product cannot receive its first Inventory row, the client attempts to clean up that unused Product identity.
-- New Inventory quantity must be > 0 and at most 3 decimal places.
-- Quantity zero is rejected; V1.4 owns depletion/removal.
-- New Inventory rows use a controlled `unit_code` and an owner Storage Location.
-- Adding the same Product to the same location with the same unit and no expiry merges quantity into the existing indistinguishable lot instead of creating duplicate rows.
-- Editing a lot changes quantity, controlled unit and location only.
-- Editing does not rename the canonical Product.
-- Editing does not modify expiry date; V1.6 owns expiry input/semantics.
-- No Inventory-item delete operation exists in V1.3.
+- Inventory quantity must be > 0 and at most 3 decimal places.
+- Quantity zero is rejected; Consume owns depletion/removal.
+- Inventory rows use a controlled `unit_code` and an owner Storage Location.
 - Successful create/edit reloads the authoritative Supabase read model.
-- Start is contextual and must not duplicate the module navigation already present in the bottom bar.
+
+## V3.6B package semantics
+
+- Direct stock units (`count`, `mass`, `volume`) must have no package-content snapshot.
+- New container stock (`package`, `jar`, `bottle`, `can`, `sachet`) must resolve the content of one container.
+- Explicit lot content wins over the Product default.
+- A Product default may prefill a new lot but is not the authority for an already-created physical lot.
+- Editing a Product default must never retroactively alter existing Inventory-lot snapshots.
+- Existing legacy unresolved container lots remain readable/usable and can be resolved explicitly when edited.
+- A resolved container lot cannot be changed back to unresolved semantics.
+- Changing a direct lot into a container unit requires package content in the same save.
+- Package content uses shared Quantity precision and controlled direct count/mass/volume Measurement Units.
+- Merge identity includes package-content value and unit in addition to Product, location, row unit, expiry, after-open days and unopened state.
+
+## Product settings vs physical lot settings
+
+- Canonical Product name/default package content are Product-wide settings.
+- Quantity, row unit, location, expiry, after-open days and package-content snapshot describe the physical Inventory lot.
+- Product settings and physical-lot fields must remain visibly distinct in UI.
+- Editing stock must not silently reinterpret another lot of the same Product.

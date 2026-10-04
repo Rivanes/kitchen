@@ -53,6 +53,7 @@ const requiredFiles = [
   'src/features/products/productIdentity.ts',
   'src/features/products/productCatalogMutations.ts',
   'src/features/measurements/measurementUnits.ts',
+  'src/features/measurements/packageSemantics.ts',
   'src/features/quantity/quantity.ts',
   'src/features/quantity/QuantityStepperInput.tsx',
   'tests/SHOPPING_LIST_CONTRACT.md',
@@ -66,6 +67,7 @@ const requiredFiles = [
   'tests/SHOPPING_OVERPURCHASE_CONTRACT.md',
   'tests/SHOPPING_PARTIAL_PURCHASE_CONTRACT.md',
   'tests/SHOPPING_TO_INVENTORY_CONTRACT.md',
+  'tests/PACKAGE_SEMANTICS_CONTRACT.md',
   'tests/STORAGE_LOCATION_PICKER_CONTRACT.md',
   'tests/SHOPPING_QUICK_PURCHASE_CONTRACT.md',
   'tests/USER_ERROR_PRESENTATION_CONTRACT.md',
@@ -75,6 +77,7 @@ const requiredFiles = [
   'src/features/recipes/RecipeIngredientEditorSheet.tsx',
   'src/features/recipes/recipeIngredientDraft.ts',
   'scripts/test-recipe-ingredient-draft.mjs',
+  'scripts/test-package-semantics.mjs',
   'src/features/recipes/RecipeCoverFocusEditor.tsx',
   'src/features/recipes/RecipeCoverImage.tsx',
   'src/features/recipes/RecipeServingsControl.tsx',
@@ -294,13 +297,13 @@ if (!editor.includes('onConsumeRequested') || !editor.includes('Usuń z zapasów
   throw new Error('V1.4 edit flow must expose consume and explicit removal actions.')
 }
 
-for (const marker of ['renameCanonicalProduct', 'product-rename-trigger', 'Zmień nazwę', 'Zapisz nazwę', 'Zmiana obejmie wszystkie partie tego produktu.', 'parseQuantityInput', 'getDefaultUnitCode']) {
+for (const marker of ['updateCanonicalProductSettings', 'product-rename-trigger', 'Ustawienia produktu', 'Zapisz ustawienia', 'Zmiana obejmie wszystkie partie tego produktu.', 'parseQuantityInput', 'getDefaultUnitCode']) {
   if (!editor.includes(marker)) {
-    throw new Error(`V2.1 Product rename UI marker missing: ${marker}`)
+    throw new Error(`V2.1/V3.6B Product settings UI marker missing: ${marker}`)
   }
 }
-if (!editor.includes("mode.kind === 'edit' && !renameOpen") || !editor.includes('handleRenameSubmit')) {
-  throw new Error('V2.1 rename must remain an explicit edit-only sub-flow, separate from Inventory-lot save.')
+if (!editor.includes("mode.kind === 'edit' && !productSettingsOpen") || !editor.includes('handleProductSettingsSubmit')) {
+  throw new Error('Product metadata editing must remain an explicit edit-only sub-flow, separate from Inventory-lot save.')
 }
 
 if (!editor.includes('ProductAutocompleteField') || !editor.includes('useProductAutocomplete')) {
@@ -333,8 +336,8 @@ for (const marker of ['resolveOrCreateCanonicalProduct', 'resolveCanonicalProduc
     throw new Error(`V2.3.3 shared Product authority marker missing: ${marker}`)
   }
 }
-if (!sharedProductCatalog.includes(".update({ name: cleanName })") || !sharedProductCatalog.includes("result.error.code === '23505'")) {
-  throw new Error('V2.3.3 shared Product rename must update the existing UUID in place and guard uniqueness races.')
+if (!sharedProductCatalog.includes('.update({') || !sharedProductCatalog.includes('name: cleanName') || !sharedProductCatalog.includes("result.error.code === '23505'")) {
+  throw new Error('Shared Product settings must update the existing UUID in place and guard uniqueness races.')
 }
 
 const sharedQuantity = await readFile('src/features/quantity/quantity.ts', 'utf8')
@@ -1033,6 +1036,55 @@ if (/supabase|\.from\(|\.rpc\(/i.test(recipeIngredientDraft)) {
 await execFileAsync(process.execPath, ['--experimental-strip-types', 'scripts/test-recipe-ingredient-draft.mjs'], {
   env: { ...process.env, NODE_NO_WARNINGS: '1' },
 })
+
+const packageSemantics = await readFile('src/features/measurements/packageSemantics.ts', 'utf8')
+for (const marker of [
+  "DIRECT_PACKAGE_CONTENT_FAMILIES = ['count', 'mass', 'volume']",
+  "CONTAINER_UNIT_FAMILIES = ['package', 'jar', 'bottle', 'can', 'sachet']",
+  'resolveInventoryPackageContent',
+  'getPackageContentUnits',
+]) {
+  if (!packageSemantics.includes(marker)) throw new Error(`V3.6B package-semantics marker missing: ${marker}`)
+}
+if (/productName|normalizeProductName/i.test(packageSemantics)) {
+  throw new Error('V3.6B package semantics must never infer content from Product names.')
+}
+await execFileAsync(process.execPath, ['--experimental-strip-types', 'scripts/test-package-semantics.mjs'], {
+  env: { ...process.env, NODE_NO_WARNINGS: '1' },
+})
+
+const packageSemanticsContract = await readFile('tests/PACKAGE_SEMANTICS_CONTRACT.md', 'utf8')
+for (const marker of [
+  'Product default',
+  'Inventory-lot resolved package-content snapshot',
+  'Different resolved package contents must not merge',
+  'V3.6B does not compute Recipe sufficiency',
+]) {
+  if (!packageSemanticsContract.includes(marker)) throw new Error(`V3.6B contract marker missing: ${marker}`)
+}
+
+for (const marker of [
+  'package_content_value',
+  'package_content_unit',
+]) {
+  if (!inventoryReadModel.includes(marker)) throw new Error(`V3.6B Inventory read marker missing: ${marker}`)
+  if (!mutations.includes(marker)) throw new Error(`V3.6B Inventory mutation marker missing: ${marker}`)
+}
+for (const marker of [
+  'package-content-card',
+  'Domyślna zawartość opakowania',
+  'resolveInventoryPackageContent',
+  'packageContentValue',
+  'packageContentUnitCode',
+]) {
+  if (!editor.includes(marker)) throw new Error(`V3.6B Inventory editor marker missing: ${marker}`)
+}
+if (!shoppingMutations.includes('p_package_content_value: input.packageContentValue') || !shoppingMutations.includes('p_package_content_unit: input.packageContentUnitCode')) {
+  throw new Error('V3.6B Shopping -> Inventory transfer must propagate package-content semantics.')
+}
+for (const marker of ['.package-content-card', '.package-content-fields', '.inventory-package-content']) {
+  if (!globalCss.includes(marker)) throw new Error(`V3.6B mobile package-content CSS marker missing: ${marker}`)
+}
 
 const recipeSections = await readFile('src/features/recipes/recipeSections.ts', 'utf8')
 for (const marker of [

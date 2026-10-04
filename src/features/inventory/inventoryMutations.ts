@@ -17,6 +17,8 @@ export type CreateInventoryLotInput = {
   storageLocationId: string
   quantity: number
   unitCode: string
+  packageContentValue: number | null
+  packageContentUnitCode: string | null
   expiryDate: string | null
   afterOpenDays: number | null
 }
@@ -27,6 +29,8 @@ export type UpdateInventoryLotInput = {
   storageLocationId: string
   quantity: number
   unitCode: string
+  packageContentValue: number | null
+  packageContentUnitCode: string | null
   expiryDate: string | null
   afterOpenDays: number | null
 }
@@ -49,7 +53,6 @@ export type ConsumeInventoryResult = {
   openedUseByDate: string | null
 }
 
-
 type CurrentInventoryLot = {
   id: string
   quantity: number | string
@@ -69,6 +72,17 @@ function normalizeAfterOpenDays(value: number | null) {
     throw new Error('Termin po otwarciu musi mieć od 1 do 3650 dni.')
   }
   return value
+}
+
+function normalizePackageContentPair(value: number | null, unitCode: string | null) {
+  const cleanUnit = unitCode?.trim() || null
+  if ((value === null) !== (cleanUnit === null)) {
+    throw new Error('Uzupełnij wartość i jednostkę zawartości opakowania.')
+  }
+  return {
+    value: value === null ? null : assertValidQuantity(value, 'Podaj prawidłową zawartość opakowania.'),
+    unitCode: cleanUnit,
+  }
 }
 
 async function getCurrentInventoryLot(ownerId: string, lotId: string): Promise<CurrentInventoryLot> {
@@ -97,6 +111,7 @@ export async function createInventoryLot(input: CreateInventoryLotInput) {
 
   assertValidQuantity(input.quantity)
   const afterOpenDays = normalizeAfterOpenDays(input.afterOpenDays)
+  const packageContent = normalizePackageContentPair(input.packageContentValue, input.packageContentUnitCode)
   const product = await resolveOrCreateCanonicalProduct({
     ownerId: input.ownerId,
     name: input.productName,
@@ -114,6 +129,8 @@ export async function createInventoryLot(input: CreateInventoryLotInput) {
         p_unit_code: input.unitCode,
         p_expiry_date: input.expiryDate,
         p_after_open_days: afterOpenDays,
+        p_package_content_value: packageContent.value,
+        p_package_content_unit: packageContent.unitCode,
       })
       .maybeSingle()
 
@@ -138,6 +155,7 @@ export async function updateInventoryLot(input: UpdateInventoryLotInput) {
 
   assertValidQuantity(input.quantity)
   const afterOpenDays = normalizeAfterOpenDays(input.afterOpenDays)
+  const packageContent = normalizePackageContentPair(input.packageContentValue, input.packageContentUnitCode)
   const currentLot = await getCurrentInventoryLot(input.ownerId, input.lotId)
   const openedUseByDate = currentLot.opened_at && afterOpenDays
     ? addDaysDateOnly(currentLot.opened_at, afterOpenDays)
@@ -153,6 +171,8 @@ export async function updateInventoryLot(input: UpdateInventoryLotInput) {
       storage_location_id: input.storageLocationId,
       quantity: input.quantity,
       unit_code: input.unitCode,
+      package_content_value: packageContent.value,
+      package_content_unit: packageContent.unitCode,
       expiry_date: input.expiryDate,
       after_open_days: afterOpenDays,
       opened_use_by_date: openedUseByDate,

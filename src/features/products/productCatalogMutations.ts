@@ -1,4 +1,5 @@
 import { supabase } from '../../lib/supabase/client'
+import { assertValidQuantity, readStoredQuantity } from '../quantity/quantity'
 import { normalizeProductName, ProductIdentityOption } from './productIdentity'
 
 export type CanonicalProductIdentity = ProductIdentityOption
@@ -24,6 +25,11 @@ export type RenameCanonicalProductInput = {
   nextName: string
 }
 
+export type UpdateCanonicalProductSettingsInput = RenameCanonicalProductInput & {
+  packageContentValue: number | null
+  packageContentUnitCode: string | null
+}
+
 export type ResolvedCanonicalProduct = CanonicalProductIdentity & {
   created: boolean
 }
@@ -32,6 +38,8 @@ type RawProductIdentity = {
   id: string
   name: string
   default_unit_code: string
+  package_content_value: number | string | null
+  package_content_unit: string | null
 }
 
 export function cleanCanonicalProductName(value: string) {
@@ -43,19 +51,31 @@ export function cleanCanonicalProductName(value: string) {
 }
 
 function mapProduct(row: RawProductIdentity): CanonicalProductIdentity {
+  const packageContentValue = row.package_content_value === null
+    ? null
+    : readStoredQuantity(row.package_content_value, 'Produkt ma nieprawidłową domyślną zawartość opakowania.')
+
+  if ((packageContentValue === null) !== (row.package_content_unit === null)) {
+    throw new Error('Produkt ma niespójną domyślną zawartość opakowania.')
+  }
+
   return {
     id: row.id,
     name: row.name,
     defaultUnitCode: row.default_unit_code,
+    packageContentValue,
+    packageContentUnitCode: row.package_content_unit,
   }
 }
+
+const productSelect = 'id, name, default_unit_code, package_content_value, package_content_unit'
 
 export async function loadOwnerProductCatalog(ownerId: string): Promise<CanonicalProductIdentity[]> {
   if (!supabase) throw new Error('Supabase is not configured.')
 
   const result = await supabase
     .from('products')
-    .select('id, name, default_unit_code')
+    .select(productSelect)
     .eq('owner_id', ownerId)
     .order('name', { ascending: true })
 
@@ -74,7 +94,7 @@ export async function findOwnerProductByName(ownerId: string, name: string) {
   return products.find((product) => normalizeProductName(product.name) === normalized) ?? null
 }
 
-export async function renameCanonicalProduct(input: RenameCanonicalProductInput) {
+export async function updateCanonicalProductSettings(input: UpdateCanonicalProductSettingsInput) {
   if (!supabase) throw new Error('Supabase is not configured.')
 
   const cleanName = cleanCanonicalProductName(input.nextName)
@@ -84,30 +104,55 @@ export async function renameCanonicalProduct(input: RenameCanonicalProductInput)
     throw new Error('Taki produkt już istnieje. Wybierz inną nazwę.')
   }
 
-  if (existing && existing.id === input.productId && existing.name === cleanName) {
-    return existing
+  const hasValue = input.packageContentValue !== null
+  const hasUnit = input.packageContentUnitCode !== null && input.packageContentUnitCode.trim() !== ''
+  if (hasValue !== hasUnit) {
+    throw new Error('Uzupełnij wartość i jednostkę zawartości opakowania albo wyczyść oba pola.')
   }
+
+  const packageContentValue = hasValue
+    ? assertValidQuantity(input.packageContentValue!, 'Podaj prawidłową domyślną zawartość opakowania.')
+    : null
+  const packageContentUnitCode = hasUnit ? input.packageContentUnitCode : null
 
   const result = await supabase
     .from('products')
-    .update({ name: cleanName })
+    .update({
+      name: cleanName,
+      package_content_value: packageContentValue,
+      package_content_unit: packageContentUnitCode,
+    })
     .eq('id', input.productId)
     .eq('owner_id', input.ownerId)
-    .select('id, name, default_unit_code')
+    .select(productSelect)
     .maybeSingle()
 
   if (result.error) {
     if (result.error.code === '23505') {
       throw new Error('Taki produkt już istnieje. Wybierz inną nazwę.')
     }
-    throw new Error(`Nie udało się zmienić nazwy produktu: ${result.error.message}`)
+    throw new Error(`Nie udało się zapisać ustawień produktu: ${result.error.message}`)
   }
 
   if (!result.data) {
-    throw new Error('Nie znaleziono produktu do zmiany nazwy.')
+    throw new Error('Nie znaleziono produktu do edycji.')
   }
 
   return mapProduct(result.data as RawProductIdentity)
+}
+
+export async function renameCanonicalProduct(input: RenameCanonicalProductInput) {
+  const products = await loadOwnerProductCatalog(input.ownerId)
+  const current = products.find((product) => product.id === input.productId)
+  if (!current) throw new Error('Nie znaleziono produktu do zmiany nazwy.')
+
+  if (current.name === cleanCanonicalProductName(input.nextName)) return current
+
+  return updateCanonicalProductSettings({
+    ...input,
+    packageContentValue: current.packageContentValue,
+    packageContentUnitCode: current.packageContentUnitCode,
+  })
 }
 
 export async function cleanupCreatedCanonicalProduct(ownerId: string, productId: string) {
@@ -145,8 +190,10 @@ export async function resolveOrCreateCanonicalProduct(
       owner_id: input.ownerId,
       name: cleanName,
       default_unit_code: input.defaultUnitCode,
+      package_content_value: null,
+      package_content_unit: null,
     })
-    .select('id, name, default_unit_code')
+    .select(productSelect)
     .single()
 
   if (insertResult.error) {

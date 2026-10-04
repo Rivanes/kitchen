@@ -67,6 +67,8 @@ export function ShoppingInventoryBridge({
       storageLocationId: input.storageLocationId,
       expiryDate: input.expiryDate,
       afterOpenDays: input.afterOpenDays,
+      packageContentValue: input.packageContentValue,
+      packageContentUnitCode: input.packageContentUnitCode,
     })
   }
 

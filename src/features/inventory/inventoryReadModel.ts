@@ -25,6 +25,8 @@ type RawInventoryItem = {
   storage_location_id: string
   quantity: number | string
   unit_code: string
+  package_content_value: number | string | null
+  package_content_unit: string | null
   expiry_date: string | null
   after_open_days: number | null
   opened_at: string | null
@@ -59,7 +61,7 @@ export async function loadInventoryReadModel(ownerId: string): Promise<Inventory
     loadMeasurementUnits(),
     supabase
       .from('inventory_items')
-      .select('id, product_id, storage_location_id, quantity, unit_code, expiry_date, after_open_days, opened_at, opened_use_by_date')
+      .select('id, product_id, storage_location_id, quantity, unit_code, package_content_value, package_content_unit, expiry_date, after_open_days, opened_at, opened_use_by_date')
       .eq('owner_id', ownerId)
       .order('created_at', { ascending: true }),
   ])
@@ -87,9 +89,17 @@ export async function loadInventoryReadModel(ownerId: string): Promise<Inventory
     const product = productById.get(row.product_id)
     const location = locationById.get(row.storage_location_id)
     const unit = unitByCode.get(row.unit_code)
+    const packageContentUnit = row.package_content_unit ? unitByCode.get(row.package_content_unit) : null
 
-    if (!product || !location || !unit) {
+    if (!product || !location || !unit || (row.package_content_unit && !packageContentUnit)) {
       throw new Error('Inventory read returned a stock lot with an unresolved reference.')
+    }
+
+    const packageContentValue = row.package_content_value === null
+      ? null
+      : readStoredQuantity(row.package_content_value, 'Inventory read returned an invalid package-content quantity.')
+    if ((packageContentValue === null) !== (row.package_content_unit === null)) {
+      throw new Error('Inventory read returned incoherent package-content semantics.')
     }
 
     return {
@@ -100,6 +110,9 @@ export async function loadInventoryReadModel(ownerId: string): Promise<Inventory
       quantity: readStoredQuantity(row.quantity, 'Inventory read returned an invalid stock quantity.'),
       unitCode: unit.code,
       unitSymbol: unit.symbol,
+      packageContentValue,
+      packageContentUnitCode: row.package_content_unit,
+      packageContentUnitSymbol: packageContentUnit?.symbol ?? null,
       expiryDate: row.expiry_date,
       afterOpenDays: toAfterOpenDays(row.after_open_days),
       openedAt: row.opened_at,
