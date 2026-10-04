@@ -8,6 +8,7 @@ import { QuantityStepperInput } from '../quantity/QuantityStepperInput'
 import { parseQuantityInput, QUANTITY_INPUT_ERROR } from '../quantity/quantity'
 import { createShoppingItem, removeShoppingItem, updateShoppingItem } from './shoppingMutations'
 import type { ShoppingCatalogModel, ShoppingCreateSeed, ShoppingItem } from './types'
+import { toUserErrorMessage } from '../../lib/userError'
 
 type ShoppingEditorMode =
   | { kind: 'create'; seed?: ShoppingCreateSeed }
@@ -91,7 +92,7 @@ export function ShoppingEditor({ ownerId, model, mode, onClose, onSaved }: Shopp
     try {
       cleanCanonicalProductName(name)
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : 'Podaj prawidłową nazwę produktu.')
+      setErrorMessage(toUserErrorMessage(error, 'Podaj prawidłową nazwę produktu.'))
       return
     }
 
@@ -133,7 +134,7 @@ export function ShoppingEditor({ ownerId, model, mode, onClose, onSaved }: Shopp
       }
       onSaved()
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : 'Nie udało się zapisać listy zakupów.')
+      setErrorMessage(toUserErrorMessage(error, 'Nie udało się zapisać listy zakupów.'))
     } finally {
       setBusy(false)
     }
@@ -148,7 +149,7 @@ export function ShoppingEditor({ ownerId, model, mode, onClose, onSaved }: Shopp
       await removeShoppingItem({ ownerId, itemId: mode.item.id })
       onSaved()
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : 'Nie udało się usunąć z listy.')
+      setErrorMessage(toUserErrorMessage(error, 'Nie udało się usunąć z listy.'))
       setConfirmingRemove(false)
     } finally {
       setBusy(false)

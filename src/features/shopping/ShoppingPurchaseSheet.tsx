@@ -1,6 +1,7 @@
 import { FormEvent, useEffect, useRef, useState } from 'react'
 import { KitchenIcon } from '../../components/KitchenIcon'
 import { QuantityStepperInput } from '../quantity/QuantityStepperInput'
+import { toUserErrorMessage } from '../../lib/userError'
 import {
   formatQuantity,
   formatQuantityInput,
@@ -74,7 +75,7 @@ export function ShoppingPurchaseSheet({
       })
       onSaved()
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : 'Nie udało się zmienić kupionej ilości.')
+      setErrorMessage(toUserErrorMessage(error, 'Nie udało się zmienić kupionej ilości.'))
       setSaving(false)
     }
   }

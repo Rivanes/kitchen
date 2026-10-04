@@ -5,6 +5,7 @@ import { DEFAULT_QUANTITY_STEP, formatQuantity, formatQuantityInput, parseQuanti
 import { consumeAllInventoryLot, consumeInventoryLot } from './inventoryMutations'
 import type { ConsumeInventoryResult } from './inventoryMutations'
 import type { InventoryLot } from './types'
+import { toUserErrorMessage } from '../../lib/userError'
 
 type InventoryConsumeSheetProps = {
   ownerId: string
@@ -59,7 +60,7 @@ export function InventoryConsumeSheet({ ownerId, lot, onClose, onConsumed }: Inv
       })
       onConsumed(result)
     } catch (error: unknown) {
-      setErrorMessage(error instanceof Error ? error.message : 'Nie udało się zmienić zapasu.')
+      setErrorMessage(toUserErrorMessage(error, 'Nie udało się zmienić zapasu.'))
       setSaving(false)
     }
   }
@@ -73,7 +74,7 @@ export function InventoryConsumeSheet({ ownerId, lot, onClose, onConsumed }: Inv
       const result = await consumeAllInventoryLot({ ownerId, lotId: lot.id })
       onConsumed(result)
     } catch (error: unknown) {
-      setErrorMessage(error instanceof Error ? error.message : 'Nie udało się zużyć całego zapasu.')
+      setErrorMessage(toUserErrorMessage(error, 'Nie udało się zużyć całego zapasu.'))
       setSaving(false)
     }
   }

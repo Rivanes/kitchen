@@ -11,6 +11,7 @@ import { createInventoryLot, removeInventoryLot, updateInventoryLot } from './in
 import { StorageLocationPicker } from './StorageLocationPicker'
 import type { CreateInventoryLotInput } from './inventoryMutations'
 import type { InventoryCreateSeed, InventoryLot, InventoryReadModel } from './types'
+import { toUserErrorMessage } from '../../lib/userError'
 
 export type InventoryEditorMode =
   | { kind: 'create'; initialLocationId?: string; seed?: InventoryCreateSeed }
@@ -137,7 +138,7 @@ export function InventoryEditor({ ownerId, model, mode, onClose, onSaved, onCons
     try {
       cleanName = cleanCanonicalProductName(renameName)
     } catch (error) {
-      setRenameError(error instanceof Error ? error.message : 'Podaj prawidłową nazwę produktu.')
+      setRenameError(toUserErrorMessage(error, 'Podaj prawidłową nazwę produktu.'))
       return
     }
 
@@ -157,7 +158,7 @@ export function InventoryEditor({ ownerId, model, mode, onClose, onSaved, onCons
       })
       onSaved()
     } catch (error: unknown) {
-      setRenameError(error instanceof Error ? error.message : 'Nie udało się zmienić nazwy produktu.')
+      setRenameError(toUserErrorMessage(error, 'Nie udało się zmienić nazwy produktu.'))
       setRenaming(false)
     }
   }
@@ -195,7 +196,7 @@ export function InventoryEditor({ ownerId, model, mode, onClose, onSaved, onCons
       try {
         cleanCanonicalProductName(productName)
       } catch (error) {
-        setErrorMessage(error instanceof Error ? error.message : 'Podaj prawidłową nazwę produktu.')
+        setErrorMessage(toUserErrorMessage(error, 'Podaj prawidłową nazwę produktu.'))
         return
       }
     }
@@ -228,7 +229,7 @@ export function InventoryEditor({ ownerId, model, mode, onClose, onSaved, onCons
       }
       onSaved()
     } catch (error: unknown) {
-      setErrorMessage(error instanceof Error ? error.message : 'Nie udało się zapisać zmian.')
+      setErrorMessage(toUserErrorMessage(error, 'Nie udało się zapisać zmian.'))
       setSaving(false)
     }
   }
@@ -242,7 +243,7 @@ export function InventoryEditor({ ownerId, model, mode, onClose, onSaved, onCons
       await removeInventoryLot({ ownerId, lotId: mode.lot.id })
       onSaved()
     } catch (error: unknown) {
-      setErrorMessage(error instanceof Error ? error.message : 'Nie udało się usunąć zapasu.')
+      setErrorMessage(toUserErrorMessage(error, 'Nie udało się usunąć zapasu.'))
       setRemoving(false)
       setConfirmingRemove(false)
     }

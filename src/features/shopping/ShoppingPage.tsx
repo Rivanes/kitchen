@@ -7,6 +7,7 @@ import { ShoppingInventoryBridge } from './ShoppingInventoryBridge'
 import { purchaseShoppingQuantity, restoreShoppingPurchase } from './shoppingMutations'
 import { loadShoppingReadModel } from './shoppingReadModel'
 import type { ShoppingItem, ShoppingReadModel } from './types'
+import { toUserErrorMessage } from '../../lib/userError'
 
 type ShoppingPageProps = {
   ownerId: string
@@ -104,7 +105,7 @@ export function ShoppingPage({ ownerId }: ShoppingPageProps) {
       setShoppingStatus({ status: 'ready', model: nextModel })
       setCompletedOpen(true)
     } catch (error) {
-      setActionError(error instanceof Error ? error.message : 'Nie udało się oznaczyć rzeczy jako kupione.')
+      setActionError(toUserErrorMessage(error, 'Nie udało się oznaczyć rzeczy jako kupione.'))
     } finally {
       setUpdatingItemId(null)
     }
@@ -127,7 +128,7 @@ export function ShoppingPage({ ownerId }: ShoppingPageProps) {
       const nextModel = await loadShoppingReadModel(ownerId)
       setShoppingStatus({ status: 'ready', model: nextModel })
     } catch (error) {
-      setActionError(error instanceof Error ? error.message : 'Nie udało się przywrócić rzeczy do listy.')
+      setActionError(toUserErrorMessage(error, 'Nie udało się przywrócić rzeczy do listy.'))
     } finally {
       setUpdatingItemId(null)
     }

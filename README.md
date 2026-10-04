@@ -291,3 +291,20 @@ When the corrected purchased quantity is increased:
 When the corrected purchased quantity is reduced, the difference still returns to `Do kupienia`.
 
 The correction remains atomic in `public.adjust_purchased_shopping_quantity(...)`.
+
+
+## V2.7 — V2 Final Polish / Closeout Candidate
+
+V2.6 through V2.6.5 are production PASS/CLOSED.
+
+V2.7 adds no new Shopping business feature and requires no SQL migration.
+It closes V2 with:
+- one shared user-facing mutation-error presentation helper
+- final shared-core regression contracts
+- authoritative documentation/status cleanup
+- `*.tsbuildinfo` repository hygiene
+
+Raw Supabase/Postgres detail appended after a Polish `Nie udało się ...:` action message is no longer shown directly in the UI.
+The full backend/data authority remains unchanged.
+
+After GitHub QA, Pages deploy and full V2 production/mobile smoke PASS, V2 Shopping can be marked PASS/CLOSED and V3 Recipes becomes next.

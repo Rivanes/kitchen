@@ -24,6 +24,7 @@ const requiredFiles = [
   'src/features/inventory/types.ts',
   'src/styles/global.css',
   'src/lib/supabase/client.ts',
+  'src/lib/userError.ts',
   'tests/SECURITY_CONTRACT.md',
   'tests/UI_CONTRACT.md',
   'tests/INVENTORY_READ_CONTRACT.md',
@@ -63,6 +64,8 @@ const requiredFiles = [
   'tests/SHOPPING_TO_INVENTORY_CONTRACT.md',
   'tests/STORAGE_LOCATION_PICKER_CONTRACT.md',
   'tests/SHOPPING_QUICK_PURCHASE_CONTRACT.md',
+  'tests/USER_ERROR_PRESENTATION_CONTRACT.md',
+  'tests/V2_CLOSEOUT_CONTRACT.md',
   'vite.config.ts',
 ]
 
@@ -712,6 +715,48 @@ for (const marker of ['Actual purchased quantity may be higher', 'min(A, delta)'
   if (!overpurchaseContract.includes(marker)) {
     throw new Error(`V2.6.5 overpurchase contract marker missing: ${marker}`)
   }
+}
+
+
+// V2.7 — shared user-facing error presentation + V2 closeout contract.
+const userErrorHelper = await readFile('src/lib/userError.ts', 'utf8')
+for (const marker of ['toUserErrorMessage', 'wrappedBackendFailure', 'Nie udało się']) {
+  if (!userErrorHelper.includes(marker)) {
+    throw new Error(`V2.7 shared user-error presentation marker missing: ${marker}`)
+  }
+}
+
+for (const file of [
+  'src/features/inventory/InventoryConsumeSheet.tsx',
+  'src/features/inventory/InventoryEditor.tsx',
+  'src/features/shopping/ShoppingPage.tsx',
+  'src/features/shopping/ShoppingEditor.tsx',
+  'src/features/shopping/ShoppingPurchaseSheet.tsx',
+]) {
+  const source = await readFile(file, 'utf8')
+  if (!source.includes('toUserErrorMessage')) {
+    throw new Error(`V2.7 user-facing mutation surface does not reuse shared error presentation: ${file}`)
+  }
+  if (/error instanceof Error \? error\.message/.test(source)) {
+    throw new Error(`V2.7 raw caught Error.message presentation remains in: ${file}`)
+  }
+}
+
+const v2CloseoutContract = await readFile('tests/V2_CLOSEOUT_CONTRACT.md', 'utf8')
+for (const marker of [
+  'canonical Product is shared by Inventory and Shopping',
+  'factual purchased quantity may exceed the earlier plan',
+  'normal Inventory create and transfer share add_inventory_lot authority',
+  'no raw backend English is rendered',
+]) {
+  if (!v2CloseoutContract.includes(marker)) {
+    throw new Error(`V2.7 closeout contract marker missing: ${marker}`)
+  }
+}
+
+const gitignore = await readFile('.gitignore', 'utf8')
+if (!gitignore.includes('*.tsbuildinfo')) {
+  throw new Error('V2.7 repo hygiene must ignore generated TypeScript build-info files.')
 }
 
 console.log('Kitchen project contract verification: PASS')
