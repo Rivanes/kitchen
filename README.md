@@ -270,3 +270,24 @@ This corrective is presentation-only. Database/RLS/Auth/RPC behavior from V2.6.3
 - Its container is now intrinsically bounded to 220px while still shrinking inside narrow parents, so `-`, value/unit and `+` stay close enough for one-handed use.
 - Touch targets remain >=44px and manual quantity entry remains available.
 - No SQL migration is required.
+
+
+## V2.6.5 — Overpurchase Corrective
+
+An already-purchased Shopping quantity is the factual amount bought, not a hard cap derived from the earlier plan.
+
+Example:
+- originally planned: 4 pcs
+- currently recorded as bought: 3 pcs
+- active remainder: 1 pc
+- correction: bought 5 pcs
+- result: bought 5 pcs, active remainder 0
+
+When the corrected purchased quantity is increased:
+1. an equivalent active remainder is consumed first, up to the amount available;
+2. any additional excess is still accepted as genuinely purchased;
+3. the purchased row stores the exact corrected quantity.
+
+When the corrected purchased quantity is reduced, the difference still returns to `Do kupienia`.
+
+The correction remains atomic in `public.adjust_purchased_shopping_quantity(...)`.

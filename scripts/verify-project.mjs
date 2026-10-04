@@ -58,6 +58,7 @@ const requiredFiles = [
   'tests/QUANTITY_STEPPER_CONTRACT.md',
   'tests/SHOPPING_PURCHASED_STATE_CONTRACT.md',
   'tests/MOBILE_DENSITY_CONTRACT.md',
+  'tests/SHOPPING_OVERPURCHASE_CONTRACT.md',
   'tests/SHOPPING_PARTIAL_PURCHASE_CONTRACT.md',
   'tests/SHOPPING_TO_INVENTORY_CONTRACT.md',
   'tests/STORAGE_LOCATION_PICKER_CONTRACT.md',
@@ -531,10 +532,13 @@ for (const marker of ['ShoppingInventoryBridge', 'inventoryTarget', 'shopping-to
 
 
 const shoppingPurchaseSheet = await readFile('src/features/shopping/ShoppingPurchaseSheet.tsx', 'utf8')
-for (const marker of ['Zmień kupioną ilość', 'QuantityStepperInput', 'adjustPurchasedShoppingQuantity', 'Do „Do kupienia” wróci:', 'Aktualnie kupiono:']) {
+for (const marker of ['Zmień kupioną ilość', 'QuantityStepperInput', 'adjustPurchasedShoppingQuantity', 'Do „Do kupienia” wróci:', 'Aktualnie kupiono:', 'nadwyżka również zostanie zapisana jako kupiona']) {
   if (!shoppingPurchaseSheet.includes(marker)) {
-    throw new Error(`V2.6.3 purchased-quantity correction sheet marker missing: ${marker}`)
+    throw new Error(`V2.6.5 purchased-quantity correction sheet marker missing: ${marker}`)
   }
+}
+if (shoppingPurchaseSheet.includes('System spróbuje przenieść')) {
+  throw new Error('V2.6.5 must not describe upward correction as limited by the active Shopping remainder.')
 }
 if (shoppingPurchaseSheet.includes('max={item.quantity}') || shoppingPurchaseSheet.includes('purchaseShoppingQuantity')) {
   throw new Error('V2.6.3 correction sheet must edit an already-purchased quantity, not run the old pre-purchase partial flow.')
@@ -700,6 +704,13 @@ for (const [fileName, source] of [
   }
   if (source.includes('result.data.inventory_item_id')) {
     throw new Error(`V2.6.1 ${fileName} must not directly access an untyped RPC result row.`)
+  }
+}
+
+const overpurchaseContract = await readFile('tests/SHOPPING_OVERPURCHASE_CONTRACT.md', 'utf8')
+for (const marker of ['Actual purchased quantity may be higher', 'min(A, delta)', 'valid overpurchase', 'adjust_purchased_shopping_quantity']) {
+  if (!overpurchaseContract.includes(marker)) {
+    throw new Error(`V2.6.5 overpurchase contract marker missing: ${marker}`)
   }
 }
 

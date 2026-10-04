@@ -11,7 +11,7 @@
 ## Correct bought quantity after purchase
 - Every purchased row exposes `Zmień ilość`.
 - Correcting 4 purchased to 3 keeps purchased 3 and returns 1 to `Do kupienia`.
-- Correcting upward may consume an equivalent active remainder.
+- Correcting upward consumes an equivalent active remainder first, but an insufficient or missing remainder must not cap the factual purchased quantity.
 - Correction is atomic through `public.adjust_purchased_shopping_quantity(...)`.
 
 ## Restore / undo
@@ -42,3 +42,20 @@
 - The action reuses the compact borderless accent treatment proven in V2.6.2.
 - Below 360px the action may collapse to its edit icon while retaining an accessible label and >=44px target.
 - The Inventory transfer action remains separately tappable.
+
+
+## V2.6.5 overpurchase rule
+
+Purchased quantity records what was actually bought, even when that is more than the earlier Shopping plan.
+
+Required example:
+- bought row = 3
+- matching active remainder = 1
+- correction target = 5
+- result = bought 5, active remainder 0
+
+The missing extra 1 is valid overpurchase and must not cause an error.
+
+If there is no matching active remainder at all, increasing a purchased row is still allowed.
+
+Decreasing a purchased row keeps the established rule: the difference is returned/merged into `Do kupienia`.

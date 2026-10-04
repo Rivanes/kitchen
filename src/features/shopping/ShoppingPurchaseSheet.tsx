@@ -133,7 +133,7 @@ export function ShoppingPurchaseSheet({
             <div className="shopping-purchase-remaining">
               <KitchenIcon name="plus" size={17} />
               <span>
-                System spróbuje przenieść {formatQuantity(Math.abs(difference))} {item.unitSymbol} z aktywnej pozycji do „Kupione”.
+                Kupiona ilość wzrośnie o {formatQuantity(Math.abs(difference))} {item.unitSymbol}. Pozostała ilość z „Do kupienia” zostanie wykorzystana w pierwszej kolejności, a nadwyżka również zostanie zapisana jako kupiona.
               </span>
             </div>
           )}
