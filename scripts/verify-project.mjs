@@ -799,6 +799,7 @@ if (homePage.includes('home-recipes-hub') || homePage.includes('<strong>Przepisy
 const recipesReadModel = await readFile('src/features/recipes/recipesReadModel.ts', 'utf8')
 for (const marker of [
   ".from('recipes')",
+  ".from('recipe_sections')",
   ".from('recipe_ingredients')",
   ".eq('owner_id', ownerId)",
   'loadOwnerProductCatalog(ownerId)',
@@ -825,8 +826,8 @@ for (const marker of [
 ]) {
   if (!recipesReadModel.includes(marker)) throw new Error(`V3.5.2 Recipes presence/timing read marker missing: ${marker}`)
 }
-if ((recipesReadModel.match(/\.eq\('owner_id', ownerId\)/g) ?? []).length < 4) {
-  throw new Error('V3.5.2 Recipe, ingredient, Inventory presence and Shopping presence reads must all be explicitly owner-scoped.')
+if ((recipesReadModel.match(/\.eq\('owner_id', ownerId\)/g) ?? []).length < 5) {
+  throw new Error('V3.6A Recipe, section, ingredient, Inventory presence and Shopping presence reads must all be explicitly owner-scoped.')
 }
 if (/custom_name|productName.*presence|name.*presence/i.test(recipesReadModel)) {
   throw new Error('V3.5.2 Recipe presence must resolve by canonical product_id only, never display/custom name.')
@@ -857,8 +858,11 @@ if (!recipesPage.includes('model.recipes.length >= 8') || !recipesPage.includes(
 if (!recipesPage.includes('ingredient.productName.toLocaleLowerCase')) {
   throw new Error('V3.5 Recipe search must match ingredient Product names as well as Recipe names.')
 }
-if (!recipesPage.includes("'Pozostałe składniki'")) {
-  throw new Error('V3.5 section polish must naturally label unlabeled blocks when named sections exist.')
+for (const marker of ['visibleRecipeSections.map', 'ingredient.sectionId === section.id', 'shouldShowRecipeSectionHeadings']) {
+  if (!recipesPage.includes(marker)) throw new Error(`V3.6A structured Recipe detail marker missing: ${marker}`)
+}
+if (recipesPage.includes('sectionLabel') || recipesPage.includes('Pozostałe składniki')) {
+  throw new Error('V3.6A Recipe detail must render real structured sections instead of legacy section labels/fallback groups.')
 }
 if (recipesPage.includes('recipe-detail-ingredient-count')) {
   throw new Error('V3.5.1 Recipe detail must not repeat ingredient count directly above the ingredient list.')
@@ -961,18 +965,37 @@ for (const marker of [
   'cookTimeMinutes',
   'Czas przygotowania',
   'Czas gotowania / pieczenia',
-  'NEW_SECTION_VALUE',
-  'Bez sekcji',
-  '+ Nowa sekcja',
-  'sectionIdentity',
+  'DEFAULT_PRIMARY_RECIPE_SECTION_NAME',
+  'Sekcje składników',
+  'Pierwsza sekcja jest zawsze główna.',
+  'recipe-section-choice',
+  'aria-pressed',
+  "beginCreateSection('ingredient')",
+  'beginRenameSection',
+  'removeSection',
+  'validateRecipeSections',
 ]) {
-  if (!recipeEditor.includes(marker)) throw new Error(`V3.5.2 Recipe authoring polish marker missing: ${marker}`)
+  if (!recipeEditor.includes(marker)) throw new Error(`V3.6A Recipe section authoring marker missing: ${marker}`)
 }
-if (recipeEditor.includes('<datalist') || recipeEditor.includes('recipe-section-suggestions')) {
-  throw new Error('V3.5.2 section reuse must use explicit existing/new section selection instead of the old free-text datalist.')
+if (recipeEditor.includes('Bez sekcji') || recipeEditor.includes('sectionLabel') || recipeEditor.includes('sectionMode')) {
+  throw new Error('V3.6A authoring must remove the legacy optional/free-text section-label path.')
 }
-if (/recipe_sections/.test(recipeEditor)) {
-  throw new Error('V3.5.2 must not introduce a Recipe section entity.')
+if (recipeEditor.includes('id="recipe-ingredient-section"') || /<select[\s\S]{0,500}Sekcja/.test(recipeEditor)) {
+  throw new Error('V3.6A ingredient section assignment must use fast buttons/chips, not a dropdown.')
+}
+
+const recipeSections = await readFile('src/features/recipes/recipeSections.ts', 'utf8')
+for (const marker of [
+  "DEFAULT_PRIMARY_RECIPE_SECTION_NAME = 'Główne'",
+  'cleanRecipeSectionName',
+  'recipeSectionIdentity',
+  'validateRecipeSections',
+  'primaryCount !== 1',
+]) {
+  if (!recipeSections.includes(marker)) throw new Error(`V3.6A pure Recipe section authority marker missing: ${marker}`)
+}
+if (/supabase|\.from\(|\.rpc\(/i.test(recipeSections)) {
+  throw new Error('V3.6A Recipe section validation/normalization authority must remain pure.')
 }
 
 for (const marker of [
@@ -1015,7 +1038,9 @@ for (const marker of [
   'resolveOrCreateCanonicalProduct',
   'cleanupCreatedCanonicalProduct',
   "supabase.rpc('save_recipe_snapshot'",
+  'p_sections: cleanedSections.map',
   'p_ingredients: resolvedIngredients',
+  'section_id: ingredient.sectionId',
   "supabase.rpc('delete_recipe_with_cover_cleanup'",
 ]) {
   if (!recipeMutations.includes(marker)) throw new Error(`Recipe snapshot authority marker missing: ${marker}`)
@@ -1033,6 +1058,13 @@ for (const marker of [
 }
 if (recipeMutations.includes(".from('recipes')")) {
   throw new Error('V3.5.2 duration metadata must persist only through save_recipe_snapshot, not a second direct Recipe update path.')
+}
+
+for (const marker of ['validateRecipeSections(input.sections)', 'sectionIds.has(ingredient.sectionId)', 'p_sections:', 'section_id']) {
+  if (!recipeMutations.includes(marker)) throw new Error(`V3.6A structured snapshot mutation marker missing: ${marker}`)
+}
+if (recipeMutations.includes('section_label')) {
+  throw new Error('V3.6A runtime mutation payload must not use legacy section_label as section authority.')
 }
 
 const cropGeometry = await readFile('src/features/recipes/recipeCoverCrop.ts', 'utf8')
@@ -1143,9 +1175,11 @@ const recipeAuthoringContract = await readFile('tests/RECIPE_AUTHORING_CONTRACT.
 const recipeSharedContract = await readFile('tests/RECIPE_SHARED_CORE_CONTRACT.md', 'utf8')
 const recipeImageContract = await readFile('tests/RECIPE_IMAGE_CONTRACT.md', 'utf8')
 const recipeToShoppingContract = await readFile('tests/RECIPE_TO_SHOPPING_CONTRACT.md', 'utf8')
+const recipeSectionsContract = await readFile('tests/RECIPE_SECTIONS_CONTRACT.md', 'utf8')
 for (const [contract, markers] of [
-  [recipesUiContract, ['read surfaces', 'exactly one Recipe edit entry point', 'compact horizontal summary row', 'Ingredient count is not repeated', 'Product-presence indicator only', 'Inventory has priority', 'Bez sekcji', '+ Nowa sekcja']],
-  [recipeAuthoringContract, ['One Recipe authoring draft', 'save_recipe_snapshot', 'Cancel discards the draft', 'optional preparation time', 'optional cooking/baking time', 'Section labels are selected/reused']],
+  [recipesUiContract, ['read surfaces', 'exactly one Recipe edit entry point', 'compact horizontal summary row', 'Ingredient count is not repeated', 'Product-presence indicator only', 'Inventory has priority', 'mandatory primary section', 'fast buttons/chips', 'no `Bez sekcji`']],
+  [recipeAuthoringContract, ['One Recipe authoring draft', 'save_recipe_snapshot', 'Cancel discards the draft', 'optional preparation time', 'optional cooking/baking time', 'structured Recipe-local sections', 'primary `Główne`']],
+  [recipeSectionsContract, ['exactly one mandatory primary section', 'section_id', 'compatibility mirror', 'fast button/chip choices', '`Bez sekcji` no longer exists', 'does not perform package semantics']],
   [recipeSharedContract, ['canonical Product resolver/create authority', 'shared Quantity', 'must not globally rename', 'canonical Product UUID only', 'must not claim quantity sufficiency']],
   [recipeImageContract, ['full source image', 'pure crop geometry authority', 'RECIPE_COVER_HERO_ASPECT', 'must therefore match', 'Cleanup retries never block Recipe reading']],
   [recipeToShoppingContract, ["presence === 'missing'", 'current target-servings requirement', 'grouped by canonical Product + unit', 'createShoppingItem()', 'sequential', 'no unit conversion', 'V3.6']],
@@ -1169,7 +1203,10 @@ for (const marker of [
   '.recipe-ingredient-shopping-action',
   '.recipe-shopping-feedback',
   '.recipe-time-fields',
-  '.recipe-new-section-field',
+  '.recipe-section-manager',
+  '.recipe-section-choice',
+  '.recipe-section-choice.is-active',
+  '.recipe-section-inline-editor',
   '.recipes-search-empty',
 ]) {
   if (!globalCss.includes(marker)) throw new Error(`Current Recipe CSS marker missing: ${marker}`)

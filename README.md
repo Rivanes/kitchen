@@ -2,7 +2,7 @@
 
 Private, single-user mobile-first PWA for household inventory, shopping and recipes.
 
-Closed milestones: **V1 Inventory — PASS/CLOSED**, **V2 Shopping — PASS/CLOSED**, **V3.1–V3.4 — PASS/CLOSED**. Current candidate: **V3.5.3 — Recipe Missing Products -> Shopping**.
+Closed milestones: **V1 Inventory — PASS/CLOSED**, **V2 Shopping — PASS/CLOSED**, **V3.1–V3.5 — PASS/CLOSED**. Current candidate: **V3.6A — Structured Recipe Sections**.
 
 Active Inventory capabilities:
 - owner-scoped stock read model
@@ -394,7 +394,7 @@ Final architecture:
 
 The V3.4.1–V3.4.4 corrective chain is historical implementation work and is not a separate feature surface.
 
-## V3.5 — Servings UX + Recipe Polish
+## V3.5 — Servings UX + Recipe Polish [PASS / CLOSED]
 
 Delivered through V3.5.3:
 - read-only servings preview from 1..999
@@ -402,8 +402,7 @@ Delivered through V3.5.3:
 - reset to base servings only when preview differs
 - contextual Recipe search at 8+ Recipes
 - search by Recipe name and ingredient Product name
-- natural `Pozostałe składniki` grouping for unlabeled blocks when named sections exist
-- reusable existing section selection in Recipe authoring without a `recipe_sections` table
+- legacy lightweight section-label grouping/reuse (superseded by V3.6A structured sections after V3.5 closeout)
 - optional preparation and cooking/baking times stored as Recipe metadata
 - ingredient Product-presence dots: Inventory / active Shopping / missing
 - explicit add-to-Shopping action for red/missing canonical Products
@@ -412,3 +411,21 @@ Delivered through V3.5.3:
 - duplicate Product+unit Recipe requirements are grouped before Shopping mutation
 
 V3.5.2 introduced only the two optional duration columns and extended the existing atomic `save_recipe_snapshot(...)` authority. V3.5.3 adds no SQL/schema/RLS/Auth/Storage-policy change: final add/merge remains owned by shared Shopping mutation authority. Product-presence color remains presence-only and does not claim quantity sufficiency or Recipe matching.
+
+
+## V3.6A — Structured Recipe Sections
+
+Current candidate. V3.6A promotes Recipe sections from repeated presentation labels to real Recipe-local identities because section-level rename and a mandatory base section are now product requirements.
+
+- `recipe_sections` is the section authority
+- every Recipe has one mandatory primary section (`Główne` by default)
+- primary can be renamed but not deleted/replaced
+- secondary sections are optional
+- every ingredient has mandatory same-Recipe `section_id`
+- RecipeEditor assigns sections with fast chips/buttons and supports `+ Nowa`
+- whole-section rename is draft state until the one atomic Recipe Save
+- legacy `section_label` and old snapshot signature are retained temporarily only for rollout compatibility
+- Recipe Detail hides a single redundant section heading and shows headings when 2+ non-empty sections exist
+- no Package Semantics / Recipe matching in V3.6A
+
+Production upgrade requires `OUTSIDE_REPO/SQL/V3_6A_PRECHECK.sql` -> migration -> postcheck before runtime deploy.

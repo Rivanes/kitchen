@@ -46,10 +46,15 @@
 
 ## Sections
 
-- `section_label` remains lightweight presentation metadata.
-- V3.5 does not introduce a separate Recipe section entity or `recipe_sections` table.
-- Existing section labels in the current Recipe draft are selectable/reusable without retyping.
-- `Bez sekcji` remains an explicit choice and `+ Nowa sekcja` is the only path that opens a new-name field.
-- Whitespace/case variants of an existing section reuse the existing display label.
-- If named sections exist, unlabeled ingredient blocks may display as `Pozostałe składniki`.
-- Presentation and section reuse must never reorder canonical ingredient order.
+- Structured Recipe sections are Recipe-local identities, not repeated ingredient labels.
+- Every Recipe has one mandatory primary section; a new Recipe starts with `Główne`.
+- Primary section can be renamed but cannot be deleted or replaced.
+- Secondary sections are optional and can be created explicitly.
+- Ingredient section assignment uses fast buttons/chips; no dropdown and no `Bez sekcji`.
+- `+ Nowa` may create and immediately select a secondary section while editing an ingredient.
+- Section rename is one section-level edit and immediately affects every linked ingredient in the draft.
+- Duplicate section names after whitespace/case normalization are rejected.
+- Empty secondary sections can be removed; non-empty secondary deletion is blocked until ingredients are moved.
+- With exactly one section, Recipe Detail omits a redundant section heading.
+- With multiple sections, Recipe Detail shows ordered section headings and preserves ingredient order within each section.
+- Structured sections must not change serving scaling, Product presence or Recipe -> Shopping behavior.

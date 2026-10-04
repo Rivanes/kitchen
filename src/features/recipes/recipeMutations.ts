@@ -11,11 +11,18 @@ import {
 } from './recipeCoverStorage'
 import { parseOptionalRecipeDuration } from './recipeDuration'
 import type { ProcessedRecipeImage } from './recipeImageProcessor'
+import { validateRecipeSections } from './recipeSections'
 
 export type RecipeCoverChange =
   | { kind: 'keep' }
   | { kind: 'remove' }
   | { kind: 'replace'; image: ProcessedRecipeImage }
+
+export type RecipeSectionDraftInput = {
+  id: string
+  name: string
+  isPrimary: boolean
+}
 
 export type RecipeIngredientDraftInput = {
   id: string
@@ -23,7 +30,7 @@ export type RecipeIngredientDraftInput = {
   productName: string
   quantity: number
   unitCode: string
-  sectionLabel: string
+  sectionId: string
   note: string
 }
 
@@ -39,6 +46,7 @@ export type SaveRecipeSnapshotInput = {
   coverFocusX: number
   coverFocusY: number
   cover: RecipeCoverChange
+  sections: RecipeSectionDraftInput[]
   ingredients: RecipeIngredientDraftInput[]
 }
 
@@ -96,6 +104,8 @@ export async function saveRecipeSnapshot(input: SaveRecipeSnapshotInput) {
 
   if (!recipeId) throw new Error('Brakuje identyfikatora przepisu.')
 
+  const cleanedSections = validateRecipeSections(input.sections)
+  const sectionIds = new Set(cleanedSections.map((section) => section.id))
   const createdProductIds: string[] = []
   let uploadedCoverPath: string | null = null
 
@@ -105,7 +115,7 @@ export async function saveRecipeSnapshot(input: SaveRecipeSnapshotInput) {
       product_id: string
       quantity: number
       unit_code: string
-      section_label: string | null
+      section_id: string
       note: string | null
     }>
 
@@ -115,6 +125,10 @@ export async function saveRecipeSnapshot(input: SaveRecipeSnapshotInput) {
         throw new Error('Lista składników zawiera zduplikowaną pozycję.')
       }
       seenIngredientIds.add(ingredient.id)
+
+      if (!sectionIds.has(ingredient.sectionId)) {
+        throw new Error('Każdy składnik musi należeć do sekcji tego przepisu.')
+      }
 
       const quantity = assertValidQuantity(ingredient.quantity)
       if (!ingredient.unitCode) throw new Error('Wybierz jednostkę składnika.')
@@ -133,7 +147,7 @@ export async function saveRecipeSnapshot(input: SaveRecipeSnapshotInput) {
         product_id: product.id,
         quantity,
         unit_code: ingredient.unitCode,
-        section_label: cleanOptional(ingredient.sectionLabel, 80, 'Nazwa sekcji'),
+        section_id: ingredient.sectionId,
         note: cleanOptional(ingredient.note, 240, 'Notatka'),
       })
     }
@@ -159,6 +173,11 @@ export async function saveRecipeSnapshot(input: SaveRecipeSnapshotInput) {
       p_cover_image_path: input.cover.kind === 'replace' ? uploadedCoverPath : null,
       p_cover_focus_x: clampFocus(input.coverFocusX),
       p_cover_focus_y: clampFocus(input.coverFocusY),
+      p_sections: cleanedSections.map((section) => ({
+        id: section.id,
+        name: section.name,
+        is_primary: section.isPrimary,
+      })),
       p_ingredients: resolvedIngredients,
     })
 

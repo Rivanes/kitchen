@@ -140,9 +140,12 @@ export function RecipesPage({ ownerId, overviewRequestToken }: RecipesPageProps)
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
-  const hasNamedRecipeSections = Boolean(
-    selectedRecipe?.ingredients.some((ingredient) => Boolean(ingredient.sectionLabel?.trim())),
-  )
+  const visibleRecipeSections = useMemo(() => (
+    selectedRecipe
+      ? selectedRecipe.sections.filter((section) => selectedRecipe.ingredients.some((ingredient) => ingredient.sectionId === section.id))
+      : []
+  ), [selectedRecipe])
+  const shouldShowRecipeSectionHeadings = visibleRecipeSections.length > 1
   const missingRecipeProductIds = useMemo(
     () => selectedRecipe ? getMissingRecipeProductIds(selectedRecipe.ingredients) : [],
     [selectedRecipe],
@@ -311,54 +314,54 @@ export function RecipesPage({ ownerId, overviewRequestToken }: RecipesPageProps)
 
           {selectedRecipe.ingredients.length > 0 ? (
             <div className="recipe-ingredient-groups">
-              {selectedRecipe.ingredients.map((ingredient, index) => {
-                const hasNamedSections = hasNamedRecipeSections
-                const currentSection = ingredient.sectionLabel?.trim() ?? ''
-                const previousSection = index > 0
-                  ? selectedRecipe.ingredients[index - 1].sectionLabel?.trim() ?? ''
-                  : null
-                const showSection = hasNamedSections && currentSection !== previousSection
-                const sectionTitle = currentSection || 'Pozostałe składniki'
-                const displayQuantity = formatScaledRecipeQuantity({
-                  baseQuantity: ingredient.quantity,
-                  baseServings: selectedRecipe.servings,
-                  targetServings,
-                })
+              {visibleRecipeSections.map((section) => {
+                const sectionIngredients = selectedRecipe.ingredients.filter((ingredient) => ingredient.sectionId === section.id)
+                if (sectionIngredients.length === 0) return null
 
                 return (
-                  <div key={ingredient.id}>
-                    {showSection && <h3 className="recipe-ingredient-section-title">{sectionTitle}</h3>}
-                    <div className={`recipe-ingredient-row${ingredient.presence === 'missing' ? ' has-shopping-action' : ''}`}>
-                      <span
-                        className={`recipe-ingredient-index is-${ingredient.presence}`}
-                        role="img"
-                        aria-label={ingredientPresenceLabel(ingredient.presence)}
-                        title={ingredientPresenceLabel(ingredient.presence)}
-                      />
-                      <span className="recipe-ingredient-copy">
-                        <strong>{ingredient.productName}</strong>
-                        {ingredient.note && <small>{ingredient.note}</small>}
-                      </span>
-                      <span className="recipe-ingredient-quantity">{displayQuantity} {ingredient.unitSymbol}</span>
-                      {ingredient.presence === 'missing' && (
-                        <button
-                          className="recipe-ingredient-shopping-action"
-                          type="button"
-                          disabled={shoppingAction !== null || shoppingRecoveryBlocked}
-                          onClick={() => void addMissingProductsToShopping(
-                            [ingredient.productId],
-                            { kind: 'product', productId: ingredient.productId },
-                          )}
-                          aria-label={`Dodaj ${ingredient.productName} do listy zakupów`}
-                          title="Dodaj do listy zakupów"
-                        >
-                          <KitchenIcon
-                            name="shoppingAdd"
-                            size={17}
+                  <div className="recipe-ingredient-section-group" key={section.id}>
+                    {shouldShowRecipeSectionHeadings && <h3 className="recipe-ingredient-section-title">{section.name}</h3>}
+                    {sectionIngredients.map((ingredient) => {
+                      const displayQuantity = formatScaledRecipeQuantity({
+                        baseQuantity: ingredient.quantity,
+                        baseServings: selectedRecipe.servings,
+                        targetServings,
+                      })
+
+                      return (
+                        <div className={`recipe-ingredient-row${ingredient.presence === 'missing' ? ' has-shopping-action' : ''}`} key={ingredient.id}>
+                          <span
+                            className={`recipe-ingredient-index is-${ingredient.presence}`}
+                            role="img"
+                            aria-label={ingredientPresenceLabel(ingredient.presence)}
+                            title={ingredientPresenceLabel(ingredient.presence)}
                           />
-                        </button>
-                      )}
-                    </div>
+                          <span className="recipe-ingredient-copy">
+                            <strong>{ingredient.productName}</strong>
+                            {ingredient.note && <small>{ingredient.note}</small>}
+                          </span>
+                          <span className="recipe-ingredient-quantity">{displayQuantity} {ingredient.unitSymbol}</span>
+                          {ingredient.presence === 'missing' && (
+                            <button
+                              className="recipe-ingredient-shopping-action"
+                              type="button"
+                              disabled={shoppingAction !== null || shoppingRecoveryBlocked}
+                              onClick={() => void addMissingProductsToShopping(
+                                [ingredient.productId],
+                                { kind: 'product', productId: ingredient.productId },
+                              )}
+                              aria-label={`Dodaj ${ingredient.productName} do listy zakupów`}
+                              title="Dodaj do listy zakupów"
+                            >
+                              <KitchenIcon
+                                name="shoppingAdd"
+                                size={17}
+                              />
+                            </button>
+                          )}
+                        </div>
+                      )
+                    })}
                   </div>
                 )
               })}

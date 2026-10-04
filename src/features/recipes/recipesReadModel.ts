@@ -8,6 +8,7 @@ import type {
   RecipeIngredientPresence,
   RecipeIngredientRead,
   RecipeReadItem,
+  RecipeSectionRead,
   RecipesReadModel,
 } from './types'
 
@@ -24,6 +25,15 @@ type RawRecipe = {
   updated_at: string
 }
 
+type RawRecipeSection = {
+  id: string
+  recipe_id: string
+  name: string
+  sort_order: number
+  is_primary: boolean
+  created_at: string
+}
+
 type RawRecipeIngredient = {
   id: string
   recipe_id: string
@@ -31,7 +41,7 @@ type RawRecipeIngredient = {
   quantity: number | string
   unit_code: string
   sort_order: number
-  section_label: string | null
+  section_id: string
   note: string | null
   created_at: string
 }
@@ -48,6 +58,15 @@ function assertNoQueryError(error: { message: string } | null, resource: string)
   if (error) {
     throw new Error(`Recipes read failed for ${resource}: ${error.message}`)
   }
+}
+
+function compareSections(a: RecipeSectionRead & { createdAt: string }, b: RecipeSectionRead & { createdAt: string }) {
+  if (a.sortOrder !== b.sortOrder) return a.sortOrder - b.sortOrder
+
+  const timeDelta = Date.parse(a.createdAt) - Date.parse(b.createdAt)
+  if (timeDelta !== 0) return timeDelta
+
+  return a.id.localeCompare(b.id)
 }
 
 function compareIngredients(a: RecipeIngredientRead & { createdAt: string }, b: RecipeIngredientRead & { createdAt: string }) {
@@ -83,10 +102,14 @@ export async function loadRecipesReadModel(ownerId: string): Promise<RecipesRead
   const rawRecipes = (recipesResult.data ?? []) as RawRecipe[]
   if (rawRecipes.length === 0) return { recipes: [] }
 
-  const [ingredientsResult, products, units, inventoryPresenceResult, shoppingPresenceResult] = await Promise.all([
+  const [sectionsResult, ingredientsResult, products, units, inventoryPresenceResult, shoppingPresenceResult] = await Promise.all([
+    supabase
+      .from('recipe_sections')
+      .select('id, recipe_id, name, sort_order, is_primary, created_at')
+      .eq('owner_id', ownerId),
     supabase
       .from('recipe_ingredients')
-      .select('id, recipe_id, product_id, quantity, unit_code, sort_order, section_label, note, created_at')
+      .select('id, recipe_id, product_id, quantity, unit_code, sort_order, section_id, note, created_at')
       .eq('owner_id', ownerId),
     loadOwnerProductCatalog(ownerId),
     loadMeasurementUnits(),
@@ -101,6 +124,7 @@ export async function loadRecipesReadModel(ownerId: string): Promise<RecipesRead
       .eq('is_purchased', false),
   ])
 
+  assertNoQueryError(sectionsResult.error, 'recipe_sections')
   assertNoQueryError(ingredientsResult.error, 'recipe_ingredients')
   assertNoQueryError(inventoryPresenceResult.error, 'inventory_items presence')
   assertNoQueryError(shoppingPresenceResult.error, 'shopping_items presence')
@@ -116,11 +140,53 @@ export async function loadRecipesReadModel(ownerId: string): Promise<RecipesRead
       .map((row) => row.product_id)
       .filter((productId): productId is string => Boolean(productId)),
   )
+
+  const sectionsByRecipe = new Map<string, Array<RecipeSectionRead & { createdAt: string }>>()
+  const sectionById = new Map<string, { recipeId: string; section: RecipeSectionRead }>()
+
+  for (const row of (sectionsResult.data ?? []) as RawRecipeSection[]) {
+    if (!recipeIds.has(row.recipe_id)) {
+      throw new Error('Recipes read returned a section for an unresolved Recipe.')
+    }
+
+    const section: RecipeSectionRead & { createdAt: string } = {
+      id: row.id,
+      name: row.name.trim(),
+      sortOrder: row.sort_order,
+      isPrimary: row.is_primary,
+      createdAt: row.created_at,
+    }
+
+    const recipeSections = sectionsByRecipe.get(row.recipe_id) ?? []
+    recipeSections.push(section)
+    sectionsByRecipe.set(row.recipe_id, recipeSections)
+    sectionById.set(row.id, { recipeId: row.recipe_id, section })
+  }
+
+  for (const recipe of rawRecipes) {
+    const sections = sectionsByRecipe.get(recipe.id) ?? []
+    sections.sort(compareSections)
+
+    if (sections.length === 0) {
+      throw new Error('Recipes read returned a Recipe without its mandatory primary section.')
+    }
+
+    const primarySections = sections.filter((section) => section.isPrimary)
+    if (primarySections.length !== 1 || !sections[0].isPrimary || sections[0].sortOrder !== 0) {
+      throw new Error('Recipes read returned an invalid Recipe section structure.')
+    }
+  }
+
   const ingredientsByRecipe = new Map<string, Array<RecipeIngredientRead & { createdAt: string }>>()
 
   for (const row of (ingredientsResult.data ?? []) as RawRecipeIngredient[]) {
     if (!recipeIds.has(row.recipe_id)) {
       throw new Error('Recipes read returned an ingredient for an unresolved Recipe.')
+    }
+
+    const sectionEntry = sectionById.get(row.section_id)
+    if (!sectionEntry || sectionEntry.recipeId !== row.recipe_id) {
+      throw new Error('Recipes read returned an ingredient with an unresolved Recipe section.')
     }
 
     const product = productById.get(row.product_id)
@@ -141,7 +207,7 @@ export async function loadRecipesReadModel(ownerId: string): Promise<RecipesRead
       unitCode: unit.code,
       unitSymbol: unit.symbol,
       sortOrder: row.sort_order,
-      sectionLabel: row.section_label?.trim() || null,
+      sectionId: row.section_id,
       note: row.note?.trim() || null,
       presence: resolveIngredientPresence(row.product_id, inventoryProductIds, activeShoppingProductIds),
       createdAt: row.created_at,
@@ -175,6 +241,7 @@ export async function loadRecipesReadModel(ownerId: string): Promise<RecipesRead
     coverFocusX: Number(recipe.cover_focus_x),
     coverFocusY: Number(recipe.cover_focus_y),
     updatedAt: recipe.updated_at,
+    sections: (sectionsByRecipe.get(recipe.id) ?? []).map(({ createdAt: _createdAt, ...section }) => section),
     ingredients: (ingredientsByRecipe.get(recipe.id) ?? []).map(({ createdAt: _createdAt, ...ingredient }) => ingredient),
   }))
 

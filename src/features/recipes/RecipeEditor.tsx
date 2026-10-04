@@ -33,8 +33,15 @@ import {
   validateRecipeServings,
   type RecipeCoverChange,
   type RecipeIngredientDraftInput,
+  type RecipeSectionDraftInput,
 } from './recipeMutations'
-import type { RecipeIngredientRead, RecipeReadItem } from './types'
+import {
+  cleanRecipeSectionName,
+  DEFAULT_PRIMARY_RECIPE_SECTION_NAME,
+  recipeSectionIdentity,
+  validateRecipeSections,
+} from './recipeSections'
+import type { RecipeIngredientRead, RecipeReadItem, RecipeSectionRead } from './types'
 
 type RecipeEditorMode =
   | { kind: 'create' }
@@ -47,6 +54,12 @@ type RecipeEditorProps = {
   onSaved: (recipeId: string | null) => void
 }
 
+type RecipeSectionDraft = {
+  id: string
+  name: string
+  isPrimary: boolean
+}
+
 type IngredientDraftRow = {
   id: string
   productId: string | null
@@ -54,7 +67,7 @@ type IngredientDraftRow = {
   quantity: number
   unitCode: string
   unitSymbol: string
-  sectionLabel: string
+  sectionId: string
   note: string
 }
 
@@ -64,19 +77,16 @@ type IngredientFormDraft = {
   productName: string
   quantity: string
   unitCode: string
-  sectionLabel: string
-  sectionMode: 'existing' | 'new'
+  sectionId: string
   note: string
 }
 
-const NEW_SECTION_VALUE = '__new_recipe_section__'
+type SectionEditorState =
+  | { kind: 'create'; source: 'manager' | 'ingredient'; name: string }
+  | { kind: 'rename'; sectionId: string; name: string }
 
-function cleanSectionLabel(value: string) {
-  return value.trim().replace(/\s+/g, ' ')
-}
-
-function sectionIdentity(value: string) {
-  return cleanSectionLabel(value).toLocaleLowerCase('pl-PL')
+function sectionFromRead(section: RecipeSectionRead): RecipeSectionDraft {
+  return { id: section.id, name: section.name, isPrimary: section.isPrimary }
 }
 
 function rowFromRead(ingredient: RecipeIngredientRead): IngredientDraftRow {
@@ -87,7 +97,7 @@ function rowFromRead(ingredient: RecipeIngredientRead): IngredientDraftRow {
     quantity: ingredient.quantity,
     unitCode: ingredient.unitCode,
     unitSymbol: ingredient.unitSymbol,
-    sectionLabel: ingredient.sectionLabel ?? '',
+    sectionId: ingredient.sectionId,
     note: ingredient.note ?? '',
   }
 }
@@ -99,8 +109,7 @@ function formFromRow(row: IngredientDraftRow): IngredientFormDraft {
     productName: row.productName,
     quantity: formatQuantityInput(row.quantity),
     unitCode: row.unitCode,
-    sectionLabel: row.sectionLabel,
-    sectionMode: 'existing',
+    sectionId: row.sectionId,
     note: row.note,
   }
 }
@@ -126,10 +135,15 @@ export function RecipeEditor({ ownerId, mode, onClose, onSaved }: RecipeEditorPr
 
   const [products, setProducts] = useState<CanonicalProductIdentity[]>([])
   const [units, setUnits] = useState<MeasurementUnit[]>([])
+  const [sections, setSections] = useState<RecipeSectionDraft[]>(() => (
+    initial?.sections.map(sectionFromRead)
+    ?? [{ id: crypto.randomUUID(), name: DEFAULT_PRIMARY_RECIPE_SECTION_NAME, isPrimary: true }]
+  ))
   const [ingredients, setIngredients] = useState<IngredientDraftRow[]>(() => (
     initial?.ingredients.map(rowFromRead) ?? []
   ))
   const [ingredientForm, setIngredientForm] = useState<IngredientFormDraft | null>(null)
+  const [sectionEditor, setSectionEditor] = useState<SectionEditorState | null>(null)
   const [catalogLoading, setCatalogLoading] = useState(true)
 
   const [imageBusy, setImageBusy] = useState(false)
@@ -147,21 +161,15 @@ export function RecipeEditor({ ownerId, mode, onClose, onSaved }: RecipeEditorPr
     return initial?.coverImageUrl ?? null
   }, [coverChange.kind, initial?.coverImageUrl, processedPreviewUrl])
 
-  const sectionSuggestions = useMemo(() => {
-    const seen = new Set<string>()
-    const sections: string[] = []
+  const primarySection = sections[0] ?? null
+  const orderedIngredients = useMemo(() => (
+    sections.flatMap((section) => ingredients.filter((ingredient) => ingredient.sectionId === section.id))
+  ), [ingredients, sections])
 
-    for (const ingredient of ingredients) {
-      const label = cleanSectionLabel(ingredient.sectionLabel)
-      if (!label) continue
-      const identity = sectionIdentity(label)
-      if (seen.has(identity)) continue
-      seen.add(identity)
-      sections.push(label)
-    }
-
-    return sections
-  }, [ingredients])
+  const ingredientSectionRows = useMemo(() => {
+    if (!ingredientForm) return []
+    return orderedIngredients.filter((ingredient) => ingredient.sectionId === ingredientForm.sectionId)
+  }, [ingredientForm, orderedIngredients])
 
   useEffect(() => {
     const previousOverflow = document.body.style.overflow
@@ -243,29 +251,96 @@ export function RecipeEditor({ ownerId, mode, onClose, onSaved }: RecipeEditorPr
     setErrorMessage('')
   }
 
+  function beginCreateSection(source: 'manager' | 'ingredient') {
+    if (busy) return
+    setSectionEditor({ kind: 'create', source, name: '' })
+    setErrorMessage('')
+  }
+
+  function beginRenameSection(section: RecipeSectionDraft) {
+    if (busy) return
+    setSectionEditor({ kind: 'rename', sectionId: section.id, name: section.name })
+    setErrorMessage('')
+  }
+
+  function applySectionEditor() {
+    if (!sectionEditor) return
+
+    try {
+      const name = cleanRecipeSectionName(sectionEditor.name)
+      const identity = recipeSectionIdentity(name)
+      const duplicate = sections.some((section) => (
+        recipeSectionIdentity(section.name) === identity
+        && (sectionEditor.kind !== 'rename' || section.id !== sectionEditor.sectionId)
+      ))
+
+      if (duplicate) throw new Error(`Sekcja „${name}” już istnieje.`)
+
+      if (sectionEditor.kind === 'create') {
+        const section: RecipeSectionDraft = {
+          id: crypto.randomUUID(),
+          name,
+          isPrimary: false,
+        }
+        setSections((current) => [...current, section])
+        if (sectionEditor.source === 'ingredient') {
+          setIngredientForm((current) => current ? { ...current, sectionId: section.id } : current)
+        }
+      } else {
+        setSections((current) => current.map((section) => (
+          section.id === sectionEditor.sectionId ? { ...section, name } : section
+        )))
+      }
+
+      setSectionEditor(null)
+      setErrorMessage('')
+    } catch (error) {
+      setErrorMessage(toUserErrorMessage(error, 'Sprawdź nazwę sekcji.'))
+    }
+  }
+
+  function removeSection(sectionId: string) {
+    const section = sections.find((item) => item.id === sectionId)
+    if (!section || busy) return
+
+    if (section.isPrimary) {
+      setErrorMessage('Sekcji głównej nie można usunąć.')
+      return
+    }
+
+    const isUsed = ingredients.some((ingredient) => ingredient.sectionId === sectionId)
+      || ingredientForm?.sectionId === sectionId
+    if (isUsed) {
+      setErrorMessage(`Najpierw przenieś składniki z sekcji „${section.name}” do innej sekcji.`)
+      return
+    }
+
+    setSections((current) => current.filter((item) => item.id !== sectionId))
+    setSectionEditor((current) => (
+      current?.kind === 'rename' && current.sectionId === sectionId ? null : current
+    ))
+    setErrorMessage('')
+  }
+
   function startAddIngredient() {
-    if (catalogLoading || units.length === 0) return
+    if (catalogLoading || units.length === 0 || !primarySection) return
     setIngredientForm({
       id: crypto.randomUUID(),
       productId: null,
       productName: '',
       quantity: '1',
       unitCode: getDefaultUnitCode(units),
-      sectionLabel: '',
-      sectionMode: 'existing',
+      sectionId: primarySection.id,
       note: '',
     })
+    setSectionEditor(null)
     setErrorMessage('')
     window.setTimeout(() => ingredientProductRef.current?.focus(), 20)
   }
 
   function startEditIngredient(row: IngredientDraftRow) {
-    const form = formFromRow(row)
-    const identity = sectionIdentity(form.sectionLabel)
-    if (identity) {
-      form.sectionLabel = sectionSuggestions.find((section) => sectionIdentity(section) === identity) ?? cleanSectionLabel(form.sectionLabel)
-    }
-    setIngredientForm(form)
+    setIngredientForm(formFromRow(row))
+    setSectionEditor(null)
     setErrorMessage('')
     window.setTimeout(() => ingredientProductRef.current?.focus(), 20)
   }
@@ -290,8 +365,8 @@ export function RecipeEditor({ ownerId, mode, onClose, onSaved }: RecipeEditorPr
       const unit = units.find((item) => item.code === ingredientForm.unitCode)
       if (!unit) throw new Error('Wybierz jednostkę.')
 
-      if (ingredientForm.sectionMode === 'new' && !cleanSectionLabel(ingredientForm.sectionLabel)) {
-        throw new Error('Podaj nazwę nowej sekcji.')
+      if (!sections.some((section) => section.id === ingredientForm.sectionId)) {
+        throw new Error('Wybierz sekcję składnika.')
       }
 
       const exactProductId = autocomplete.exactProduct?.id ?? ingredientForm.productId
@@ -302,23 +377,22 @@ export function RecipeEditor({ ownerId, mode, onClose, onSaved }: RecipeEditorPr
         quantity,
         unitCode: unit.code,
         unitSymbol: unit.symbol,
-        sectionLabel: (() => {
-          const requested = cleanSectionLabel(ingredientForm.sectionLabel)
-          if (!requested) return ''
-          const identity = sectionIdentity(requested)
-          return sectionSuggestions.find((section) => sectionIdentity(section) === identity) ?? requested
-        })(),
+        sectionId: ingredientForm.sectionId,
         note: ingredientForm.note.trim().replace(/\s+/g, ' '),
       }
 
       setIngredients((current) => {
         const index = current.findIndex((item) => item.id === nextRow.id)
         if (index < 0) return [...current, nextRow]
+        if (current[index].sectionId !== nextRow.sectionId) {
+          return [...current.filter((item) => item.id !== nextRow.id), nextRow]
+        }
         const copy = [...current]
         copy[index] = nextRow
         return copy
       })
       setIngredientForm(null)
+      setSectionEditor(null)
       setErrorMessage('')
     } catch (error) {
       setErrorMessage(toUserErrorMessage(error, 'Sprawdź składnik.'))
@@ -327,12 +401,21 @@ export function RecipeEditor({ ownerId, mode, onClose, onSaved }: RecipeEditorPr
 
   function moveIngredient(id: string, direction: -1 | 1) {
     setIngredients((current) => {
-      const index = current.findIndex((item) => item.id === id)
-      const nextIndex = index + direction
-      if (index < 0 || nextIndex < 0 || nextIndex >= current.length) return current
+      const row = current.find((item) => item.id === id)
+      if (!row) return current
+
+      const sectionRows = current.filter((item) => item.sectionId === row.sectionId)
+      const sectionIndex = sectionRows.findIndex((item) => item.id === id)
+      const targetSectionIndex = sectionIndex + direction
+      if (sectionIndex < 0 || targetSectionIndex < 0 || targetSectionIndex >= sectionRows.length) return current
+
+      const targetId = sectionRows[targetSectionIndex].id
+      const currentIndex = current.findIndex((item) => item.id === id)
+      const targetIndex = current.findIndex((item) => item.id === targetId)
+      if (currentIndex < 0 || targetIndex < 0) return current
+
       const copy = [...current]
-      const [moved] = copy.splice(index, 1)
-      copy.splice(nextIndex, 0, moved)
+      ;[copy[currentIndex], copy[targetIndex]] = [copy[targetIndex], copy[currentIndex]]
       return copy
     })
   }
@@ -340,6 +423,7 @@ export function RecipeEditor({ ownerId, mode, onClose, onSaved }: RecipeEditorPr
   function removeIngredient(id: string) {
     setIngredients((current) => current.filter((item) => item.id !== id))
     setIngredientForm(null)
+    setSectionEditor(null)
     setErrorMessage('')
   }
 
@@ -352,12 +436,18 @@ export function RecipeEditor({ ownerId, mode, onClose, onSaved }: RecipeEditorPr
       return
     }
 
+    if (sectionEditor) {
+      setErrorMessage('Zapisz albo anuluj edycję sekcji przed zapisaniem przepisu.')
+      return
+    }
+
     let parsedServings: number
     try {
       cleanRecipeName(name)
       parsedServings = validateRecipeServings(Number(servings))
       parseOptionalRecipeDuration(prepTimeMinutes, 'Czas przygotowania')
       parseOptionalRecipeDuration(cookTimeMinutes, 'Czas gotowania / pieczenia')
+      validateRecipeSections(sections)
     } catch (error) {
       setErrorMessage(toUserErrorMessage(error, 'Sprawdź dane przepisu.'))
       return
@@ -367,13 +457,19 @@ export function RecipeEditor({ ownerId, mode, onClose, onSaved }: RecipeEditorPr
     setErrorMessage('')
 
     try {
-      const ingredientPayload: RecipeIngredientDraftInput[] = ingredients.map((ingredient) => ({
+      const sectionPayload: RecipeSectionDraftInput[] = sections.map((section) => ({
+        id: section.id,
+        name: section.name,
+        isPrimary: section.isPrimary,
+      }))
+
+      const ingredientPayload: RecipeIngredientDraftInput[] = orderedIngredients.map((ingredient) => ({
         id: ingredient.id,
         productId: ingredient.productId,
         productName: ingredient.productName,
         quantity: ingredient.quantity,
         unitCode: ingredient.unitCode,
-        sectionLabel: ingredient.sectionLabel,
+        sectionId: ingredient.sectionId,
         note: ingredient.note,
       }))
 
@@ -391,6 +487,7 @@ export function RecipeEditor({ ownerId, mode, onClose, onSaved }: RecipeEditorPr
         cover: mode.kind === 'create' && coverChange.kind === 'keep'
           ? { kind: 'remove' }
           : coverChange,
+        sections: sectionPayload,
         ingredients: ingredientPayload,
       })
 
@@ -571,29 +668,111 @@ export function RecipeEditor({ ownerId, mode, onClose, onSaved }: RecipeEditorPr
               </button>
             </div>
 
-            {ingredients.length > 0 && (
-              <div className="recipe-authoring-ingredients">
-                {ingredients.map((ingredient, index) => {
-                  const previousSection = index > 0 ? ingredients[index - 1].sectionLabel : ''
-                  const showSection = ingredient.sectionLabel && ingredient.sectionLabel !== previousSection
+            <div className="recipe-section-manager" aria-label="Sekcje składników">
+              <div className="recipe-section-manager-heading">
+                <div>
+                  <strong>Sekcje składników</strong>
+                  <small>Pierwsza sekcja jest zawsze główna.</small>
+                </div>
+                <button className="recipe-inline-add" type="button" onClick={() => beginCreateSection('manager')} disabled={busy}>
+                  <KitchenIcon name="plus" size={16} />
+                  <span>Dodaj sekcję</span>
+                </button>
+              </div>
+
+              <div className="recipe-section-manager-list">
+                {sections.map((section) => {
+                  const sectionIngredientCount = ingredients.filter((ingredient) => ingredient.sectionId === section.id).length
                   return (
-                    <div key={ingredient.id}>
-                      {showSection && <h3 className="recipe-ingredient-section-title">{ingredient.sectionLabel}</h3>}
-                      <button className="recipe-authoring-ingredient-row" type="button" onClick={() => startEditIngredient(ingredient)} disabled={busy}>
-                        <span className="recipe-authoring-ingredient-copy">
-                          <strong>{ingredient.productName}</strong>
-                          {ingredient.note && <small>{ingredient.note}</small>}
-                        </span>
-                        <span className="recipe-authoring-ingredient-quantity">{formatQuantity(ingredient.quantity)} {ingredient.unitSymbol}</span>
-                        <KitchenIcon name="chevronRight" size={17} />
-                      </button>
+                    <div className="recipe-section-manager-row" key={section.id}>
+                      <span className="recipe-section-manager-copy">
+                        <strong>{section.name}</strong>
+                        <small>
+                          {section.isPrimary ? 'Główna' : 'Dodatkowa'}
+                          {sectionIngredientCount > 0 ? ` · ${sectionIngredientCount}` : ''}
+                        </small>
+                      </span>
+                      <span className="recipe-section-manager-actions">
+                        <button
+                          className="icon-button compact-icon-button"
+                          type="button"
+                          onClick={() => beginRenameSection(section)}
+                          disabled={busy}
+                          aria-label={`Zmień nazwę sekcji ${section.name}`}
+                          title="Zmień nazwę"
+                        >
+                          <KitchenIcon name="edit" size={16} />
+                        </button>
+                        {!section.isPrimary && (
+                          <button
+                            className="icon-button compact-icon-button recipe-section-delete"
+                            type="button"
+                            onClick={() => removeSection(section.id)}
+                            disabled={busy}
+                            aria-label={`Usuń sekcję ${section.name}`}
+                            title="Usuń sekcję"
+                          >
+                            <KitchenIcon name="trash" size={16} />
+                          </button>
+                        )}
+                      </span>
+                    </div>
+                  )
+                })}
+              </div>
+
+              {sectionEditor && (sectionEditor.kind === 'rename' || sectionEditor.source === 'manager') && (
+                <div className="recipe-section-inline-editor">
+                  <label className="form-field" htmlFor="recipe-section-name-editor">
+                    <span>{sectionEditor.kind === 'rename' ? 'Nowa nazwa sekcji' : 'Nazwa nowej sekcji'}</span>
+                    <input
+                      id="recipe-section-name-editor"
+                      value={sectionEditor.name}
+                      maxLength={80}
+                      placeholder="np. Sos"
+                      disabled={busy}
+                      onChange={(event) => {
+                        setSectionEditor((current) => current ? { ...current, name: event.target.value } : current)
+                        setErrorMessage('')
+                      }}
+                    />
+                  </label>
+                  <div className="recipe-section-inline-actions">
+                    <button className="secondary-button compact-button" type="button" onClick={() => setSectionEditor(null)} disabled={busy}>Anuluj</button>
+                    <button className="primary-button compact-button" type="button" onClick={applySectionEditor} disabled={busy}>
+                      {sectionEditor.kind === 'rename' ? 'Zmień nazwę' : 'Dodaj sekcję'}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {orderedIngredients.length > 0 && (
+              <div className="recipe-authoring-ingredients">
+                {sections.map((section) => {
+                  const sectionIngredients = orderedIngredients.filter((ingredient) => ingredient.sectionId === section.id)
+                  if (sectionIngredients.length === 0) return null
+
+                  return (
+                    <div className="recipe-authoring-section-group" key={section.id}>
+                      {sections.length > 1 && <h3 className="recipe-ingredient-section-title">{section.name}</h3>}
+                      {sectionIngredients.map((ingredient) => (
+                        <button className="recipe-authoring-ingredient-row" key={ingredient.id} type="button" onClick={() => startEditIngredient(ingredient)} disabled={busy}>
+                          <span className="recipe-authoring-ingredient-copy">
+                            <strong>{ingredient.productName}</strong>
+                            {ingredient.note && <small>{ingredient.note}</small>}
+                          </span>
+                          <span className="recipe-authoring-ingredient-quantity">{formatQuantity(ingredient.quantity)} {ingredient.unitSymbol}</span>
+                          <KitchenIcon name="chevronRight" size={17} />
+                        </button>
+                      ))}
                     </div>
                   )
                 })}
               </div>
             )}
 
-            {ingredients.length === 0 && !ingredientForm && (
+            {orderedIngredients.length === 0 && !ingredientForm && (
               <button className="recipe-empty-add" type="button" onClick={startAddIngredient} disabled={catalogLoading || units.length === 0}>
                 <KitchenIcon name="plus" size={18} />
                 <span>Dodaj składnik</span>
@@ -604,7 +783,16 @@ export function RecipeEditor({ ownerId, mode, onClose, onSaved }: RecipeEditorPr
               <div className="recipe-ingredient-draft-card">
                 <div className="recipe-ingredient-draft-heading">
                   <strong>{ingredients.some((item) => item.id === ingredientForm.id) ? 'Edytuj składnik' : 'Nowy składnik'}</strong>
-                  <button className="icon-button compact-icon-button" type="button" onClick={() => setIngredientForm(null)} disabled={busy} aria-label="Anuluj składnik">
+                  <button
+                    className="icon-button compact-icon-button"
+                    type="button"
+                    onClick={() => {
+                      setIngredientForm(null)
+                      if (sectionEditor?.kind === 'create' && sectionEditor.source === 'ingredient') setSectionEditor(null)
+                    }}
+                    disabled={busy}
+                    aria-label="Anuluj składnik"
+                  >
                     <KitchenIcon name="close" size={17} />
                   </button>
                 </div>
@@ -651,43 +839,60 @@ export function RecipeEditor({ ownerId, mode, onClose, onSaved }: RecipeEditorPr
                   </label>
                 </div>
 
-                <label className="form-field" htmlFor="recipe-ingredient-section">
-                  <span>Sekcja <small>opcjonalnie</small></span>
-                  <select
-                    id="recipe-ingredient-section"
-                    value={ingredientForm.sectionMode === 'new' ? NEW_SECTION_VALUE : ingredientForm.sectionLabel}
-                    disabled={busy}
-                    onChange={(event) => {
-                      const value = event.target.value
-                      setIngredientForm((current) => current ? {
-                        ...current,
-                        sectionMode: value === NEW_SECTION_VALUE ? 'new' : 'existing',
-                        sectionLabel: value === NEW_SECTION_VALUE ? '' : value,
-                      } : current)
-                      setErrorMessage('')
-                    }}
-                  >
-                    <option value="">Bez sekcji</option>
-                    {sectionSuggestions.map((section) => <option key={sectionIdentity(section)} value={section}>{section}</option>)}
-                    <option value={NEW_SECTION_VALUE}>+ Nowa sekcja</option>
-                  </select>
-                </label>
-
-                {ingredientForm.sectionMode === 'new' && (
-                  <label className="form-field recipe-new-section-field" htmlFor="recipe-ingredient-new-section">
-                    <span>Nazwa nowej sekcji</span>
-                    <input
-                      id="recipe-ingredient-new-section"
-                      value={ingredientForm.sectionLabel}
-                      maxLength={80}
-                      placeholder="np. Na biszkopt"
+                <div className="form-field recipe-ingredient-section-field">
+                  <span>Sekcja</span>
+                  <div className="recipe-section-choice-list" role="group" aria-label="Wybierz sekcję składnika">
+                    {sections.map((section) => (
+                      <button
+                        className={`recipe-section-choice${ingredientForm.sectionId === section.id ? ' is-active' : ''}`}
+                        key={section.id}
+                        type="button"
+                        aria-pressed={ingredientForm.sectionId === section.id}
+                        disabled={busy}
+                        onClick={() => {
+                          setIngredientForm((current) => current ? { ...current, sectionId: section.id } : current)
+                          setSectionEditor((current) => (
+                            current?.kind === 'create' && current.source === 'ingredient' ? null : current
+                          ))
+                          setErrorMessage('')
+                        }}
+                      >
+                        {section.name}
+                      </button>
+                    ))}
+                    <button
+                      className="recipe-section-choice recipe-section-choice-add"
+                      type="button"
                       disabled={busy}
-                      onChange={(event) => {
-                        setIngredientForm((current) => current ? { ...current, sectionLabel: event.target.value } : current)
-                        setErrorMessage('')
-                      }}
-                    />
-                  </label>
+                      onClick={() => beginCreateSection('ingredient')}
+                    >
+                      <KitchenIcon name="plus" size={15} />
+                      <span>Nowa</span>
+                    </button>
+                  </div>
+                </div>
+
+                {sectionEditor?.kind === 'create' && sectionEditor.source === 'ingredient' && (
+                  <div className="recipe-section-inline-editor recipe-section-inline-editor-ingredient">
+                    <label className="form-field" htmlFor="recipe-ingredient-new-section">
+                      <span>Nazwa nowej sekcji</span>
+                      <input
+                        id="recipe-ingredient-new-section"
+                        value={sectionEditor.name}
+                        maxLength={80}
+                        placeholder="np. Sos"
+                        disabled={busy}
+                        onChange={(event) => {
+                          setSectionEditor((current) => current ? { ...current, name: event.target.value } : current)
+                          setErrorMessage('')
+                        }}
+                      />
+                    </label>
+                    <div className="recipe-section-inline-actions">
+                      <button className="secondary-button compact-button" type="button" onClick={() => setSectionEditor(null)} disabled={busy}>Anuluj</button>
+                      <button className="primary-button compact-button" type="button" onClick={applySectionEditor} disabled={busy}>Dodaj i wybierz</button>
+                    </div>
+                  </div>
                 )}
 
                 <label className="form-field" htmlFor="recipe-ingredient-note">
@@ -702,13 +907,14 @@ export function RecipeEditor({ ownerId, mode, onClose, onSaved }: RecipeEditorPr
                   />
                 </label>
 
-                {ingredients.some((item) => item.id === ingredientForm.id) && (
+                {ingredients.some((item) => item.id === ingredientForm.id)
+                  && ingredients.find((item) => item.id === ingredientForm.id)?.sectionId === ingredientForm.sectionId && (
                   <div className="recipe-ingredient-draft-order">
-                    <button type="button" className="secondary-button" disabled={busy || ingredients[0]?.id === ingredientForm.id} onClick={() => moveIngredient(ingredientForm.id, -1)}>
+                    <button type="button" className="secondary-button" disabled={busy || ingredientSectionRows[0]?.id === ingredientForm.id} onClick={() => moveIngredient(ingredientForm.id, -1)}>
                       <KitchenIcon name="chevronUp" size={16} />
                       <span>Wyżej</span>
                     </button>
-                    <button type="button" className="secondary-button" disabled={busy || ingredients[ingredients.length - 1]?.id === ingredientForm.id} onClick={() => moveIngredient(ingredientForm.id, 1)}>
+                    <button type="button" className="secondary-button" disabled={busy || ingredientSectionRows[ingredientSectionRows.length - 1]?.id === ingredientForm.id} onClick={() => moveIngredient(ingredientForm.id, 1)}>
                       <KitchenIcon name="chevronDown" size={16} />
                       <span>Niżej</span>
                     </button>
@@ -722,7 +928,7 @@ export function RecipeEditor({ ownerId, mode, onClose, onSaved }: RecipeEditorPr
                       <span>Usuń</span>
                     </button>
                   ) : <span />}
-                  <button className="primary-button" type="button" onClick={applyIngredientDraft} disabled={busy}>
+                  <button className="primary-button" type="button" onClick={applyIngredientDraft} disabled={busy || sectionEditor !== null}>
                     {ingredients.some((item) => item.id === ingredientForm.id) ? 'Zastosuj' : 'Dodaj'}
                   </button>
                 </div>

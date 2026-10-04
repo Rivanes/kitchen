@@ -1,5 +1,12 @@
 export type RecipeIngredientPresence = 'inventory' | 'shopping' | 'missing'
 
+export type RecipeSectionRead = {
+  id: string
+  name: string
+  sortOrder: number
+  isPrimary: boolean
+}
+
 export type RecipeIngredientRead = {
   id: string
   productId: string
@@ -8,7 +15,7 @@ export type RecipeIngredientRead = {
   unitCode: string
   unitSymbol: string
   sortOrder: number
-  sectionLabel: string | null
+  sectionId: string
   note: string | null
   presence: RecipeIngredientPresence
 }
@@ -25,6 +32,7 @@ export type RecipeReadItem = {
   coverFocusX: number
   coverFocusY: number
   updatedAt: string
+  sections: RecipeSectionRead[]
   ingredients: RecipeIngredientRead[]
 }
 
