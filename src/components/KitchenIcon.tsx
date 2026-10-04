@@ -22,6 +22,8 @@ type KitchenIconName =
   | 'search'
   | 'minus'
   | 'trash'
+  | 'camera'
+  | 'image'
 
 type KitchenIconProps = {
   name: KitchenIconName
@@ -89,5 +91,9 @@ export function KitchenIcon({ name, size = 22, strokeWidth = 1.9 }: KitchenIconP
       return <svg {...common}><path d="M5 12h14" /></svg>
     case 'trash':
       return <svg {...common}><path d="M4.5 7h15" /><path d="M9 3.5h6l1 3.5H8z" /><path d="M7 7l.8 13h8.4L17 7" /><path d="M10 10.5v6" /><path d="M14 10.5v6" /></svg>
+    case 'camera':
+      return <svg {...common}><path d="M4 7.5h3l1.4-2h7.2l1.4 2h3v11H4z" /><circle cx="12" cy="13" r="3.5" /></svg>
+    case 'image':
+      return <svg {...common}><rect x="3.5" y="4" width="17" height="16" rx="2.5" /><circle cx="9" cy="9" r="1.5" /><path d="m5.5 17 4.2-4.2 3 3 2.2-2.2 3.6 3.4" /></svg>
   }
 }

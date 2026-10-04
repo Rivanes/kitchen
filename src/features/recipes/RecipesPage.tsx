@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { KitchenIcon } from '../../components/KitchenIcon'
 import { formatQuantity } from '../quantity/quantity'
+import { RecipeEditor } from './RecipeEditor'
 import { loadRecipesReadModel } from './recipesReadModel'
 import type { RecipeReadItem, RecipesReadModel } from './types'
 
@@ -13,6 +14,11 @@ type RecipesStatus =
   | { status: 'loading'; model: null }
   | { status: 'ready'; model: RecipesReadModel }
   | { status: 'error'; model: null }
+
+type EditorMode =
+  | { kind: 'create' }
+  | { kind: 'edit'; recipe: RecipeReadItem }
+  | null
 
 function recipesLabel(count: number) {
   if (count === 1) return '1 przepis'
@@ -47,17 +53,19 @@ function ingredientsLabel(count: number) {
 export function RecipesPage({ ownerId, overviewRequestToken }: RecipesPageProps) {
   const [recipesStatus, setRecipesStatus] = useState<RecipesStatus>({ status: 'loading', model: null })
   const [selectedRecipeId, setSelectedRecipeId] = useState<string | null>(null)
+  const [editorMode, setEditorMode] = useState<EditorMode>(null)
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (preserveSelection = true, selectedAfterLoad: string | null = null) => {
     setRecipesStatus({ status: 'loading', model: null })
     try {
       const model = await loadRecipesReadModel(ownerId)
       setRecipesStatus({ status: 'ready', model })
-      setSelectedRecipeId((currentId) => (
-        currentId && model.recipes.some((recipe) => recipe.id === currentId)
-          ? currentId
+      setSelectedRecipeId((currentId) => {
+        const targetId = preserveSelection ? currentId : selectedAfterLoad
+        return targetId && model.recipes.some((recipe) => recipe.id === targetId)
+          ? targetId
           : null
-      ))
+      })
     } catch {
       setRecipesStatus({ status: 'error', model: null })
     }
@@ -69,6 +77,7 @@ export function RecipesPage({ ownerId, overviewRequestToken }: RecipesPageProps)
 
   useEffect(() => {
     if (overviewRequestToken <= 0) return
+    setEditorMode(null)
     setSelectedRecipeId(null)
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }, [overviewRequestToken])
@@ -89,6 +98,12 @@ export function RecipesPage({ ownerId, overviewRequestToken }: RecipesPageProps)
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
+  async function handleEditorSaved(recipeId: string | null) {
+    setEditorMode(null)
+    await load(false, recipeId)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
   if (selectedRecipe) {
     return (
       <section className="recipes-page recipe-detail-page" aria-label={`Przepis ${selectedRecipe.name}`}>
@@ -100,6 +115,17 @@ export function RecipesPage({ ownerId, overviewRequestToken }: RecipesPageProps)
             <p className="eyebrow">Przepis</p>
             <h1>{selectedRecipe.name}</h1>
           </div>
+          <button className="icon-button" type="button" onClick={() => setEditorMode({ kind: 'edit', recipe: selectedRecipe })} aria-label="Edytuj przepis" title="Edytuj">
+            <KitchenIcon name="edit" />
+          </button>
+        </div>
+
+        <div className={`recipe-detail-cover${selectedRecipe.coverImageUrl ? ' has-image' : ''}`}>
+          {selectedRecipe.coverImageUrl ? (
+            <img src={selectedRecipe.coverImageUrl} alt={`Zdjęcie przepisu ${selectedRecipe.name}`} />
+          ) : (
+            <span aria-hidden="true"><KitchenIcon name="recipes" size={34} /></span>
+          )}
         </div>
 
         <section className="recipe-detail-summary" aria-label="Podsumowanie przepisu">
@@ -132,7 +158,7 @@ export function RecipesPage({ ownerId, overviewRequestToken }: RecipesPageProps)
               ))}
             </ul>
           ) : (
-            <p className="recipe-detail-muted">Ten przepis nie ma jeszcze składników.</p>
+            <p className="recipe-detail-muted">Składniki dodamy w kolejnym etapie edycji przepisów.</p>
           )}
         </section>
 
@@ -147,6 +173,15 @@ export function RecipesPage({ ownerId, overviewRequestToken }: RecipesPageProps)
             <p className="recipe-detail-muted">Ten przepis nie ma jeszcze instrukcji przygotowania.</p>
           )}
         </section>
+
+        {editorMode && (
+          <RecipeEditor
+            ownerId={ownerId}
+            mode={editorMode}
+            onClose={() => setEditorMode(null)}
+            onSaved={(recipeId) => void handleEditorSaved(recipeId)}
+          />
+        )}
       </section>
     )
   }
@@ -160,9 +195,14 @@ export function RecipesPage({ ownerId, overviewRequestToken }: RecipesPageProps)
           {model && model.recipes.length > 0 && <p>{recipesLabel(model.recipes.length)}</p>}
           {model && model.recipes.length === 0 && <p>Zapisane przepisy pojawią się tutaj.</p>}
         </div>
-        <button className="icon-button" type="button" onClick={() => void load()} aria-label="Odśwież przepisy" title="Odśwież">
-          <KitchenIcon name="refresh" />
-        </button>
+        <div className="recipes-heading-actions">
+          <button className="icon-button" type="button" onClick={() => void load()} aria-label="Odśwież przepisy" title="Odśwież">
+            <KitchenIcon name="refresh" />
+          </button>
+          <button className="icon-button recipes-add-button" type="button" onClick={() => setEditorMode({ kind: 'create' })} aria-label="Dodaj przepis" title="Dodaj przepis">
+            <KitchenIcon name="plus" />
+          </button>
+        </div>
       </div>
 
       {recipesStatus.status === 'loading' && (
@@ -183,12 +223,16 @@ export function RecipesPage({ ownerId, overviewRequestToken }: RecipesPageProps)
       )}
 
       {model && model.recipes.length === 0 && (
-        <section className="recipes-empty-card">
+        <section className="recipes-empty-card recipes-empty-with-action">
           <span className="recipes-empty-icon" aria-hidden="true"><KitchenIcon name="recipes" size={23} /></span>
           <div>
-            <strong>Tu pojawią się Twoje przepisy</strong>
-            <span>Każdy przepis pokaże porcje, składniki i sposób przygotowania.</span>
+            <strong>Dodaj pierwszy przepis</strong>
+            <span>Zdjęcie, porcje i sposób przygotowania zapiszesz od razu. Składniki dołożymy w V3.4.</span>
           </div>
+          <button className="primary-button" type="button" onClick={() => setEditorMode({ kind: 'create' })}>
+            <KitchenIcon name="plus" size={18} />
+            <span>Dodaj przepis</span>
+          </button>
         </section>
       )}
 
@@ -198,7 +242,13 @@ export function RecipesPage({ ownerId, overviewRequestToken }: RecipesPageProps)
             {model.recipes.map((recipe) => (
               <li key={recipe.id}>
                 <button className="recipe-row" type="button" onClick={() => openRecipe(recipe)}>
-                  <span className="recipe-row-icon" aria-hidden="true"><KitchenIcon name="recipes" size={19} /></span>
+                  <span className={`recipe-row-cover${recipe.coverImageUrl ? ' has-image' : ''}`} aria-hidden={!recipe.coverImageUrl}>
+                    {recipe.coverImageUrl ? (
+                      <img src={recipe.coverImageUrl} alt="" />
+                    ) : (
+                      <KitchenIcon name="recipes" size={19} />
+                    )}
+                  </span>
                   <span className="recipe-row-copy">
                     <strong>{recipe.name}</strong>
                     <small>{servingsLabel(recipe.servings)} · {ingredientsLabel(recipe.ingredients.length)}</small>
@@ -209,6 +259,15 @@ export function RecipesPage({ ownerId, overviewRequestToken }: RecipesPageProps)
             ))}
           </ul>
         </div>
+      )}
+
+      {editorMode && (
+        <RecipeEditor
+          ownerId={ownerId}
+          mode={editorMode}
+          onClose={() => setEditorMode(null)}
+          onSaved={(recipeId) => void handleEditorSaved(recipeId)}
+        />
       )}
     </section>
   )

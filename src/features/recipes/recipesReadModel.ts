@@ -2,6 +2,7 @@ import { supabase } from '../../lib/supabase/client'
 import { loadMeasurementUnits } from '../measurements/measurementUnits'
 import { loadOwnerProductCatalog } from '../products/productCatalogMutations'
 import { readStoredQuantity } from '../quantity/quantity'
+import { createRecipeCoverSignedUrl } from './recipeCoverStorage'
 import type { RecipeIngredientRead, RecipeReadItem, RecipesReadModel } from './types'
 
 type RawRecipe = {
@@ -9,6 +10,7 @@ type RawRecipe = {
   name: string
   servings: number
   instructions: string | null
+  cover_image_path: string | null
   updated_at: string
 }
 
@@ -43,7 +45,7 @@ export async function loadRecipesReadModel(ownerId: string): Promise<RecipesRead
 
   const recipesResult = await supabase
     .from('recipes')
-    .select('id, name, servings, instructions, updated_at')
+    .select('id, name, servings, instructions, cover_image_path, updated_at')
     .eq('owner_id', ownerId)
     .order('updated_at', { ascending: false })
 
@@ -104,11 +106,20 @@ export async function loadRecipesReadModel(ownerId: string): Promise<RecipesRead
     ingredients.sort(compareIngredients)
   }
 
+  const coverUrls = new Map<string, string | null>()
+  await Promise.all(rawRecipes.map(async (recipe) => {
+    if (!recipe.cover_image_path) return
+    const signedUrl = await createRecipeCoverSignedUrl(recipe.cover_image_path)
+    coverUrls.set(recipe.id, signedUrl)
+  }))
+
   const recipes: RecipeReadItem[] = rawRecipes.map((recipe) => ({
     id: recipe.id,
     name: recipe.name.trim(),
     servings: recipe.servings,
     instructions: recipe.instructions?.trim() || null,
+    coverImagePath: recipe.cover_image_path,
+    coverImageUrl: coverUrls.get(recipe.id) ?? null,
     updatedAt: recipe.updated_at,
     ingredients: (ingredientsByRecipe.get(recipe.id) ?? []).map(({ createdAt: _createdAt, ...ingredient }) => ingredient),
   }))

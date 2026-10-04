@@ -70,6 +70,12 @@ const requiredFiles = [
   'src/features/recipes/recipesReadModel.ts',
   'src/features/recipes/types.ts',
   'tests/RECIPES_READ_CONTRACT.md',
+  'src/features/recipes/RecipeEditor.tsx',
+  'src/features/recipes/recipeMutations.ts',
+  'src/features/recipes/recipeCoverStorage.ts',
+  'src/features/recipes/recipeImageProcessor.ts',
+  'tests/RECIPE_MUTATION_CONTRACT.md',
+  'tests/RECIPE_IMAGE_CONTRACT.md',
   'vite.config.ts',
 ]
 
@@ -811,7 +817,7 @@ const recipesPage = await readFile('src/features/recipes/RecipesPage.tsx', 'utf8
 for (const marker of [
   'Ładuję przepisy…',
   'Nie udało się wczytać przepisów.',
-  'Tu pojawią się Twoje przepisy',
+  'Dodaj pierwszy przepis',
   'recipe-row',
   'Składniki',
   'Przygotowanie',
@@ -822,8 +828,10 @@ for (const marker of [
     throw new Error(`V3.2 Recipes UI marker missing: ${marker}`)
   }
 }
-if (/Recipe(Editor|Create|Mutation)|createRecipe|updateRecipe|deleteRecipe/.test(recipesPage)) {
-  throw new Error('V3.2 RecipesPage must not expose Recipe mutations.')
+for (const marker of ['RecipeEditor', "setEditorMode({ kind: 'create' })", "setEditorMode({ kind: 'edit'"]) {
+  if (!recipesPage.includes(marker)) {
+    throw new Error(`V3.3 RecipesPage mutation UI marker missing: ${marker}`)
+  }
 }
 
 const recipesContract = await readFile('tests/RECIPES_READ_CONTRACT.md', 'utf8')
@@ -851,5 +859,99 @@ for (const marker of [
   }
 }
 
+
+
+// V3.3 — Recipe CRUD + private optimized cover image.
+const recipeEditor = await readFile('src/features/recipes/RecipeEditor.tsx', 'utf8')
+for (const marker of [
+  'Dodaj przepis',
+  'Edytuj przepis',
+  'Z galerii',
+  'Zrób zdjęcie',
+  'capture="environment"',
+  'processRecipeCoverImage',
+  'Usuń przepis',
+]) {
+  if (!recipeEditor.includes(marker)) {
+    throw new Error(`V3.3 Recipe editor marker missing: ${marker}`)
+  }
+}
+
+const recipeMutations = await readFile('src/features/recipes/recipeMutations.ts', 'utf8')
+for (const marker of [
+  'createRecipe',
+  'updateRecipe',
+  'deleteRecipe',
+  'uploadRecipeCover',
+  'removeRecipeCoverBestEffort',
+  ".eq('owner_id', input.ownerId)",
+]) {
+  if (!recipeMutations.includes(marker)) {
+    throw new Error(`V3.3 Recipe mutation authority marker missing: ${marker}`)
+  }
+}
+if (/product|ingredient/i.test(recipeMutations.replace(/cover_image_path/g, ''))) {
+  throw new Error('V3.3 Recipe mutation authority must not create a Recipe-specific Product/ingredient path.')
+}
+
+const imageProcessor = await readFile('src/features/recipes/recipeImageProcessor.ts', 'utf8')
+for (const marker of [
+  "encodeExact(canvas, 'image/avif'",
+  "encodeExact(canvas, 'image/webp'",
+  'avifSupported === false',
+  'RECIPE_COVER_MAX_LONG_EDGE = 1600',
+  'RECIPE_COVER_MAX_OUTPUT_BYTES',
+  "file.type === 'image/svg+xml'",
+]) {
+  if (!imageProcessor.includes(marker)) {
+    throw new Error(`V3.3 image processor marker missing: ${marker}`)
+  }
+}
+if (/upload|supabase|storage/i.test(imageProcessor)) {
+  throw new Error('V3.3 image processor must process only; Storage upload belongs to one separate authority.')
+}
+
+const coverStorage = await readFile('src/features/recipes/recipeCoverStorage.ts', 'utf8')
+for (const marker of [
+  "RECIPE_IMAGE_BUCKET = 'recipe-images'",
+  '.upload(',
+  '.remove([',
+  '.createSignedUrl(',
+  "cacheControl: '31536000'",
+  'upsert: false',
+]) {
+  if (!coverStorage.includes(marker)) {
+    throw new Error(`V3.3 cover Storage marker missing: ${marker}`)
+  }
+}
+if (coverStorage.includes('getPublicUrl')) {
+  throw new Error('V3.3 Recipe covers must remain private and use signed URLs.')
+}
+
+const recipeMutationContract = await readFile('tests/RECIPE_MUTATION_CONTRACT.md', 'utf8')
+for (const marker of ['owner-scoped', 'canonical Products are not deleted', 'No base64/blob']) {
+  if (!recipeMutationContract.includes(marker)) {
+    throw new Error(`V3.3 Recipe mutation contract marker missing: ${marker}`)
+  }
+}
+
+const recipeImageContract = await readFile('tests/RECIPE_IMAGE_CONTRACT.md', 'utf8')
+for (const marker of ['AVIF is attempted first', 'WebP is used only when AVIF encoding is unavailable', 'raw/original File is never uploaded', 'private']) {
+  if (!recipeImageContract.includes(marker)) {
+    throw new Error(`V3.3 Recipe image contract marker missing: ${marker}`)
+  }
+}
+
+for (const marker of [
+  '.recipe-row-cover',
+  '.recipe-detail-cover',
+  '.recipe-cover-editor',
+  '.recipe-cover-preview',
+  '.recipe-media-button',
+]) {
+  if (!globalCss.includes(marker)) {
+    throw new Error(`V3.3 Recipe cover style marker missing: ${marker}`)
+  }
+}
 
 console.log('Kitchen project contract verification: PASS')

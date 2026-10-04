@@ -14,6 +14,8 @@ export type RecipeReadItem = {
   name: string
   servings: number
   instructions: string | null
+  coverImagePath: string | null
+  coverImageUrl: string | null
   updatedAt: string
   ingredients: RecipeIngredientRead[]
 }

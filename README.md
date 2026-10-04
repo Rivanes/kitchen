@@ -321,7 +321,7 @@ Recipe ingredients reference:
 
 RLS, owner policies, cascade/restrict relationships and production postcheck all passed.
 
-## V3.2 — Recipes Read Model + Navigation
+## V3.2 — Recipes Read Model + Navigation [PASS / CLOSED]
 
 The existing `Przepisy` bottom-navigation destination is now active.
 
@@ -342,3 +342,34 @@ Create/edit/delete remains V3.3.
 Ingredient mutation remains V3.4.
 
 No SQL migration is required for V3.2.
+
+
+## V3.3 — Recipe CRUD + Cover Image Foundation
+
+Recipe metadata is now mutable:
+- create
+- edit
+- delete
+- base servings
+- preparation instructions
+
+Each Recipe may have one private cover image.
+
+Mobile cover workflow:
+- gallery
+- camera
+- local preview
+- replace/remove
+
+Image pipeline:
+- original stays on device
+- resize before upload
+- <=1600 px long edge
+- AVIF preferred
+- WebP fallback only when AVIF encoding is unavailable
+- target <=1.5 MiB
+- Storage bucket hard limit 2 MiB
+
+Covers live in private Supabase Storage (`recipe-images`) and are rendered through signed URLs.
+
+Ingredient mutation is intentionally deferred to V3.4, where it must reuse the existing canonical Product resolver/create authority.
