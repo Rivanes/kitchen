@@ -23,6 +23,7 @@ import {
 import { QuantityStepperInput } from '../quantity/QuantityStepperInput'
 import { RecipeCoverFocusEditor } from './RecipeCoverFocusEditor'
 import { RecipeCoverImage } from './RecipeCoverImage'
+import { parseOptionalRecipeDuration, RECIPE_DURATION_MAX, RECIPE_DURATION_MIN } from './recipeDuration'
 import { RECIPE_COVER_HERO_ASPECT } from './recipeCoverCrop'
 import { processRecipeCoverImage, type ProcessedRecipeImage } from './recipeImageProcessor'
 import {
@@ -64,7 +65,18 @@ type IngredientFormDraft = {
   quantity: string
   unitCode: string
   sectionLabel: string
+  sectionMode: 'existing' | 'new'
   note: string
+}
+
+const NEW_SECTION_VALUE = '__new_recipe_section__'
+
+function cleanSectionLabel(value: string) {
+  return value.trim().replace(/\s+/g, ' ')
+}
+
+function sectionIdentity(value: string) {
+  return cleanSectionLabel(value).toLocaleLowerCase('pl-PL')
 }
 
 function rowFromRead(ingredient: RecipeIngredientRead): IngredientDraftRow {
@@ -88,6 +100,7 @@ function formFromRow(row: IngredientDraftRow): IngredientFormDraft {
     quantity: formatQuantityInput(row.quantity),
     unitCode: row.unitCode,
     sectionLabel: row.sectionLabel,
+    sectionMode: 'existing',
     note: row.note,
   }
 }
@@ -101,6 +114,8 @@ export function RecipeEditor({ ownerId, mode, onClose, onSaved }: RecipeEditorPr
 
   const [name, setName] = useState(initial?.name ?? '')
   const [servings, setServings] = useState(String(initial?.servings ?? 1))
+  const [prepTimeMinutes, setPrepTimeMinutes] = useState(initial?.prepTimeMinutes ? String(initial.prepTimeMinutes) : '')
+  const [cookTimeMinutes, setCookTimeMinutes] = useState(initial?.cookTimeMinutes ? String(initial.cookTimeMinutes) : '')
   const [instructions, setInstructions] = useState(initial?.instructions ?? '')
   const [coverChange, setCoverChange] = useState<RecipeCoverChange>({ kind: 'keep' })
   const [coverFocusX, setCoverFocusX] = useState(initial?.coverFocusX ?? 0.5)
@@ -132,9 +147,21 @@ export function RecipeEditor({ ownerId, mode, onClose, onSaved }: RecipeEditorPr
     return initial?.coverImageUrl ?? null
   }, [coverChange.kind, initial?.coverImageUrl, processedPreviewUrl])
 
-  const sectionSuggestions = useMemo(() => Array.from(new Set(
-    ingredients.map((ingredient) => ingredient.sectionLabel.trim()).filter(Boolean),
-  )), [ingredients])
+  const sectionSuggestions = useMemo(() => {
+    const seen = new Set<string>()
+    const sections: string[] = []
+
+    for (const ingredient of ingredients) {
+      const label = cleanSectionLabel(ingredient.sectionLabel)
+      if (!label) continue
+      const identity = sectionIdentity(label)
+      if (seen.has(identity)) continue
+      seen.add(identity)
+      sections.push(label)
+    }
+
+    return sections
+  }, [ingredients])
 
   useEffect(() => {
     const previousOverflow = document.body.style.overflow
@@ -225,6 +252,7 @@ export function RecipeEditor({ ownerId, mode, onClose, onSaved }: RecipeEditorPr
       quantity: '1',
       unitCode: getDefaultUnitCode(units),
       sectionLabel: '',
+      sectionMode: 'existing',
       note: '',
     })
     setErrorMessage('')
@@ -232,7 +260,12 @@ export function RecipeEditor({ ownerId, mode, onClose, onSaved }: RecipeEditorPr
   }
 
   function startEditIngredient(row: IngredientDraftRow) {
-    setIngredientForm(formFromRow(row))
+    const form = formFromRow(row)
+    const identity = sectionIdentity(form.sectionLabel)
+    if (identity) {
+      form.sectionLabel = sectionSuggestions.find((section) => sectionIdentity(section) === identity) ?? cleanSectionLabel(form.sectionLabel)
+    }
+    setIngredientForm(form)
     setErrorMessage('')
     window.setTimeout(() => ingredientProductRef.current?.focus(), 20)
   }
@@ -257,6 +290,10 @@ export function RecipeEditor({ ownerId, mode, onClose, onSaved }: RecipeEditorPr
       const unit = units.find((item) => item.code === ingredientForm.unitCode)
       if (!unit) throw new Error('Wybierz jednostkę.')
 
+      if (ingredientForm.sectionMode === 'new' && !cleanSectionLabel(ingredientForm.sectionLabel)) {
+        throw new Error('Podaj nazwę nowej sekcji.')
+      }
+
       const exactProductId = autocomplete.exactProduct?.id ?? ingredientForm.productId
       const nextRow: IngredientDraftRow = {
         id: ingredientForm.id,
@@ -265,7 +302,12 @@ export function RecipeEditor({ ownerId, mode, onClose, onSaved }: RecipeEditorPr
         quantity,
         unitCode: unit.code,
         unitSymbol: unit.symbol,
-        sectionLabel: ingredientForm.sectionLabel.trim().replace(/\s+/g, ' '),
+        sectionLabel: (() => {
+          const requested = cleanSectionLabel(ingredientForm.sectionLabel)
+          if (!requested) return ''
+          const identity = sectionIdentity(requested)
+          return sectionSuggestions.find((section) => sectionIdentity(section) === identity) ?? requested
+        })(),
         note: ingredientForm.note.trim().replace(/\s+/g, ' '),
       }
 
@@ -314,6 +356,8 @@ export function RecipeEditor({ ownerId, mode, onClose, onSaved }: RecipeEditorPr
     try {
       cleanRecipeName(name)
       parsedServings = validateRecipeServings(Number(servings))
+      parseOptionalRecipeDuration(prepTimeMinutes, 'Czas przygotowania')
+      parseOptionalRecipeDuration(cookTimeMinutes, 'Czas gotowania / pieczenia')
     } catch (error) {
       setErrorMessage(toUserErrorMessage(error, 'Sprawdź dane przepisu.'))
       return
@@ -339,6 +383,8 @@ export function RecipeEditor({ ownerId, mode, onClose, onSaved }: RecipeEditorPr
         recipeId: mode.kind === 'edit' ? mode.recipe.id : null,
         name,
         servings: parsedServings,
+        prepTimeMinutes,
+        cookTimeMinutes,
         instructions,
         coverFocusX,
         coverFocusY,
@@ -413,6 +459,46 @@ export function RecipeEditor({ ownerId, mode, onClose, onSaved }: RecipeEditorPr
                 onChange={(event) => { setServings(event.target.value); setErrorMessage('') }}
               />
             </label>
+
+            <div className="recipe-time-fields">
+              <label className="form-field" htmlFor="recipe-prep-time">
+                <span>Czas przygotowania <small>opcjonalnie</small></span>
+                <div className="recipe-duration-input">
+                  <input
+                    id="recipe-prep-time"
+                    type="number"
+                    inputMode="numeric"
+                    min={RECIPE_DURATION_MIN}
+                    max={RECIPE_DURATION_MAX}
+                    step={1}
+                    value={prepTimeMinutes}
+                    placeholder="np. 30"
+                    disabled={busy}
+                    onChange={(event) => { setPrepTimeMinutes(event.target.value); setErrorMessage('') }}
+                  />
+                  <span>min</span>
+                </div>
+              </label>
+
+              <label className="form-field" htmlFor="recipe-cook-time">
+                <span>Czas gotowania / pieczenia <small>opcjonalnie</small></span>
+                <div className="recipe-duration-input">
+                  <input
+                    id="recipe-cook-time"
+                    type="number"
+                    inputMode="numeric"
+                    min={RECIPE_DURATION_MIN}
+                    max={RECIPE_DURATION_MAX}
+                    step={1}
+                    value={cookTimeMinutes}
+                    placeholder="np. 45"
+                    disabled={busy}
+                    onChange={(event) => { setCookTimeMinutes(event.target.value); setErrorMessage('') }}
+                  />
+                  <span>min</span>
+                </div>
+              </label>
+            </div>
           </section>
 
           <section className="recipe-authoring-section recipe-cover-editor" aria-label="Zdjęcie przepisu">
@@ -567,19 +653,42 @@ export function RecipeEditor({ ownerId, mode, onClose, onSaved }: RecipeEditorPr
 
                 <label className="form-field" htmlFor="recipe-ingredient-section">
                   <span>Sekcja <small>opcjonalnie</small></span>
-                  <input
+                  <select
                     id="recipe-ingredient-section"
-                    value={ingredientForm.sectionLabel}
-                    maxLength={80}
-                    list="recipe-section-suggestions"
-                    placeholder="np. Na biszkopt"
+                    value={ingredientForm.sectionMode === 'new' ? NEW_SECTION_VALUE : ingredientForm.sectionLabel}
                     disabled={busy}
-                    onChange={(event) => setIngredientForm((current) => current ? { ...current, sectionLabel: event.target.value } : current)}
-                  />
-                  <datalist id="recipe-section-suggestions">
-                    {sectionSuggestions.map((section) => <option key={section} value={section} />)}
-                  </datalist>
+                    onChange={(event) => {
+                      const value = event.target.value
+                      setIngredientForm((current) => current ? {
+                        ...current,
+                        sectionMode: value === NEW_SECTION_VALUE ? 'new' : 'existing',
+                        sectionLabel: value === NEW_SECTION_VALUE ? '' : value,
+                      } : current)
+                      setErrorMessage('')
+                    }}
+                  >
+                    <option value="">Bez sekcji</option>
+                    {sectionSuggestions.map((section) => <option key={sectionIdentity(section)} value={section}>{section}</option>)}
+                    <option value={NEW_SECTION_VALUE}>+ Nowa sekcja</option>
+                  </select>
                 </label>
+
+                {ingredientForm.sectionMode === 'new' && (
+                  <label className="form-field recipe-new-section-field" htmlFor="recipe-ingredient-new-section">
+                    <span>Nazwa nowej sekcji</span>
+                    <input
+                      id="recipe-ingredient-new-section"
+                      value={ingredientForm.sectionLabel}
+                      maxLength={80}
+                      placeholder="np. Na biszkopt"
+                      disabled={busy}
+                      onChange={(event) => {
+                        setIngredientForm((current) => current ? { ...current, sectionLabel: event.target.value } : current)
+                        setErrorMessage('')
+                      }}
+                    />
+                  </label>
+                )}
 
                 <label className="form-field" htmlFor="recipe-ingredient-note">
                   <span>Notatka <small>opcjonalnie</small></span>

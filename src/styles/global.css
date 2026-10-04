@@ -2558,6 +2558,32 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
 .recipe-detail-summary-content {
   min-width: 0;
 }
+.recipe-detail-timing {
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: 18px;
+  background: #fff;
+}
+.recipe-detail-time-item {
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 10px 14px;
+}
+.recipe-detail-time-item + .recipe-detail-time-item { border-top: 1px solid #edf1ec; }
+.recipe-detail-time-item span {
+  color: #59645d;
+  font-size: 11.5px;
+  font-weight: 720;
+}
+.recipe-detail-time-item strong {
+  flex: 0 0 auto;
+  color: var(--color-text);
+  font-size: 12px;
+  white-space: nowrap;
+}
 .recipe-servings-preview {
   min-width: 0;
   width: 100%;
@@ -2654,11 +2680,14 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
   padding: 9px 13px;
 }
 .recipe-ingredient-index {
-  width: 7px;
-  height: 7px;
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
   background: #a8bea9;
 }
+.recipe-ingredient-index.is-inventory { background: #5b9b63; }
+.recipe-ingredient-index.is-shopping { background: #d3922f; }
+.recipe-ingredient-index.is-missing { background: #c95b5f; }
 .recipe-ingredient-copy { min-width: 0; display: grid; gap: 2px; }
 .recipe-ingredient-copy strong { overflow-wrap: anywhere; font-size: 13px; }
 .recipe-ingredient-copy small { color: var(--color-muted); font-size: 10px; line-height: 1.35; }
@@ -2735,6 +2764,29 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
   font-weight: 850;
 }
 .recipe-servings-field input { max-width: 150px; }
+.recipe-time-fields {
+  display: grid;
+  gap: 10px;
+  padding-top: 2px;
+}
+.recipe-duration-input {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+}
+.recipe-duration-input > span {
+  min-width: 30px;
+  color: var(--color-muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+.recipe-new-section-field {
+  padding: 10px;
+  border-radius: 13px;
+  background: #f2f6f1;
+}
 .recipe-cover-editor { gap: 9px; }
 .recipe-cover-preview {
   position: relative;

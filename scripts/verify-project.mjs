@@ -72,6 +72,7 @@ const requiredFiles = [
   'src/features/recipes/RecipeCoverImage.tsx',
   'src/features/recipes/RecipeServingsControl.tsx',
   'src/features/recipes/recipeServings.ts',
+  'src/features/recipes/recipeDuration.ts',
   'src/features/recipes/recipeCoverCrop.ts',
   'src/features/recipes/recipeMutations.ts',
   'src/features/recipes/recipeCoverStorage.ts',
@@ -808,6 +809,27 @@ if (/\.(insert|update|upsert|delete|rpc)\s*\(/.test(recipesReadModel)) {
   throw new Error('Recipes read model must remain read-only.')
 }
 
+for (const marker of [
+  'prep_time_minutes',
+  'cook_time_minutes',
+  'readStoredRecipeDuration',
+  ".from('inventory_items')",
+  ".from('shopping_items')",
+  ".eq('is_purchased', false)",
+  'resolveIngredientPresence',
+  'inventoryProductIds',
+  'activeShoppingProductIds',
+  'row.product_id',
+]) {
+  if (!recipesReadModel.includes(marker)) throw new Error(`V3.5.2 Recipes presence/timing read marker missing: ${marker}`)
+}
+if ((recipesReadModel.match(/\.eq\('owner_id', ownerId\)/g) ?? []).length < 4) {
+  throw new Error('V3.5.2 Recipe, ingredient, Inventory presence and Shopping presence reads must all be explicitly owner-scoped.')
+}
+if (/custom_name|productName.*presence|name.*presence/i.test(recipesReadModel)) {
+  throw new Error('V3.5.2 Recipe presence must resolve by canonical product_id only, never display/custom name.')
+}
+
 const recipesPage = await readFile('src/features/recipes/RecipesPage.tsx', 'utf8')
 for (const marker of [
   'RecipeCoverImage',
@@ -840,6 +862,18 @@ if (recipesPage.includes('recipe-detail-ingredient-count')) {
   throw new Error('V3.5.1 Recipe detail must not repeat ingredient count directly above the ingredient list.')
 }
 
+for (const marker of [
+  'formatRecipeDuration',
+  'recipe-detail-timing',
+  'recipe-ingredient-index is-${ingredient.presence}',
+  'ingredientPresenceLabel',
+]) {
+  if (!recipesPage.includes(marker)) throw new Error(`V3.5.2 Recipe detail polish marker missing: ${marker}`)
+}
+if (/wystarczy|brakuje\s+\d|możesz ugotować/i.test(recipesPage)) {
+  throw new Error('V3.5.2 Product presence UI must not claim quantity sufficiency or Recipe matching.')
+}
+
 const recipeServings = await readFile('src/features/recipes/recipeServings.ts', 'utf8')
 for (const marker of [
   'RECIPE_SERVINGS_MIN = 1',
@@ -854,6 +888,20 @@ for (const marker of [
 }
 if (/supabase|\.from\(|\.rpc\(/i.test(recipeServings)) {
   throw new Error('V3.5 servings preview must remain a pure read-only authority.')
+}
+
+const recipeDuration = await readFile('src/features/recipes/recipeDuration.ts', 'utf8')
+for (const marker of [
+  'RECIPE_DURATION_MIN = 1',
+  'RECIPE_DURATION_MAX = 10080',
+  'parseOptionalRecipeDuration',
+  'readStoredRecipeDuration',
+  'formatRecipeDuration',
+]) {
+  if (!recipeDuration.includes(marker)) throw new Error(`V3.5.2 Recipe duration authority marker missing: ${marker}`)
+}
+if (/supabase|\.from\(|\.rpc\(/i.test(recipeDuration)) {
+  throw new Error('Recipe duration authority must remain pure and independent from persistence.')
 }
 
 const recipeServingsControl = await readFile('src/features/recipes/RecipeServingsControl.tsx', 'utf8')
@@ -889,6 +937,25 @@ if (recipeEditor.includes('updateRecipeCoverFocus') || recipeEditor.includes('on
   throw new Error('Crop must belong to the Recipe authoring draft, not a second persistence authority.')
 }
 
+for (const marker of [
+  'prepTimeMinutes',
+  'cookTimeMinutes',
+  'Czas przygotowania',
+  'Czas gotowania / pieczenia',
+  'NEW_SECTION_VALUE',
+  'Bez sekcji',
+  '+ Nowa sekcja',
+  'sectionIdentity',
+]) {
+  if (!recipeEditor.includes(marker)) throw new Error(`V3.5.2 Recipe authoring polish marker missing: ${marker}`)
+}
+if (recipeEditor.includes('<datalist') || recipeEditor.includes('recipe-section-suggestions')) {
+  throw new Error('V3.5.2 section reuse must use explicit existing/new section selection instead of the old free-text datalist.')
+}
+if (/recipe_sections/.test(recipeEditor)) {
+  throw new Error('V3.5.2 must not introduce a Recipe section entity.')
+}
+
 const productAutocomplete = await readFile('src/features/products/ProductAutocomplete.tsx', 'utf8')
 if (!productAutocomplete.includes('exactHint?: string') || !productAutocomplete.includes('unmatchedHint?: string')) {
   throw new Error('Shared ProductAutocomplete must support SMART flows without mandatory helper copy.')
@@ -906,6 +973,17 @@ for (const marker of [
 }
 if (/renameCanonicalProduct|resolveCanonicalProductForEdit/.test(recipeMutations)) {
   throw new Error('Recipe ingredient authoring must never globally rename the previously referenced Product.')
+}
+
+for (const marker of [
+  'p_prep_time_minutes',
+  'p_cook_time_minutes',
+  'parseOptionalRecipeDuration',
+]) {
+  if (!recipeMutations.includes(marker)) throw new Error(`V3.5.2 Recipe snapshot duration marker missing: ${marker}`)
+}
+if (recipeMutations.includes(".from('recipes')")) {
+  throw new Error('V3.5.2 duration metadata must persist only through save_recipe_snapshot, not a second direct Recipe update path.')
 }
 
 const cropGeometry = await readFile('src/features/recipes/recipeCoverCrop.ts', 'utf8')
@@ -1016,9 +1094,9 @@ const recipeAuthoringContract = await readFile('tests/RECIPE_AUTHORING_CONTRACT.
 const recipeSharedContract = await readFile('tests/RECIPE_SHARED_CORE_CONTRACT.md', 'utf8')
 const recipeImageContract = await readFile('tests/RECIPE_IMAGE_CONTRACT.md', 'utf8')
 for (const [contract, markers] of [
-  [recipesUiContract, ['read surfaces', 'exactly one Recipe edit entry point', 'compact horizontal summary row', 'Ingredient count is not repeated']],
-  [recipeAuthoringContract, ['One Recipe authoring draft', 'save_recipe_snapshot', 'Cancel discards the draft']],
-  [recipeSharedContract, ['canonical Product resolver/create authority', 'shared Quantity', 'must not globally rename']],
+  [recipesUiContract, ['read surfaces', 'exactly one Recipe edit entry point', 'compact horizontal summary row', 'Ingredient count is not repeated', 'Product-presence indicator only', 'Inventory has priority', 'Bez sekcji', '+ Nowa sekcja']],
+  [recipeAuthoringContract, ['One Recipe authoring draft', 'save_recipe_snapshot', 'Cancel discards the draft', 'optional preparation time', 'optional cooking/baking time', 'Section labels are selected/reused']],
+  [recipeSharedContract, ['canonical Product resolver/create authority', 'shared Quantity', 'must not globally rename', 'canonical Product UUID only', 'must not claim quantity sufficiency']],
   [recipeImageContract, ['full source image', 'pure crop geometry authority', 'RECIPE_COVER_HERO_ASPECT', 'must therefore match', 'Cleanup retries never block Recipe reading']],
 ]) {
   for (const marker of markers) {
@@ -1032,6 +1110,12 @@ for (const marker of [
   '.recipe-authoring-ingredient-row',
   '.recipe-focus-source-stage',
   '.recipe-servings-stepper',
+  '.recipe-detail-timing',
+  '.recipe-ingredient-index.is-inventory',
+  '.recipe-ingredient-index.is-shopping',
+  '.recipe-ingredient-index.is-missing',
+  '.recipe-time-fields',
+  '.recipe-new-section-field',
   '.recipes-search-empty',
 ]) {
   if (!globalCss.includes(marker)) throw new Error(`Current Recipe CSS marker missing: ${marker}`)

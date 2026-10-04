@@ -9,6 +9,7 @@ import {
   flushRecipeImageCleanupQueue,
   uploadRecipeCover,
 } from './recipeCoverStorage'
+import { parseOptionalRecipeDuration } from './recipeDuration'
 import type { ProcessedRecipeImage } from './recipeImageProcessor'
 
 export type RecipeCoverChange =
@@ -32,6 +33,8 @@ export type SaveRecipeSnapshotInput = {
   recipeId: string | null
   name: string
   servings: number
+  prepTimeMinutes: string
+  cookTimeMinutes: string
   instructions: string
   coverFocusX: number
   coverFocusY: number
@@ -149,6 +152,8 @@ export async function saveRecipeSnapshot(input: SaveRecipeSnapshotInput) {
       p_mode: input.mode,
       p_name: cleanRecipeName(input.name),
       p_servings: validateRecipeServings(input.servings),
+      p_prep_time_minutes: parseOptionalRecipeDuration(input.prepTimeMinutes, 'Czas przygotowania'),
+      p_cook_time_minutes: parseOptionalRecipeDuration(input.cookTimeMinutes, 'Czas gotowania / pieczenia'),
       p_instructions: cleanRecipeInstructions(input.instructions),
       p_cover_action: input.cover.kind,
       p_cover_image_path: input.cover.kind === 'replace' ? uploadedCoverPath : null,

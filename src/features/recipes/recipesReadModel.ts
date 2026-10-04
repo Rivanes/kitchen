@@ -3,12 +3,20 @@ import { loadMeasurementUnits } from '../measurements/measurementUnits'
 import { loadOwnerProductCatalog } from '../products/productCatalogMutations'
 import { readStoredQuantity } from '../quantity/quantity'
 import { createRecipeCoverSignedUrl } from './recipeCoverStorage'
-import type { RecipeIngredientRead, RecipeReadItem, RecipesReadModel } from './types'
+import { readStoredRecipeDuration } from './recipeDuration'
+import type {
+  RecipeIngredientPresence,
+  RecipeIngredientRead,
+  RecipeReadItem,
+  RecipesReadModel,
+} from './types'
 
 type RawRecipe = {
   id: string
   name: string
   servings: number
+  prep_time_minutes: number | string | null
+  cook_time_minutes: number | string | null
   instructions: string | null
   cover_image_path: string | null
   cover_focus_x: number | string
@@ -28,6 +36,14 @@ type RawRecipeIngredient = {
   created_at: string
 }
 
+type RawInventoryPresence = {
+  product_id: string
+}
+
+type RawShoppingPresence = {
+  product_id: string | null
+}
+
 function assertNoQueryError(error: { message: string } | null, resource: string) {
   if (error) {
     throw new Error(`Recipes read failed for ${resource}: ${error.message}`)
@@ -43,12 +59,22 @@ function compareIngredients(a: RecipeIngredientRead & { createdAt: string }, b: 
   return a.id.localeCompare(b.id)
 }
 
+function resolveIngredientPresence(
+  productId: string,
+  inventoryProductIds: Set<string>,
+  activeShoppingProductIds: Set<string>,
+): RecipeIngredientPresence {
+  if (inventoryProductIds.has(productId)) return 'inventory'
+  if (activeShoppingProductIds.has(productId)) return 'shopping'
+  return 'missing'
+}
+
 export async function loadRecipesReadModel(ownerId: string): Promise<RecipesReadModel> {
   if (!supabase) throw new Error('Supabase is not configured.')
 
   const recipesResult = await supabase
     .from('recipes')
-    .select('id, name, servings, instructions, cover_image_path, cover_focus_x, cover_focus_y, updated_at')
+    .select('id, name, servings, prep_time_minutes, cook_time_minutes, instructions, cover_image_path, cover_focus_x, cover_focus_y, updated_at')
     .eq('owner_id', ownerId)
     .order('updated_at', { ascending: false })
 
@@ -57,20 +83,39 @@ export async function loadRecipesReadModel(ownerId: string): Promise<RecipesRead
   const rawRecipes = (recipesResult.data ?? []) as RawRecipe[]
   if (rawRecipes.length === 0) return { recipes: [] }
 
-  const [ingredientsResult, products, units] = await Promise.all([
+  const [ingredientsResult, products, units, inventoryPresenceResult, shoppingPresenceResult] = await Promise.all([
     supabase
       .from('recipe_ingredients')
       .select('id, recipe_id, product_id, quantity, unit_code, sort_order, section_label, note, created_at')
       .eq('owner_id', ownerId),
     loadOwnerProductCatalog(ownerId),
     loadMeasurementUnits(),
+    supabase
+      .from('inventory_items')
+      .select('product_id')
+      .eq('owner_id', ownerId),
+    supabase
+      .from('shopping_items')
+      .select('product_id')
+      .eq('owner_id', ownerId)
+      .eq('is_purchased', false),
   ])
 
   assertNoQueryError(ingredientsResult.error, 'recipe_ingredients')
+  assertNoQueryError(inventoryPresenceResult.error, 'inventory_items presence')
+  assertNoQueryError(shoppingPresenceResult.error, 'shopping_items presence')
 
   const recipeIds = new Set(rawRecipes.map((recipe) => recipe.id))
   const productById = new Map(products.map((product) => [product.id, product]))
   const unitByCode = new Map(units.map((unit) => [unit.code, unit]))
+  const inventoryProductIds = new Set(
+    ((inventoryPresenceResult.data ?? []) as RawInventoryPresence[]).map((row) => row.product_id),
+  )
+  const activeShoppingProductIds = new Set(
+    ((shoppingPresenceResult.data ?? []) as RawShoppingPresence[])
+      .map((row) => row.product_id)
+      .filter((productId): productId is string => Boolean(productId)),
+  )
   const ingredientsByRecipe = new Map<string, Array<RecipeIngredientRead & { createdAt: string }>>()
 
   for (const row of (ingredientsResult.data ?? []) as RawRecipeIngredient[]) {
@@ -98,6 +143,7 @@ export async function loadRecipesReadModel(ownerId: string): Promise<RecipesRead
       sortOrder: row.sort_order,
       sectionLabel: row.section_label?.trim() || null,
       note: row.note?.trim() || null,
+      presence: resolveIngredientPresence(row.product_id, inventoryProductIds, activeShoppingProductIds),
       createdAt: row.created_at,
     }
 
@@ -121,6 +167,8 @@ export async function loadRecipesReadModel(ownerId: string): Promise<RecipesRead
     id: recipe.id,
     name: recipe.name.trim(),
     servings: recipe.servings,
+    prepTimeMinutes: readStoredRecipeDuration(recipe.prep_time_minutes, 'Czas przygotowania'),
+    cookTimeMinutes: readStoredRecipeDuration(recipe.cook_time_minutes, 'Czas gotowania / pieczenia'),
     instructions: recipe.instructions?.trim() || null,
     coverImagePath: recipe.cover_image_path,
     coverImageUrl: coverUrls.get(recipe.id) ?? null,

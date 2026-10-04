@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { KitchenIcon } from '../../components/KitchenIcon'
 import { RecipeServingsControl } from './RecipeServingsControl'
+import { formatRecipeDuration } from './recipeDuration'
 import { formatScaledRecipeQuantity } from './recipeServings'
 import { RecipeCoverImage } from './RecipeCoverImage'
 import { RECIPE_COVER_HERO_ASPECT, RECIPE_COVER_THUMBNAIL_ASPECT } from './recipeCoverCrop'
 import { RecipeEditor } from './RecipeEditor'
 import { flushRecipeImageCleanupQueue } from './recipeCoverStorage'
 import { loadRecipesReadModel } from './recipesReadModel'
-import type { RecipeReadItem, RecipesReadModel } from './types'
+import type { RecipeIngredientPresence, RecipeReadItem, RecipesReadModel } from './types'
 
 type RecipesPageProps = {
   ownerId: string
@@ -46,6 +47,12 @@ function ingredientsLabel(count: number) {
   const mod100 = count % 100
   if (mod10 >= 2 && mod10 <= 4 && !(mod100 >= 12 && mod100 <= 14)) return `${count} składniki`
   return `${count} składników`
+}
+
+function ingredientPresenceLabel(presence: RecipeIngredientPresence) {
+  if (presence === 'inventory') return 'W zapasach'
+  if (presence === 'shopping') return 'Na liście zakupów'
+  return 'Brak w zapasach i na liście zakupów'
 }
 
 export function RecipesPage({ ownerId, overviewRequestToken }: RecipesPageProps) {
@@ -157,6 +164,23 @@ export function RecipesPage({ ownerId, overviewRequestToken }: RecipesPageProps)
           </div>
         </section>
 
+        {(selectedRecipe.prepTimeMinutes || selectedRecipe.cookTimeMinutes) && (
+          <section className="recipe-detail-timing" aria-label="Czas przepisu">
+            {selectedRecipe.prepTimeMinutes && (
+              <div className="recipe-detail-time-item">
+                <span>Czas przygotowania</span>
+                <strong>{formatRecipeDuration(selectedRecipe.prepTimeMinutes)}</strong>
+              </div>
+            )}
+            {selectedRecipe.cookTimeMinutes && (
+              <div className="recipe-detail-time-item">
+                <span>Czas gotowania / pieczenia</span>
+                <strong>{formatRecipeDuration(selectedRecipe.cookTimeMinutes)}</strong>
+              </div>
+            )}
+          </section>
+        )}
+
         <section className="recipe-detail-section" aria-labelledby="recipe-ingredients-title">
           <div className="recipe-detail-section-heading">
             <span className="recipe-detail-section-icon" aria-hidden="true"><KitchenIcon name="inventory" size={18} /></span>
@@ -183,7 +207,12 @@ export function RecipesPage({ ownerId, overviewRequestToken }: RecipesPageProps)
                   <div key={ingredient.id}>
                     {showSection && <h3 className="recipe-ingredient-section-title">{sectionTitle}</h3>}
                     <div className="recipe-ingredient-row">
-                      <span className="recipe-ingredient-index" aria-hidden="true" />
+                      <span
+                        className={`recipe-ingredient-index is-${ingredient.presence}`}
+                        role="img"
+                        aria-label={ingredientPresenceLabel(ingredient.presence)}
+                        title={ingredientPresenceLabel(ingredient.presence)}
+                      />
                       <span className="recipe-ingredient-copy">
                         <strong>{ingredient.productName}</strong>
                         {ingredient.note && <small>{ingredient.note}</small>}

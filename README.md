@@ -396,15 +396,15 @@ The V3.4.1–V3.4.4 corrective chain is historical implementation work and is no
 
 ## V3.5 — Servings UX + Recipe Polish
 
-Runtime-only stage.
-
-Adds:
+Delivered through V3.5.2:
 - read-only servings preview from 1..999
 - scaled ingredient quantities without mutating stored Recipe data
 - reset to base servings only when preview differs
 - contextual Recipe search at 8+ Recipes
 - search by Recipe name and ingredient Product name
 - natural `Pozostałe składniki` grouping for unlabeled blocks when named sections exist
-- no `recipe_sections` table yet; current lightweight `section_label` remains sufficient
+- reusable existing section selection in Recipe authoring without a `recipe_sections` table
+- optional preparation and cooking/baking times stored as Recipe metadata
+- ingredient Product-presence dots: Inventory / active Shopping / missing
 
-No SQL/schema/RLS/Auth/Storage-policy change.
+V3.5.2 introduces only the two optional duration columns and extends the existing atomic `save_recipe_snapshot(...)` authority. RLS/Auth/Storage policies remain unchanged. Product-presence color is presence-only and does not claim quantity sufficiency or Recipe matching.

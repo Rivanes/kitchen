@@ -18,6 +18,23 @@
 - The base servings state stays in one compact horizontal summary row on mobile.
 - Ingredient count is not repeated inside the detail servings summary because the ingredient list is immediately below it.
 
+## Recipe timing metadata
+
+- Preparation time and cooking/baking time are optional whole-minute Recipe metadata.
+- Detail shows only stored duration values; absent durations do not produce `0 min` placeholders.
+- Timing metadata is rendered separately from the compact servings summary.
+- Duration preview/display does not introduce a second Recipe save authority.
+
+## Ingredient Product presence
+
+- The ingredient status dot is a Product-presence indicator only, not quantity sufficiency or Recipe matching.
+- Green means the canonical Product exists in Inventory.
+- Orange means the Product is absent from Inventory but exists on the active Shopping list.
+- Red means the Product exists in neither Inventory nor the active Shopping list.
+- Inventory has priority over active Shopping when the same Product exists in both places.
+- Purchased Shopping history does not count as active Shopping presence.
+- Presence state is exposed accessibly in addition to color.
+
 ## Contextual Recipe search
 
 - Search is shown only at 8+ Recipes.
@@ -27,6 +44,9 @@
 ## Sections
 
 - `section_label` remains lightweight presentation metadata.
-- V3.5 does not introduce a separate Recipe section entity.
+- V3.5 does not introduce a separate Recipe section entity or `recipe_sections` table.
+- Existing section labels in the current Recipe draft are selectable/reusable without retyping.
+- `Bez sekcji` remains an explicit choice and `+ Nowa sekcja` is the only path that opens a new-name field.
+- Whitespace/case variants of an existing section reuse the existing display label.
 - If named sections exist, unlabeled ingredient blocks may display as `Pozostałe składniki`.
-- Presentation must never reorder canonical ingredient order.
+- Presentation and section reuse must never reorder canonical ingredient order.
