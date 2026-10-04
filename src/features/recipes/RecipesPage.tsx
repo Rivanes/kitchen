@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { KitchenIcon } from '../../components/KitchenIcon'
-import { formatQuantity } from '../quantity/quantity'
+import { RecipeServingsControl } from './RecipeServingsControl'
+import { formatScaledRecipeQuantity } from './recipeServings'
 import { RecipeCoverImage } from './RecipeCoverImage'
 import { RECIPE_COVER_HERO_ASPECT, RECIPE_COVER_THUMBNAIL_ASPECT } from './recipeCoverCrop'
 import { RecipeEditor } from './RecipeEditor'
@@ -51,6 +52,8 @@ export function RecipesPage({ ownerId, overviewRequestToken }: RecipesPageProps)
   const [recipesStatus, setRecipesStatus] = useState<RecipesStatus>({ status: 'loading', model: null })
   const [selectedRecipeId, setSelectedRecipeId] = useState<string | null>(null)
   const [editorMode, setEditorMode] = useState<EditorMode>(null)
+  const [targetServings, setTargetServings] = useState(1)
+  const [searchQuery, setSearchQuery] = useState('')
 
   const load = useCallback(async (preserveSelection = true, selectedAfterLoad: string | null = null) => {
     setRecipesStatus({ status: 'loading', model: null })
@@ -73,6 +76,7 @@ export function RecipesPage({ ownerId, overviewRequestToken }: RecipesPageProps)
     if (overviewRequestToken <= 0) return
     setEditorMode(null)
     setSelectedRecipeId(null)
+    setSearchQuery('')
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }, [overviewRequestToken])
 
@@ -82,11 +86,36 @@ export function RecipesPage({ ownerId, overviewRequestToken }: RecipesPageProps)
     [model, selectedRecipeId],
   )
 
+  useEffect(() => {
+    if (!selectedRecipe) return
+    setTargetServings(selectedRecipe.servings)
+  }, [selectedRecipe?.id, selectedRecipe?.servings])
+
+  const shouldShowRecipeSearch = Boolean(model && model.recipes.length >= 8)
+  const normalizedSearch = shouldShowRecipeSearch
+    ? searchQuery.trim().toLocaleLowerCase('pl-PL')
+    : ''
+  const visibleRecipes = useMemo(() => {
+    if (!model) return []
+    if (!normalizedSearch) return model.recipes
+
+    return model.recipes.filter((recipe) => (
+      recipe.name.toLocaleLowerCase('pl-PL').includes(normalizedSearch)
+      || recipe.ingredients.some((ingredient) => (
+        ingredient.productName.toLocaleLowerCase('pl-PL').includes(normalizedSearch)
+      ))
+    ))
+  }, [model, normalizedSearch])
+
   async function handleEditorSaved(recipeId: string | null) {
     setEditorMode(null)
     await load(false, recipeId)
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
+
+  const hasNamedRecipeSections = Boolean(
+    selectedRecipe?.ingredients.some((ingredient) => Boolean(ingredient.sectionLabel?.trim())),
+  )
 
   if (selectedRecipe) {
     return (
@@ -119,9 +148,13 @@ export function RecipesPage({ ownerId, overviewRequestToken }: RecipesPageProps)
 
         <section className="recipe-detail-summary" aria-label="Podsumowanie przepisu">
           <span className="recipe-detail-summary-icon" aria-hidden="true"><KitchenIcon name="recipes" size={22} /></span>
-          <div className="recipe-detail-meta">
-            <span>{servingsLabel(selectedRecipe.servings)}</span>
-            <span>{ingredientsLabel(selectedRecipe.ingredients.length)}</span>
+          <div className="recipe-detail-summary-content">
+            <RecipeServingsControl
+              baseServings={selectedRecipe.servings}
+              value={targetServings}
+              onChange={setTargetServings}
+            />
+            <span className="recipe-detail-ingredient-count">{ingredientsLabel(selectedRecipe.ingredients.length)}</span>
           </div>
         </section>
 
@@ -134,18 +167,29 @@ export function RecipesPage({ ownerId, overviewRequestToken }: RecipesPageProps)
           {selectedRecipe.ingredients.length > 0 ? (
             <div className="recipe-ingredient-groups">
               {selectedRecipe.ingredients.map((ingredient, index) => {
-                const previousSection = index > 0 ? selectedRecipe.ingredients[index - 1].sectionLabel : null
-                const showSection = ingredient.sectionLabel && ingredient.sectionLabel !== previousSection
+                const hasNamedSections = hasNamedRecipeSections
+                const currentSection = ingredient.sectionLabel?.trim() ?? ''
+                const previousSection = index > 0
+                  ? selectedRecipe.ingredients[index - 1].sectionLabel?.trim() ?? ''
+                  : null
+                const showSection = hasNamedSections && currentSection !== previousSection
+                const sectionTitle = currentSection || 'Pozostałe składniki'
+                const displayQuantity = formatScaledRecipeQuantity({
+                  baseQuantity: ingredient.quantity,
+                  baseServings: selectedRecipe.servings,
+                  targetServings,
+                })
+
                 return (
                   <div key={ingredient.id}>
-                    {showSection && <h3 className="recipe-ingredient-section-title">{ingredient.sectionLabel}</h3>}
+                    {showSection && <h3 className="recipe-ingredient-section-title">{sectionTitle}</h3>}
                     <div className="recipe-ingredient-row">
                       <span className="recipe-ingredient-index" aria-hidden="true" />
                       <span className="recipe-ingredient-copy">
                         <strong>{ingredient.productName}</strong>
                         {ingredient.note && <small>{ingredient.note}</small>}
                       </span>
-                      <span className="recipe-ingredient-quantity">{formatQuantity(ingredient.quantity)} {ingredient.unitSymbol}</span>
+                      <span className="recipe-ingredient-quantity">{displayQuantity} {ingredient.unitSymbol}</span>
                     </div>
                   </div>
                 )
@@ -228,10 +272,34 @@ export function RecipesPage({ ownerId, overviewRequestToken }: RecipesPageProps)
         </section>
       )}
 
-      {model && model.recipes.length > 0 && (
+      {model && shouldShowRecipeSearch && (
+        <label className="inventory-search recipes-search">
+          <KitchenIcon name="search" size={18} />
+          <input
+            type="search"
+            value={searchQuery}
+            onChange={(event) => setSearchQuery(event.target.value)}
+            placeholder="Szukaj przepisu lub składnika"
+            aria-label="Szukaj przepisu lub składnika"
+          />
+          {searchQuery && (
+            <button type="button" onClick={() => setSearchQuery('')} aria-label="Wyczyść wyszukiwanie">
+              <KitchenIcon name="close" size={17} />
+            </button>
+          )}
+        </label>
+      )}
+
+      {model && model.recipes.length > 0 && normalizedSearch && visibleRecipes.length === 0 && (
+        <div className="recipes-search-empty" role="status">
+          Brak przepisów pasujących do wyszukiwania.
+        </div>
+      )}
+
+      {model && visibleRecipes.length > 0 && (
         <div className="recipes-list-card">
           <ul className="recipes-list">
-            {model.recipes.map((recipe) => (
+            {visibleRecipes.map((recipe) => (
               <li key={recipe.id}>
                 <button className="recipe-row" type="button" onClick={() => { setSelectedRecipeId(recipe.id); window.scrollTo({ top: 0, behavior: 'smooth' }) }}>
                   <span className={`recipe-row-cover${recipe.coverImageUrl ? ' has-image' : ''}`} aria-hidden={!recipe.coverImageUrl}>

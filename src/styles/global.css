@@ -2392,6 +2392,17 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
 }
 .recipes-add-button:active { background: #426c4c; }
 
+.recipes-search { margin: 0; }
+.recipes-search-empty {
+  padding: 14px;
+  border: 1px solid var(--color-border);
+  border-radius: 16px;
+  background: #fff;
+  color: var(--color-muted);
+  font-size: 12px;
+  text-align: center;
+}
+
 .recipes-state-card {
   min-height: 132px;
   display: grid;
@@ -2544,8 +2555,65 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
   height: 42px;
   border-radius: 14px;
 }
-.recipe-detail-meta { min-width: 0; display: flex; flex-wrap: wrap; gap: 7px; }
-.recipe-detail-meta span {
+.recipe-detail-summary-content {
+  min-width: 0;
+  display: grid;
+  gap: 8px;
+}
+.recipe-servings-preview {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+.recipe-servings-label {
+  color: #536057;
+  font-size: 11px;
+  font-weight: 800;
+}
+.recipe-servings-stepper {
+  display: grid;
+  grid-template-columns: 44px minmax(38px, auto) 44px;
+  align-items: center;
+  overflow: hidden;
+  border: 1px solid #dce5dc;
+  border-radius: 13px;
+  background: #f7faf6;
+}
+.recipe-servings-stepper button {
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--color-accent-strong);
+}
+.recipe-servings-stepper button:disabled {
+  color: #b6c0b8;
+  cursor: default;
+}
+.recipe-servings-stepper strong {
+  min-width: 38px;
+  padding: 0 7px;
+  color: var(--color-text);
+  font-size: 14px;
+  text-align: center;
+}
+.recipe-servings-reset {
+  min-height: 44px;
+  padding: 0 9px;
+  border: 0;
+  border-radius: 11px;
+  background: #f1f6f0;
+  color: var(--color-accent-strong);
+  font-size: 10.5px;
+  font-weight: 800;
+}
+.recipe-detail-ingredient-count {
+  width: fit-content;
   min-height: 30px;
   display: inline-flex;
   align-items: center;
@@ -2923,6 +2991,12 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
 .recipe-focus-actions .secondary-button { margin: 0; }
 
 @media (max-width: 380px) {
+  .recipe-servings-preview {
+    align-items: flex-start;
+  }
+  .recipe-servings-label {
+    width: 100%;
+  }
   .recipe-ingredient-row {
     grid-template-columns: 8px minmax(0, 1fr);
   }

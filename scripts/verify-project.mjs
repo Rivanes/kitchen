@@ -70,6 +70,8 @@ const requiredFiles = [
   'src/features/recipes/RecipeEditor.tsx',
   'src/features/recipes/RecipeCoverFocusEditor.tsx',
   'src/features/recipes/RecipeCoverImage.tsx',
+  'src/features/recipes/RecipeServingsControl.tsx',
+  'src/features/recipes/recipeServings.ts',
   'src/features/recipes/recipeCoverCrop.ts',
   'src/features/recipes/recipeMutations.ts',
   'src/features/recipes/recipeCoverStorage.ts',
@@ -812,7 +814,7 @@ for (const marker of [
   'RecipeEditor',
   'Składniki',
   'Przygotowanie',
-  'formatQuantity',
+  'formatScaledRecipeQuantity',
 ]) {
   if (!recipesPage.includes(marker)) throw new Error(`Recipes UI marker missing: ${marker}`)
 }
@@ -821,6 +823,46 @@ if (recipesPage.includes('RecipeIngredientsEditor') || recipesPage.includes('rec
 }
 if (recipesPage.includes('await flushRecipeImageCleanupQueue(ownerId)')) {
   throw new Error('Recipe reading must not await Storage cleanup maintenance.')
+}
+if (!recipesPage.includes('RecipeServingsControl') || !recipesPage.includes('formatScaledRecipeQuantity')) {
+  throw new Error('V3.5 Recipe detail must provide read-only servings preview scaling.')
+}
+if (!recipesPage.includes('model.recipes.length >= 8') || !recipesPage.includes('Szukaj przepisu lub składnika')) {
+  throw new Error('V3.5 Recipes must use contextual search only for larger Recipe collections.')
+}
+if (!recipesPage.includes('ingredient.productName.toLocaleLowerCase')) {
+  throw new Error('V3.5 Recipe search must match ingredient Product names as well as Recipe names.')
+}
+if (!recipesPage.includes("'Pozostałe składniki'")) {
+  throw new Error('V3.5 section polish must naturally label unlabeled blocks when named sections exist.')
+}
+
+const recipeServings = await readFile('src/features/recipes/recipeServings.ts', 'utf8')
+for (const marker of [
+  'RECIPE_SERVINGS_MIN = 1',
+  'RECIPE_SERVINGS_MAX = 999',
+  'normalizeQuantityPrecision',
+  'baseQuantity * targetServings / baseServings',
+  "'<0,001'",
+]) {
+  if (!recipeServings.includes(marker)) {
+    throw new Error(`V3.5 Recipe servings authority marker missing: ${marker}`)
+  }
+}
+if (/supabase|\.from\(|\.rpc\(/i.test(recipeServings)) {
+  throw new Error('V3.5 servings preview must remain a pure read-only authority.')
+}
+
+const recipeServingsControl = await readFile('src/features/recipes/RecipeServingsControl.tsx', 'utf8')
+for (const marker of [
+  'Zmniejsz liczbę porcji',
+  'Zwiększ liczbę porcji',
+  'Przywróć',
+  'RECIPE_SERVINGS_MAX',
+]) {
+  if (!recipeServingsControl.includes(marker)) {
+    throw new Error(`V3.5 servings control marker missing: ${marker}`)
+  }
 }
 
 const recipeEditor = await readFile('src/features/recipes/RecipeEditor.tsx', 'utf8')
@@ -986,6 +1028,8 @@ for (const marker of [
   '.recipe-authoring-section',
   '.recipe-authoring-ingredient-row',
   '.recipe-focus-source-stage',
+  '.recipe-servings-stepper',
+  '.recipes-search-empty',
 ]) {
   if (!globalCss.includes(marker)) throw new Error(`Current Recipe CSS marker missing: ${marker}`)
 }

@@ -374,78 +374,37 @@ Covers live in private Supabase Storage (`recipe-images`) and are rendered throu
 
 Ingredient mutation is intentionally deferred to V3.4, where it must reuse the existing canonical Product resolver/create authority.
 
+## V3.4 — Unified Recipe Authoring + Cover [PASS / CLOSED]
 
-## V3.4 — Ingredient Editor + Focal Crop + Durable Cover Cleanup
+V3.4 closed after the full Recipes architecture corrective.
 
-Recipe Ingredients now reuse the existing shared Kitchen core:
-- canonical Product autocomplete/resolve/create
-- shared QuantityStepperInput + quantity validation
-- shared Measurement Units
-- optional section label
-- optional ingredient note
-- add/edit/remove
-- atomic complete reorder
-
-Missing ingredient names create canonical Products through the same authority used by Inventory/Shopping.
-
-Recipe cover cropping now stores one focal point and reuses it for:
-- list thumbnail
-- detail hero
-
-Changing crop does not upload another image.
-
-Superseded/deleted Recipe cover paths are transactionally queued in `recipe_image_cleanup_queue`.
-The client deletes Storage objects immediately when possible and retries queued failures on later Recipe loads.
-
-The Recipe empty-state primary action also receives an explicit high-contrast text fix.
-
-
-## V3.4.1 — SMART Recipe Cover Corrective
-
-Runtime-only corrective after V3.4 production smoke.
-
-- removes technical compression/Storage copy from daily Recipe UI
-- makes `Ustaw kadr` a full-width cover action
-- existing Recipe `Zapisz kadr` now persists focal coordinates immediately
-- persistence is read back and verified
-- live Recipe list/detail state updates immediately
-- parent Recipe Save is no longer required only to persist crop
-
-No SQL/schema/Storage-policy change.
-
-
-## V3.4.2 — Recipes Authoring Architecture Corrective
-
-Corrects the V3 authoring architecture instead of layering another hotfix.
-
-- Recipe detail is read-only again
+Final architecture:
+- Recipe detail is read-only
 - one Recipe editor owns metadata, cover/crop, ingredients and preparation
-- ingredient changes remain draft until Recipe Save
-- missing ingredients still resolve/create through the shared canonical Product authority
-- final save uses one atomic `save_recipe_snapshot(...)` Recipe authority
-- ingredient order is always contiguous
-- faulty standalone reorder/update authorities are removed
-- focal point is selected on the full source image
-- one shared crop geometry/renderer drives hero, thumbnail and previews
-- Storage cleanup maintenance no longer blocks Recipe reads
-- Recipe CSS/contracts/verifier are consolidated to current architecture
+- missing ingredient names resolve/create through the shared canonical Product authority
+- shared QuantityStepperInput and Measurement Units
+- optional ingredient sections + notes
+- one atomic `save_recipe_snapshot(...)` authority
+- contiguous ingredient ordering
+- private optimized Recipe cover image
+- one source-image focal point reused by list/detail
+- one shared exact-pixel crop renderer
+- durable cleanup queue for replaced/removed/deleted covers
+- Recipe image cleanup never blocks normal Recipe reads
 
+The V3.4.1–V3.4.4 corrective chain is historical implementation work and is not a separate feature surface.
 
-## V3.4.3 — Recipe Cover Aspect Consistency Corrective
+## V3.5 — Servings UX + Recipe Polish
 
-Runtime-only corrective after V3.4.2 mobile smoke.
+Runtime-only stage.
 
-The crop preview, Recipe editor preview and final Recipe detail hero now share one source-of-truth aspect (`RECIPE_COVER_HERO_ASPECT = 16/10`) and the same crop renderer. The list thumbnail uses the shared 1:1 thumbnail aspect.
+Adds:
+- read-only servings preview from 1..999
+- scaled ingredient quantities without mutating stored Recipe data
+- reset to base servings only when preview differs
+- contextual Recipe search at 8+ Recipes
+- search by Recipe name and ingredient Product name
+- natural `Pozostałe składniki` grouping for unlabeled blocks when named sections exist
+- no `recipe_sections` table yet; current lightweight `section_label` remains sufficient
 
-Removed the obsolete Recipe editor 16:9 frame and removed duplicated hard-coded Recipe aspect ratios from CSS. No SQL/schema/Storage-policy change.
-
-
-## V3.4.4 — Recipe Cover Rendering + SMART Empty-State Corrective
-
-Runtime-only corrective.
-
-- fixes gray `Dodaj przepis` label at its selector source
-- replaces nominal-aspect/object-position crop rendering with exact pixel layout measured from the real rendered container
-- removes `targetAspect` from RecipeCoverImage
-- crop preview, editor preview, detail hero and thumbnail all use the same measured renderer
-- no SQL/schema/Storage-policy change
+No SQL/schema/RLS/Auth/Storage-policy change.
