@@ -1,0 +1,9 @@
+README.md
+package.json
+scripts/test-inventory-create-intent.mjs
+scripts/verify-project.mjs
+src/components/KitchenIcon.tsx
+src/features/inventory/InventoryEditor.tsx
+src/features/inventory/inventoryCreateIntent.ts
+src/styles/global.css
+tests/SPECIAL_RESOURCE_CREATE_CONTRACT.md

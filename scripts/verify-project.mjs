@@ -24,6 +24,7 @@ const requiredFiles = [
   'src/features/inventory/expiry.ts',
   'src/features/inventory/inventoryReadModel.ts',
   'src/features/inventory/inventoryMutations.ts',
+  'src/features/inventory/inventoryCreateIntent.ts',
   'src/features/inventory/inventoryRpcResults.ts',
   'src/features/inventory/types.ts',
   'src/styles/global.css',
@@ -71,6 +72,7 @@ const requiredFiles = [
   'tests/SHOPPING_TO_INVENTORY_CONTRACT.md',
   'tests/PACKAGE_SEMANTICS_CONTRACT.md',
   'tests/RESOURCE_SEMANTICS_CONTRACT.md',
+  'tests/SPECIAL_RESOURCE_CREATE_CONTRACT.md',
   'tests/STORAGE_LOCATION_PICKER_CONTRACT.md',
   'tests/SHOPPING_QUICK_PURCHASE_CONTRACT.md',
   'tests/USER_ERROR_PRESENTATION_CONTRACT.md',
@@ -82,6 +84,7 @@ const requiredFiles = [
   'scripts/test-recipe-ingredient-draft.mjs',
   'scripts/test-package-semantics.mjs',
   'scripts/test-resource-semantics.mjs',
+  'scripts/test-inventory-create-intent.mjs',
   'src/features/recipes/RecipeCoverFocusEditor.tsx',
   'src/features/recipes/RecipeCoverImage.tsx',
   'src/features/recipes/RecipeServingsControl.tsx',
@@ -1379,6 +1382,39 @@ for (const marker of ['.product-role-picker', '.inventory-resource-role-card', '
   if (!globalCss.includes(marker)) throw new Error(`V3.8 resource UI CSS marker missing: ${marker}`)
 }
 
+const specialResourceCreateContract = await readFile('tests/SPECIAL_RESOURCE_CREATE_CONTRACT.md', 'utf8')
+for (const marker of [
+  'stable **target role**',
+  'set_product_resource_semantics(...)',
+  'add_inventory_lot(...)',
+  'No new spice-specific or household-specific Inventory save function exists',
+]) {
+  if (!specialResourceCreateContract.includes(marker)) {
+    throw new Error(`V3.8.2 special-resource create contract marker missing: ${marker}`)
+  }
+}
+
+const createIntent = await readFile('src/features/inventory/inventoryCreateIntent.ts', 'utf8')
+for (const marker of ['targetRole', 'selectedProductRole', 'roleMismatch']) {
+  if (!createIntent.includes(marker)) throw new Error(`V3.8.2 create-intent marker missing: ${marker}`)
+}
+for (const marker of [
+  'resolveInventoryCreateIntent',
+  'createRoleMismatch',
+  'handleCreateRoleConversion',
+  'setCanonicalProductResourceRole',
+  'requestedCreateRole',
+]) {
+  if (!editor.includes(marker)) throw new Error(`V3.8.2 InventoryEditor marker missing: ${marker}`)
+}
+if (editor.includes("const activeRole = activeProduct ? productResourceRoleFromSemantics(activeProduct) : requestedCreateRole")) {
+  throw new Error('V3.8.2 must not let an exact Product silently override the create target role.')
+}
+if (!globalCss.includes('.inventory-role-mismatch-card')) {
+  throw new Error('V3.8.2 mobile role-mismatch card CSS is missing.')
+}
+
 await execFileAsync(process.execPath, ['scripts/test-resource-semantics.mjs'])
+await execFileAsync(process.execPath, ['scripts/test-inventory-create-intent.mjs'])
 
 console.log('Kitchen project contract verification: PASS')

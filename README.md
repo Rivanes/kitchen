@@ -2,7 +2,7 @@
 
 Private, single-user mobile-first PWA for household inventory, shopping and recipes.
 
-Closed milestones: **V1 Inventory — PASS/CLOSED**, **V2 Shopping — PASS/CLOSED**, **V3.1–V3.6 — PASS/CLOSED**. Current candidate: **V3.7 — V3 Closeout**. V4 Recipe Matching remains blocked until V3.7 PASS/CLOSED.
+Closed milestones: **V1 Inventory — PASS/CLOSED**, **V2 Shopping — PASS/CLOSED**, **V3.1–V3.8 — PASS/CLOSED**. Current corrective candidate: **V3.8.2 — Special Resource Inventory Create**. V4 Recipe Matching remains blocked until this corrective passes GitHub QA / Pages / phone-first smoke.
 
 Active Inventory capabilities:
 - owner-scoped stock read model
@@ -496,3 +496,16 @@ V3.8 deliberately does not implement `What Can I Cook?` or quantity shortage mat
 ### V3.8.1 — Resource Section Icons Corrective
 
 V3.8.1 is a runtime-only mobile-first visual corrective. `Przyprawy` uses a dedicated spice-shaker icon instead of the earlier generic plant mark, while `Domowe` uses a household-supplies spray-bottle icon instead of the Home-like house mark. Resource semantics, Inventory behavior and SQL remain unchanged.
+
+
+## V3.8.2 — Special Resource Inventory Create Corrective
+
+V3.8.2 fixes the mobile Add Product flow for `Przyprawy` and `Domowe` without creating any new Inventory save authority.
+
+- the section where Add Product was opened remains the stable target role for the whole create sheet
+- an exact existing canonical Product may report its current role, but it no longer silently changes the target Inventory section
+- a role mismatch is resolved explicitly through the existing `set_product_resource_semantics(...)` authority
+- the final Inventory create/merge still uses only `add_inventory_lot(...)`
+- genuinely new Products are created directly with the role implied by the target section
+- no Product duplication and no name-based role inference
+- no SQL/schema/RLS/Auth/Storage-policy change

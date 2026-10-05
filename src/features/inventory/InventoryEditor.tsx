@@ -27,6 +27,7 @@ import { QuantityStepperInput } from '../quantity/QuantityStepperInput'
 import { formatQuantityInput, parseQuantityInput, QUANTITY_INPUT_ERROR } from '../quantity/quantity'
 import { formatDateOnly, isValidDateOnly } from './expiry'
 import { createInventoryLot, removeInventoryLot, updateInventoryLot } from './inventoryMutations'
+import { resolveInventoryCreateIntent } from './inventoryCreateIntent'
 import { StorageLocationPicker } from './StorageLocationPicker'
 import type { CreateInventoryLotInput } from './inventoryMutations'
 import type { InventoryCreateSeed, InventoryLot, InventoryProduct, InventoryReadModel } from './types'
@@ -122,11 +123,13 @@ export function InventoryEditor({
   const [afterOpenDays, setAfterOpenDays] = useState(mode.kind === 'edit' && mode.lot.afterOpenDays ? String(mode.lot.afterOpenDays) : '')
   const [unitTouched, setUnitTouched] = useState(mode.kind === 'edit' || Boolean(createSeed))
   const [saving, setSaving] = useState(false)
+  const [roleConverting, setRoleConverting] = useState(false)
+  const [createProductOverride, setCreateProductOverride] = useState<InventoryProduct | null>(null)
   const [removing, setRemoving] = useState(false)
   const [confirmingRemove, setConfirmingRemove] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
   const firstInputRef = useRef<HTMLInputElement>(null)
-  const busy = saving || removing || settingsSaving
+  const busy = saving || removing || settingsSaving || roleConverting
 
   const packageContentUnits = useMemo(() => getPackageContentUnits(model.units), [model.units])
   const rowUnit = model.units.find((unit) => unit.code === unitCode) ?? null
@@ -139,15 +142,26 @@ export function InventoryEditor({
   )
   const exactProduct = mode.kind === 'create' && !createSeed ? productAutocomplete.exactProduct : null
   const suggestions = mode.kind === 'create' && !createSeed ? productAutocomplete.suggestions : []
+  const catalogCreateProduct = createProductOverride ?? exactProduct
   const activeProduct = mode.kind === 'edit'
     ? initialProduct
     : createSeed
       ? initialProduct
-      : exactProduct
+      : catalogCreateProduct
   const requestedCreateRole = roleForInventoryLocationKind(
     model.locations.find((location) => location.id === initialLocationId)?.kind ?? 'custom',
   )
-  const activeRole = activeProduct ? productResourceRoleFromSemantics(activeProduct) : requestedCreateRole
+  const createIntent = resolveInventoryCreateIntent(requestedCreateRole, catalogCreateProduct)
+  const activeRole = mode.kind === 'create' && !createSeed
+    ? createIntent.targetRole
+    : activeProduct
+      ? productResourceRoleFromSemantics(activeProduct)
+      : requestedCreateRole
+  const createRoleMismatch = mode.kind === 'create' && !createSeed && createIntent.roleMismatch
+  const selectedCreateProductRole = createIntent.selectedProductRole
+  const selectedCreateProductHasInventory = Boolean(exactProduct && model.groups.some((group) => (
+    group.lots.some((lot) => lot.productId === exactProduct.id)
+  )))
   const isPresenceMode = activeRole === 'spice'
   const isHouseholdMode = activeRole === 'household'
   const compatibleLocations = model.locations.filter((location) => locationKindMatchesProductRole(location.kind, activeRole))
@@ -219,6 +233,7 @@ export function InventoryEditor({
 
   function chooseProduct(product: (typeof model.products)[number]) {
     setProductName(product.name)
+    setCreateProductOverride(null)
     setUnitTouched(false)
     setPackageContentTouched(false)
     setUnitCode(product.defaultUnitCode)
@@ -247,6 +262,56 @@ export function InventoryEditor({
     if (busy) return
     setSettingsError('')
     setProductSettingsOpen(false)
+  }
+
+  async function handleCreateRoleConversion() {
+    if (
+      mode.kind !== 'create'
+      || createSeed
+      || !exactProduct
+      || !createRoleMismatch
+      || busy
+    ) return
+
+    const hasInventory = selectedCreateProductHasInventory
+
+    if (selectedCreateProductRole === 'spice' && activeRole !== 'spice' && hasInventory) {
+      setErrorMessage('Ten produkt ma już zapas w trybie „mam / nie mam”. Zmień jego rodzaj z poziomu istniejącego zapasu.')
+      return
+    }
+
+    const targetLocationId = activeRole === 'food' && hasInventory
+      ? locationId
+      : null
+
+    setRoleConverting(true)
+    setErrorMessage('')
+    try {
+      const updated = await setCanonicalProductResourceRole({
+        ownerId,
+        productId: exactProduct.id,
+        role: activeRole,
+        targetLocationId,
+        replacementQuantity: null,
+        replacementUnitCode: null,
+      })
+      setCreateProductOverride(updated)
+      setPackageContentTouched(false)
+      const nextDraft = getPackageDraft(updated, unitCode, model)
+      setPackageContentValue(nextDraft.value)
+      setPackageContentUnitCode(nextDraft.unitCode)
+    } catch (error: unknown) {
+      console.error('Kitchen Product role conversion failed.', error)
+      if (error instanceof Error && error.message.includes('Produkt używany w przepisach')) {
+        setErrorMessage('Ten produkt jest używany w przepisach, więc nie może zostać zmieniony na Domowe.')
+      } else if (error instanceof Error && error.message.includes('replacement quantity')) {
+        setErrorMessage('Ten produkt ma już zapas w trybie „mam / nie mam”. Zmień jego rodzaj z poziomu istniejącego zapasu.')
+      } else {
+        setErrorMessage(toUserErrorMessage(error, 'Nie udało się zmienić rodzaju produktu.'))
+      }
+    } finally {
+      setRoleConverting(false)
+    }
   }
 
   async function handleProductSettingsSubmit(event: FormEvent<HTMLFormElement>) {
@@ -340,6 +405,11 @@ export function InventoryEditor({
       return
     }
 
+    if (createRoleMismatch) {
+      setErrorMessage(`Ten produkt istnieje jako „${selectedCreateProductRole ? productResourceRoleLabel(selectedCreateProductRole) : 'inny rodzaj'}”. Najpierw zmień jego rodzaj na „${productResourceRoleLabel(activeRole)}”.`)
+      return
+    }
+
     const effectiveQuantity = isPresenceMode
       ? (createSeed ? Number(quantity) : 1)
       : parseQuantityInput(quantity)
@@ -353,6 +423,12 @@ export function InventoryEditor({
     }
     if (!locationId || !effectiveUnitCode) {
       setErrorMessage('Wybierz miejsce i jednostkę.')
+      return
+    }
+
+    const selectedLocation = model.locations.find((location) => location.id === locationId) ?? null
+    if (!selectedLocation || !locationKindMatchesProductRole(selectedLocation.kind, activeRole)) {
+      setErrorMessage(`Wybrana sekcja nie pasuje do rodzaju „${productResourceRoleLabel(activeRole)}”.`)
       return
     }
 
@@ -415,7 +491,7 @@ export function InventoryEditor({
           ownerId,
           productName,
           existingProductId: createSeed?.productId ?? exactProduct?.id ?? null,
-          resourceRole: activeProduct ? productResourceRoleFromSemantics(activeProduct) : requestedCreateRole,
+          resourceRole: mode.kind === 'create' && !createSeed ? requestedCreateRole : (activeProduct ? productResourceRoleFromSemantics(activeProduct) : requestedCreateRole),
           storageLocationId: locationId,
           quantity: effectiveQuantity,
           unitCode: effectiveUnitCode,
@@ -439,6 +515,7 @@ export function InventoryEditor({
       }
       onSaved()
     } catch (error: unknown) {
+      console.error('Kitchen Inventory save failed.', error)
       setErrorMessage(toUserErrorMessage(error, 'Nie udało się zapisać zmian.'))
       setSaving(false)
     }
@@ -645,6 +722,7 @@ export function InventoryEditor({
                   disabled={busy}
                   onChange={(nextName) => {
                     setProductName(nextName)
+                    setCreateProductOverride(null)
                     setPackageContentTouched(false)
                     setErrorMessage('')
                   }}
@@ -672,6 +750,27 @@ export function InventoryEditor({
                 {isPresenceMode && <small>W Zapachach śledzimy tylko obecność. Ilość z przepisu pozostaje niezależna.</small>}
                 {isHouseholdMode && <small>Produkt domowy nie jest dostępny jako składnik przepisu.</small>}
               </div>
+
+              {createRoleMismatch && exactProduct && (
+                <div className="inventory-role-mismatch-card" role="status">
+                  <div>
+                    <strong>Ten produkt ma inny rodzaj</strong>
+                    <span>
+                      „{exactProduct.name}” istnieje jako {selectedCreateProductRole ? productResourceRoleLabel(selectedCreateProductRole) : 'inny rodzaj'}.
+                      Aby dodać go tutaj, zmień rodzaj na {productResourceRoleLabel(activeRole)}.
+                      {selectedCreateProductHasInventory && activeRole === 'spice' ? ' Istniejący zapas ilościowy zostanie zamieniony na prosty stan „Masz”.' : ''}
+                    </span>
+                  </div>
+                  <button
+                    className="secondary-button compact-button"
+                    type="button"
+                    onClick={() => void handleCreateRoleConversion()}
+                    disabled={busy}
+                  >
+                    {roleConverting ? 'Zmieniam…' : `Zmień na ${productResourceRoleLabel(activeRole)}`}
+                  </button>
+                </div>
+              )}
 
               {!createSeed && !isPresenceMode && <div className="form-split">
                 <div className="form-field">
@@ -852,7 +951,7 @@ export function InventoryEditor({
 
               <div className="sheet-actions">
                 <button className="secondary-button" type="button" onClick={onClose} disabled={busy}>Anuluj</button>
-                <button className="primary-button" type="submit" disabled={busy}>
+                <button className="primary-button" type="submit" disabled={busy || createRoleMismatch}>
                   {saving ? 'Zapisuję…' : mode.kind === 'edit' && isPresenceMode ? 'Gotowe' : mode.kind === 'create' && isPresenceMode ? 'Dodaj' : 'Zapisz'}
                 </button>
               </div>
