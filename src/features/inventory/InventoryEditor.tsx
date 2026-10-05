@@ -388,6 +388,7 @@ export function InventoryEditor({
         nextName: cleanName,
         packageContentValue: settingsRole === 'spice' ? null : parsedDefaultContent,
         packageContentUnitCode: settingsRole === 'spice' || !parsedDefaultContent ? null : settingsPackageContentUnitCode,
+        minimumStockQuantity: settingsRole === 'household' ? initialProduct.minimumStockQuantity : null,
       })
       onSaved()
     } catch (error: unknown) {
@@ -751,7 +752,7 @@ export function InventoryEditor({
                     <span>
                       „{exactProduct.name}” istnieje jako {selectedCreateProductRole ? productResourceRoleLabel(selectedCreateProductRole) : 'inny rodzaj'}.
                       Aby dodać go tutaj, zmień rodzaj na {productResourceRoleLabel(activeRole)}.
-                      {selectedCreateProductHasInventory && activeRole === 'spice' ? ' Istniejący zapas ilościowy zostanie zamieniony na prosty stan „Masz”.' : ''}
+                      {selectedCreateProductHasInventory && activeRole === 'spice' ? ' Istniejący zapas ilościowy zostanie zamieniony na prosty stan „Mam”.' : ''}
                     </span>
                   </div>
                   <button

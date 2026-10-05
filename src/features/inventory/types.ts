@@ -41,9 +41,18 @@ export type InventoryLot = {
   openedUseByDate: string | null
 }
 
+export type InventoryResource = {
+  product: InventoryProduct
+  quantity: number
+  unitCode: string
+  unitSymbol: string
+  present: boolean
+}
+
 export type InventoryLocationGroup = {
   location: InventoryLocation
   lots: InventoryLot[]
+  resources: InventoryResource[]
 }
 
 export type InventoryReadModel = {
@@ -52,6 +61,8 @@ export type InventoryReadModel = {
   units: MeasurementUnit[]
   groups: InventoryLocationGroup[]
   totalLots: number
+  totalDisplayItems: number
   stockedProducts: number
+  resourceProducts: number
   occupiedLocations: number
 }

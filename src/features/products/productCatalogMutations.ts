@@ -35,6 +35,7 @@ export type RenameCanonicalProductInput = {
 export type UpdateCanonicalProductSettingsInput = RenameCanonicalProductInput & {
   packageContentValue: number | null
   packageContentUnitCode: string | null
+  minimumStockQuantity: number | null
 }
 
 export type ResolvedCanonicalProduct = CanonicalProductIdentity & {
@@ -49,6 +50,7 @@ type RawProductIdentity = {
   package_content_unit: string | null
   recipe_eligible: boolean
   inventory_tracking_mode: 'quantity' | 'presence'
+  minimum_stock_quantity: number | string | null
 }
 
 export function cleanCanonicalProductName(value: string) {
@@ -68,6 +70,10 @@ function mapProduct(row: RawProductIdentity): CanonicalProductIdentity {
     throw new Error('Produkt ma niespójną domyślną zawartość opakowania.')
   }
 
+  const minimumStockQuantity = row.minimum_stock_quantity === null
+    ? null
+    : readStoredQuantity(row.minimum_stock_quantity, 'Produkt ma nieprawidłowy minimalny zapas.')
+
   return {
     id: row.id,
     name: row.name,
@@ -76,10 +82,11 @@ function mapProduct(row: RawProductIdentity): CanonicalProductIdentity {
     packageContentUnitCode: row.package_content_unit,
     recipeEligible: row.recipe_eligible,
     inventoryTrackingMode: row.inventory_tracking_mode,
+    minimumStockQuantity,
   }
 }
 
-const productSelect = 'id, name, default_unit_code, package_content_value, package_content_unit, recipe_eligible, inventory_tracking_mode'
+const productSelect = 'id, name, default_unit_code, package_content_value, package_content_unit, recipe_eligible, inventory_tracking_mode, minimum_stock_quantity'
 
 export async function loadOwnerProductCatalog(ownerId: string): Promise<CanonicalProductIdentity[]> {
   if (!supabase) throw new Error('Supabase is not configured.')
@@ -125,6 +132,9 @@ export async function updateCanonicalProductSettings(input: UpdateCanonicalProdu
     ? assertValidQuantity(input.packageContentValue!, 'Podaj prawidłową domyślną zawartość opakowania.')
     : null
   const packageContentUnitCode = hasUnit ? input.packageContentUnitCode : null
+  const minimumStockQuantity = input.minimumStockQuantity === null
+    ? null
+    : assertValidQuantity(input.minimumStockQuantity, 'Podaj prawidłowy minimalny zapas.')
 
   const result = await supabase
     .from('products')
@@ -132,6 +142,7 @@ export async function updateCanonicalProductSettings(input: UpdateCanonicalProdu
       name: cleanName,
       package_content_value: packageContentValue,
       package_content_unit: packageContentUnitCode,
+      minimum_stock_quantity: minimumStockQuantity,
     })
     .eq('id', input.productId)
     .eq('owner_id', input.ownerId)
@@ -163,6 +174,7 @@ export async function renameCanonicalProduct(input: RenameCanonicalProductInput)
     ...input,
     packageContentValue: current.packageContentValue,
     packageContentUnitCode: current.packageContentUnitCode,
+    minimumStockQuantity: current.minimumStockQuantity,
   })
 }
 

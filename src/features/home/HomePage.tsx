@@ -1,8 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
 import { KitchenIcon } from '../../components/KitchenIcon'
 import { getInventoryExpiryMeta } from '../inventory/expiry'
+import { formatQuantity } from '../quantity/quantity'
 import { loadInventoryReadModel } from '../inventory/inventoryReadModel'
-import { loadActiveShoppingCount } from '../shopping/shoppingReadModel'
+import { isHouseholdLowStock } from '../inventory/resourcePolicy'
+import { loadActiveShoppingCount, loadActiveShoppingProductIds } from '../shopping/shoppingReadModel'
+import { ensureActiveShoppingProduct } from '../shopping/shoppingMutations'
 import type { InventoryReadModel } from '../inventory/types'
 
 type HomePageProps = {
@@ -18,13 +21,13 @@ type HomeStatus =
   | { status: 'error'; model: null }
 
 function polishProducts(value: number) {
-  if (value === 1) return '1 produkt w zapasach'
+  if (value === 1) return '1 produkt w zasobach'
   const mod10 = value % 10
   const mod100 = value % 100
   if (mod10 >= 2 && mod10 <= 4 && !(mod100 >= 12 && mod100 <= 14)) {
-    return `${value} produkty w zapasach`
+    return `${value} produkty w zasobach`
   }
-  return `${value} produktów w zapasach`
+  return `${value} produktów w zasobach`
 }
 
 function expiryHubSummary(critical: number, warning: number, missing: number, total: number) {
@@ -52,6 +55,9 @@ function shoppingSummary(count: number) {
 export function HomePage({ ownerId, onAddProduct, onOpenExpiry, onOpenShopping }: HomePageProps) {
   const [homeStatus, setHomeStatus] = useState<HomeStatus>({ status: 'loading', model: null })
   const [shoppingCount, setShoppingCount] = useState<number | null>(null)
+  const [activeShoppingProductIds, setActiveShoppingProductIds] = useState<Set<string>>(new Set())
+  const [lowStockUpdatingId, setLowStockUpdatingId] = useState<string | null>(null)
+  const [lowStockError, setLowStockError] = useState('')
 
   useEffect(() => {
     let active = true
@@ -72,12 +78,19 @@ export function HomePage({ ownerId, onAddProduct, onOpenExpiry, onOpenShopping }
   useEffect(() => {
     let active = true
 
-    loadActiveShoppingCount(ownerId)
-      .then((count) => {
-        if (active) setShoppingCount(count)
+    Promise.all([
+      loadActiveShoppingCount(ownerId),
+      loadActiveShoppingProductIds(ownerId),
+    ])
+      .then(([count, productIds]) => {
+        if (!active) return
+        setShoppingCount(count)
+        setActiveShoppingProductIds(productIds)
       })
       .catch(() => {
-        if (active) setShoppingCount(null)
+        if (!active) return
+        setShoppingCount(null)
+        setActiveShoppingProductIds(new Set())
       })
 
     return () => {
@@ -85,7 +98,7 @@ export function HomePage({ ownerId, onAddProduct, onOpenExpiry, onOpenShopping }
     }
   }, [ownerId])
 
-  const hasStock = homeStatus.status === 'ready' && homeStatus.model.totalLots > 0
+  const hasResources = homeStatus.status === 'ready' && homeStatus.model.resourceProducts > 0
 
   const expirySummary = useMemo(() => {
     if (homeStatus.status !== 'ready') return { critical: 0, warning: 0, missing: 0, total: 0 }
@@ -115,6 +128,32 @@ export function HomePage({ ownerId, onAddProduct, onOpenExpiry, onOpenShopping }
         ? 'warning'
         : 'good'
 
+
+  const lowHouseholdResources = useMemo(() => {
+    if (homeStatus.status !== 'ready') return []
+    const household = homeStatus.model.groups.find((group) => group.location.kind === 'household')
+    if (!household) return []
+    return household.resources.filter((resource) => (
+      isHouseholdLowStock(resource.quantity, resource.product.minimumStockQuantity)
+    ))
+  }, [homeStatus])
+
+  async function handleAddLowStock(productId: string) {
+    if (lowStockUpdatingId || activeShoppingProductIds.has(productId)) return
+    setLowStockUpdatingId(productId)
+    setLowStockError('')
+    try {
+      const result = await ensureActiveShoppingProduct(ownerId, productId)
+      setActiveShoppingProductIds((current) => new Set(current).add(productId))
+      if (result.created) setShoppingCount((current) => current === null ? null : current + 1)
+    } catch (error) {
+      console.error('Kitchen Home low-stock Shopping ensure failed.', error)
+      setLowStockError('Nie udało się dodać produktu do listy zakupów.')
+    } finally {
+      setLowStockUpdatingId(null)
+    }
+  }
+
   return (
     <section className="home-page" aria-label="Start">
       <section className="home-overview" aria-labelledby="home-overview-title">
@@ -124,8 +163,8 @@ export function HomePage({ ownerId, onAddProduct, onOpenExpiry, onOpenShopping }
             <h1 id="home-overview-title">Twoja kuchnia</h1>
             {homeStatus.status === 'loading' && <p>Sprawdzam stan zapasów…</p>}
             {homeStatus.status === 'error' && <p>Zapasy są dostępne w dolnym menu.</p>}
-            {homeStatus.status === 'ready' && !hasStock && <p>Dodaj pierwszy produkt i zacznij budować zapasy.</p>}
-            {homeStatus.status === 'ready' && hasStock && <p>{polishProducts(homeStatus.model.stockedProducts)}</p>}
+            {homeStatus.status === 'ready' && !hasResources && <p>Dodaj pierwszy produkt i zacznij budować zasoby.</p>}
+            {homeStatus.status === 'ready' && hasResources && <p>{polishProducts(homeStatus.model.resourceProducts)}</p>}
           </div>
           <span className="home-overview-icon" aria-hidden="true"><KitchenIcon name="inventory" size={22} /></span>
         </div>
@@ -133,7 +172,7 @@ export function HomePage({ ownerId, onAddProduct, onOpenExpiry, onOpenShopping }
 
       <button className="home-quick-action" type="button" onClick={onAddProduct}>
         <span className="home-quick-icon" aria-hidden="true"><KitchenIcon name="plus" size={23} /></span>
-        <strong>{hasStock ? 'Dodaj produkt' : 'Dodaj pierwszy produkt'}</strong>
+        <strong>{hasResources ? 'Dodaj produkt' : 'Dodaj pierwszy produkt'}</strong>
         <KitchenIcon name="chevronRight" size={20} />
       </button>
 
@@ -160,6 +199,42 @@ export function HomePage({ ownerId, onAddProduct, onOpenExpiry, onOpenShopping }
         </span>
         <KitchenIcon name="chevronRight" size={19} />
       </button>
+
+      {lowHouseholdResources.length > 0 && (
+        <section className="home-low-stock" aria-labelledby="home-low-stock-title">
+          <div className="home-section-heading home-low-stock-heading">
+            <h2 id="home-low-stock-title">Do uzupełnienia</h2>
+          </div>
+          <div className="home-low-stock-list">
+            {lowHouseholdResources.map((resource) => {
+              const onShopping = activeShoppingProductIds.has(resource.product.id)
+              const updating = lowStockUpdatingId === resource.product.id
+              return (
+                <div className="home-low-stock-row" key={resource.product.id}>
+                  <span className="home-low-stock-copy">
+                    <strong>{resource.product.name}</strong>
+                    <small>{formatQuantity(resource.quantity)} {resource.unitSymbol}</small>
+                  </span>
+                  {onShopping ? (
+                    <button className="home-low-stock-status" type="button" onClick={onOpenShopping}>Na liście</button>
+                  ) : (
+                    <button
+                      className="secondary-button compact-button home-low-stock-add"
+                      type="button"
+                      onClick={() => void handleAddLowStock(resource.product.id)}
+                      disabled={updating}
+                    >
+                      <KitchenIcon name="shoppingAdd" size={16} />
+                      {updating ? 'Dodaję…' : 'Dodaj'}
+                    </button>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+          {lowStockError && <p className="form-error" role="alert">{lowStockError}</p>}
+        </section>
+      )}
 
       <section className="home-coming" aria-labelledby="home-coming-title">
         <div className="home-section-heading">

@@ -53,6 +53,8 @@ export function ShoppingEditor({ ownerId, model, mode, onClose, onSaved }: Shopp
   const productAutocomplete = useProductAutocomplete(model.products, name)
   const exactProduct = productAutocomplete.exactProduct
   const suggestions = productAutocomplete.suggestions
+  const exactProductRole = exactProduct ? productResourceRoleFromSemantics(exactProduct) : null
+  const lockHouseholdUnit = exactProductRole === 'household'
 
   useEffect(() => {
     const previousOverflow = document.body.style.overflow
@@ -241,7 +243,7 @@ export function ShoppingEditor({ ownerId, model, mode, onClose, onSaved }: Shopp
                   setUnitTouched(true)
                   setErrorMessage('')
                 }}
-                disabled={busy}
+                disabled={busy || lockHouseholdUnit}
               >
                 {model.units.map((unit) => (
                   <option key={unit.code} value={unit.code}>{unit.symbol}</option>

@@ -5,8 +5,12 @@ import { InventoryConsumeSheet } from './InventoryConsumeSheet'
 import { getInventoryExpiryMeta } from './expiry'
 import { InventoryEditor } from './InventoryEditor'
 import { loadInventoryReadModel } from './inventoryReadModel'
+import { adjustHouseholdStock, setSpicePresence } from './resourceMutations'
+import { isHouseholdLowStock } from './resourcePolicy'
+import { HouseholdMinimumSheet } from './HouseholdMinimumSheet'
 import { useInventoryShoppingBridge } from './InventoryShoppingBridge'
-import type { InventoryLocation, InventoryLocationGroup, InventoryLot, InventoryReadModel, StorageLocationKind } from './types'
+import type { InventoryLocation, InventoryLocationGroup, InventoryLot, InventoryReadModel, InventoryResource, StorageLocationKind } from './types'
+import { toUserErrorMessage } from '../../lib/userError'
 
 type InventoryPageProps = {
   ownerId: string
@@ -55,17 +59,32 @@ function uniqueProductCount(lots: InventoryLot[]) {
   return new Set(lots.map((lot) => lot.productId)).size
 }
 
-function locationStockLabel(lots: InventoryLot[]) {
-  if (lots.length === 0) return 'Pusto'
-  const products = uniqueProductCount(lots)
-  return lots.length > products
-    ? `${pluralizeProducts(products)} · ${pluralizeLots(lots.length)}`
+function groupDisplayCount(group: InventoryLocationGroup) {
+  return group.resources.length > 0 ? group.resources.length : uniqueProductCount(group.lots)
+}
+
+function locationStockLabel(group: InventoryLocationGroup) {
+  if (group.location.kind === 'spices') {
+    const count = group.resources.length
+    if (count === 0) return 'Pusto'
+    return polishCount(count, 'przyprawa', 'przyprawy', 'przypraw')
+  }
+  if (group.location.kind === 'household') {
+    const count = group.resources.length
+    return count === 0 ? 'Pusto' : pluralizeProducts(count)
+  }
+  if (group.lots.length === 0) return 'Pusto'
+  const products = uniqueProductCount(group.lots)
+  return group.lots.length > products
+    ? `${pluralizeProducts(products)} · ${pluralizeLots(group.lots.length)}`
     : pluralizeProducts(products)
 }
 
-function locationPreview(lots: InventoryLot[]) {
-  if (lots.length === 0) return 'Pusto'
-  const names = Array.from(new Set(lots.map((lot) => lot.productName)))
+function locationPreview(group: InventoryLocationGroup) {
+  const names = group.resources.length > 0
+    ? group.resources.map((resource) => resource.product.name)
+    : Array.from(new Set(group.lots.map((lot) => lot.productName)))
+  if (names.length === 0) return 'Pusto'
   const visible = names.slice(0, 2)
   const remaining = names.length - visible.length
   return `${visible.join(', ')}${remaining > 0 ? ` +${remaining}` : ''}`
@@ -84,18 +103,19 @@ function InventoryOverview({
   onOpenLocation: (locationId: string) => void
   onAdd: () => void
 }) {
-  const shouldShowSearch = model.totalLots >= 8
+  const shouldShowSearch = model.totalDisplayItems >= 8
   const normalizedSearch = shouldShowSearch ? searchQuery.trim().toLocaleLowerCase('pl') : ''
   const visibleGroups = normalizedSearch
     ? model.groups.filter((group) => (
       group.location.name.toLocaleLowerCase('pl').includes(normalizedSearch)
       || group.lots.some((lot) => lot.productName.toLocaleLowerCase('pl').includes(normalizedSearch))
+      || group.resources.some((resource) => resource.product.name.toLocaleLowerCase('pl').includes(normalizedSearch))
     ))
     : model.groups
 
   return (
     <>
-      {model.totalLots === 0 && (
+      {model.totalDisplayItems === 0 && (
         <div className="inventory-overview-empty">
           <div className="inventory-empty-icon" aria-hidden="true"><KitchenIcon name="inventory" size={24} /></div>
           <div>
@@ -141,9 +161,12 @@ function InventoryOverview({
             const matchingLots = normalizedSearch
               ? group.lots.filter((lot) => lot.productName.toLocaleLowerCase('pl').includes(normalizedSearch))
               : group.lots
-            const displayLots = normalizedSearch && locationMatches && matchingLots.length === 0
-              ? group.lots
-              : matchingLots
+            const matchingResources = normalizedSearch
+              ? group.resources.filter((resource) => resource.product.name.toLocaleLowerCase('pl').includes(normalizedSearch))
+              : group.resources
+            const displayGroup = normalizedSearch && locationMatches && matchingLots.length === 0 && matchingResources.length === 0
+              ? group
+              : { ...group, lots: matchingLots, resources: matchingResources }
 
             return (
               <button
@@ -157,10 +180,10 @@ function InventoryOverview({
                 </span>
                 <span className="location-entry-copy">
                   <strong>{group.location.name}</strong>
-                  <span>{locationPreview(displayLots)}</span>
+                  <span>{locationPreview(displayGroup)}</span>
                 </span>
                 <span className="location-entry-end">
-                  <span className="location-count-badge">{uniqueProductCount(displayLots)}</span>
+                  <span className="location-count-badge">{groupDisplayCount(displayGroup)}</span>
                   <KitchenIcon name="chevronRight" size={18} />
                 </span>
               </button>
@@ -180,6 +203,11 @@ function InventoryLocationView({
   onAdd,
   onEdit,
   onAddToShopping,
+  onToggleSpice,
+  onAdjustHousehold,
+  onEditHouseholdMinimum,
+  resourceUpdatingId,
+  resourceError,
 }: {
   group: InventoryLocationGroup
   searchQuery: string
@@ -188,12 +216,22 @@ function InventoryLocationView({
   onAdd: () => void
   onEdit: (lot: InventoryLot) => void
   onAddToShopping: (lot: InventoryLot) => void
+  onToggleSpice: (resource: InventoryResource) => void
+  onAdjustHousehold: (resource: InventoryResource, delta: -1 | 1) => void
+  onEditHouseholdMinimum: (resource: InventoryResource) => void
+  resourceUpdatingId: string | null
+  resourceError: string
 }) {
+  const isSpecialResourceSection = group.location.kind === 'spices' || group.location.kind === 'household'
   const normalizedSearch = searchQuery.trim().toLocaleLowerCase('pl')
   const visibleLots = normalizedSearch
     ? group.lots.filter((lot) => lot.productName.toLocaleLowerCase('pl').includes(normalizedSearch))
     : group.lots
-  const shouldShowSearch = group.lots.length >= 8
+  const visibleResources = normalizedSearch
+    ? group.resources.filter((resource) => resource.product.name.toLocaleLowerCase('pl').includes(normalizedSearch))
+    : group.resources
+  const itemCount = isSpecialResourceSection ? group.resources.length : group.lots.length
+  const shouldShowSearch = itemCount >= 8
 
   return (
     <section className="inventory-location-page" aria-labelledby="inventory-location-title">
@@ -208,7 +246,7 @@ function InventoryLocationView({
         </div>
         <div>
           <h1 id="inventory-location-title">{group.location.name}</h1>
-          <p>{locationStockLabel(group.lots)}</p>
+          <p>{locationStockLabel(group)}</p>
         </div>
         <button className="primary-icon-button" type="button" onClick={onAdd} aria-label={`Dodaj produkt do: ${group.location.name}`} title="Dodaj produkt">
           <KitchenIcon name="plus" />
@@ -234,18 +272,95 @@ function InventoryLocationView({
         </label>
       )}
 
-      {group.lots.length === 0 ? (
+      {resourceError && isSpecialResourceSection && <p className="form-error resource-action-error" role="alert">{resourceError}</p>}
+
+      {itemCount === 0 ? (
         <div className="inventory-location-empty">
           <strong>Nic tu jeszcze nie ma</strong>
-          <span>Dodaj pierwszy produkt bezpośrednio do tego miejsca.</span>
           <button className="primary-button" type="button" onClick={onAdd}>
             <KitchenIcon name="plus" size={18} /> Dodaj produkt
           </button>
         </div>
-      ) : visibleLots.length === 0 ? (
+      ) : isSpecialResourceSection && visibleResources.length === 0 ? (
         <div className="inventory-search-empty" aria-live="polite">
           <strong>Brak wyników</strong>
           <span>Spróbuj innej nazwy produktu.</span>
+        </div>
+      ) : !isSpecialResourceSection && visibleLots.length === 0 ? (
+        <div className="inventory-search-empty" aria-live="polite">
+          <strong>Brak wyników</strong>
+          <span>Spróbuj innej nazwy produktu.</span>
+        </div>
+      ) : group.location.kind === 'spices' ? (
+        <div className="inventory-location-list-card special-resource-list-card">
+          <ul className="inventory-list special-resource-list">
+            {visibleResources.map((resource) => {
+              const updating = resourceUpdatingId === resource.product.id
+              return (
+                <li key={resource.product.id}>
+                  <div className="special-resource-row spice-resource-row">
+                    <strong>{resource.product.name}</strong>
+                    <button
+                      className={`spice-presence-button ${resource.present ? 'is-present' : 'is-missing'}`}
+                      type="button"
+                      onClick={() => onToggleSpice(resource)}
+                      disabled={updating}
+                      aria-pressed={resource.present}
+                      aria-label={`${resource.product.name}: ${resource.present ? 'Mam. Oznacz jako brak' : 'Brak. Oznacz jako mam'}`}
+                    >
+                      {updating ? '…' : resource.present ? 'Mam' : 'Brak'}
+                    </button>
+                  </div>
+                </li>
+              )
+            })}
+          </ul>
+        </div>
+      ) : group.location.kind === 'household' ? (
+        <div className="inventory-location-list-card special-resource-list-card">
+          <ul className="inventory-list special-resource-list">
+            {visibleResources.map((resource) => {
+              const updating = resourceUpdatingId === resource.product.id
+              const minimum = resource.product.minimumStockQuantity
+              const low = isHouseholdLowStock(resource.quantity, minimum)
+              return (
+                <li key={resource.product.id}>
+                  <div className={`special-resource-row household-resource-row${low ? ' is-low' : ''}`}>
+                    <button
+                      className="household-resource-settings"
+                      type="button"
+                      onClick={() => onEditHouseholdMinimum(resource)}
+                      disabled={updating}
+                      aria-label={`Minimalny zapas: ${resource.product.name}`}
+                    >
+                      <span className="household-resource-copy">
+                        <strong>{resource.product.name}</strong>
+                        {low && minimum !== null && (
+                          <small>Minimum {formatQuantity(minimum)} {resource.unitSymbol}</small>
+                        )}
+                      </span>
+                      <KitchenIcon name="edit" size={15} />
+                    </button>
+                    <div className="household-stock-stepper" aria-label={`Stan: ${resource.product.name}`}>
+                      <button
+                        type="button"
+                        onClick={() => onAdjustHousehold(resource, -1)}
+                        disabled={updating || resource.quantity <= 0}
+                        aria-label={`Zmniejsz stan: ${resource.product.name}`}
+                      >−</button>
+                      <span>{updating ? '…' : `${formatQuantity(resource.quantity)} ${resource.unitSymbol}`}</span>
+                      <button
+                        type="button"
+                        onClick={() => onAdjustHousehold(resource, 1)}
+                        disabled={updating}
+                        aria-label={`Zwiększ stan: ${resource.product.name}`}
+                      >+</button>
+                    </div>
+                  </div>
+                </li>
+              )
+            })}
+          </ul>
         </div>
       ) : (
         <div className="inventory-location-list-card">
@@ -273,11 +388,7 @@ function InventoryLocationView({
                       })()}
                     </div>
                     <span className="inventory-row-end">
-                      {lot.inventoryTrackingMode === 'presence' ? (
-                        <span className="quantity-pill quantity-pill-presence">Masz</span>
-                      ) : (
-                        <span className="quantity-pill">{formatQuantity(lot.quantity)} {lot.unitSymbol}</span>
-                      )}
+                      <span className="quantity-pill">{formatQuantity(lot.quantity)} {lot.unitSymbol}</span>
                       <KitchenIcon name="edit" size={17} />
                     </span>
                   </button>
@@ -312,6 +423,9 @@ export function InventoryPage({
   const [consumeLot, setConsumeLot] = useState<InventoryLot | null>(null)
   const [selectedLocationId, setSelectedLocationId] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
+  const [resourceUpdatingId, setResourceUpdatingId] = useState<string | null>(null)
+  const [resourceError, setResourceError] = useState('')
+  const [minimumResource, setMinimumResource] = useState<InventoryResource | null>(null)
   const handledCreateRequest = useRef(0)
   const handledOverviewRequest = useRef(0)
 
@@ -319,6 +433,16 @@ export function InventoryPage({
     setLoadState({ status: 'loading', model: null })
     setReloadVersion((version) => version + 1)
   }, [])
+
+  const refreshSilently = useCallback(async () => {
+    try {
+      const model = await loadInventoryReadModel(ownerId)
+      setLoadState({ status: 'ready', model })
+    } catch (error) {
+      console.error('Kitchen inventory silent refresh failed.', error)
+      reload()
+    }
+  }, [ownerId, reload])
 
   useEffect(() => {
     let active = true
@@ -392,6 +516,37 @@ export function InventoryPage({
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
+
+  async function handleSpiceToggle(resource: InventoryResource) {
+    if (resourceUpdatingId) return
+    setResourceUpdatingId(resource.product.id)
+    setResourceError('')
+    try {
+      await setSpicePresence(ownerId, resource.product.id, !resource.present)
+      await refreshSilently()
+    } catch (error) {
+      console.error('Kitchen Spice presence update failed.', error)
+      setResourceError(toUserErrorMessage(error, 'Nie udało się zmienić stanu przyprawy.'))
+    } finally {
+      setResourceUpdatingId(null)
+    }
+  }
+
+  async function handleHouseholdAdjust(resource: InventoryResource, delta: -1 | 1) {
+    if (resourceUpdatingId) return
+    setResourceUpdatingId(resource.product.id)
+    setResourceError('')
+    try {
+      await adjustHouseholdStock(ownerId, resource.product.id, delta)
+      await refreshSilently()
+    } catch (error) {
+      console.error('Kitchen Household quick stock update failed.', error)
+      setResourceError(toUserErrorMessage(error, 'Nie udało się zmienić stanu Domowe.'))
+    } finally {
+      setResourceUpdatingId(null)
+    }
+  }
+
   const selectedGroup = useMemo(() => {
     if (loadState.status !== 'ready' || !selectedLocationId) return null
     return loadState.model.groups.find((group) => group.location.id === selectedLocationId) ?? null
@@ -462,6 +617,11 @@ export function InventoryPage({
           onAdd={() => setEditor({ kind: 'create', initialLocationId: selectedGroup.location.id })}
           onEdit={(lot) => setEditor({ kind: 'edit', lot })}
           onAddToShopping={inventoryShopping.openForLot}
+          onToggleSpice={(resource) => void handleSpiceToggle(resource)}
+          onAdjustHousehold={(resource, delta) => void handleHouseholdAdjust(resource, delta)}
+          onEditHouseholdMinimum={setMinimumResource}
+          resourceUpdatingId={resourceUpdatingId}
+          resourceError={resourceError}
         />
       )}
 
@@ -484,6 +644,19 @@ export function InventoryPage({
           onConsumed={(result) => {
             setConsumeLot(null)
             inventoryShopping.handleConsumed(consumeLot, result)
+          }}
+        />
+      )}
+
+
+      {minimumResource && (
+        <HouseholdMinimumSheet
+          ownerId={ownerId}
+          resource={minimumResource}
+          onClose={() => setMinimumResource(null)}
+          onSaved={() => {
+            setMinimumResource(null)
+            void refreshSilently()
           }}
         />
       )}

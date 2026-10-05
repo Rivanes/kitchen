@@ -88,6 +88,10 @@ export async function createShoppingItem(input: CreateShoppingItemInput) {
     resourceRole: input.resourceRole,
   })
 
+  if (!product.recipeEligible && product.inventoryTrackingMode === 'quantity' && input.unitCode !== product.defaultUnitCode) {
+    throw new Error('Produkty Domowe używają na liście swojej stałej jednostki zapasu.')
+  }
+
   try {
     const activeItems = await loadActiveShoppingItems(input.ownerId)
     const mergeTarget = activeItems.find((item) =>
@@ -201,6 +205,10 @@ export async function updateShoppingItem(input: UpdateShoppingItemInput) {
     selectedProductId: input.existingProductId,
     defaultUnitCode: input.unitCode,
   })
+
+  if (!product.recipeEligible && product.inventoryTrackingMode === 'quantity' && input.unitCode !== product.defaultUnitCode) {
+    throw new Error('Produkty Domowe używają na liście swojej stałej jednostki zapasu.')
+  }
 
   try {
     const result = await supabase
@@ -353,4 +361,22 @@ export async function transferPurchasedShoppingItemToInventory(input: TransferPu
     result.data,
     'Nie udało się potwierdzić przeniesienia zakupu do zapasów.',
   )
+}
+
+export async function ensureActiveShoppingProduct(ownerId: string, productId: string) {
+  if (!supabase) throw new Error('Supabase is not configured.')
+
+  const result = await supabase
+    .rpc('ensure_active_shopping_product', {
+      p_owner_id: ownerId,
+      p_product_id: productId,
+    })
+    .maybeSingle()
+
+  if (result.error) {
+    throw new Error(`Nie udało się dodać produktu do listy zakupów: ${result.error.message}`)
+  }
+  if (!result.data) throw new Error('Nie udało się potwierdzić produktu na liście zakupów.')
+
+  return result.data as { shopping_item_id: string; created: boolean }
 }

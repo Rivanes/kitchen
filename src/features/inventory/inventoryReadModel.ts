@@ -1,12 +1,13 @@
 import { supabase } from '../../lib/supabase/client'
 import { loadMeasurementUnits } from '../measurements/measurementUnits'
 import { loadOwnerProductCatalog } from '../products/productCatalogMutations'
-import { readStoredQuantity } from '../quantity/quantity'
+import { addQuantities, readStoredQuantity } from '../quantity/quantity'
 import { compareExpiryDates, getEffectiveExpiryDate } from './expiry'
 import type {
   InventoryLocation,
   InventoryLocationGroup,
   InventoryLot,
+  InventoryResource,
   InventoryReadModel,
   StorageLocationKind,
 } from './types'
@@ -131,10 +132,81 @@ export async function loadInventoryReadModel(ownerId: string): Promise<Inventory
     return a.productName.localeCompare(b.productName, 'pl', { sensitivity: 'base' })
   })
 
+  const lotsByProduct = new Map<string, InventoryLot[]>()
+  for (const lot of lots) {
+    const productLots = lotsByProduct.get(lot.productId) ?? []
+    productLots.push(lot)
+    lotsByProduct.set(lot.productId, productLots)
+  }
+
+  function buildResource(product: (typeof products)[number]): InventoryResource {
+    const productLots = lotsByProduct.get(product.id) ?? []
+    const roleIsSpice = product.inventoryTrackingMode === 'presence'
+    const roleIsHousehold = product.recipeEligible === false && product.inventoryTrackingMode === 'quantity'
+    if (!roleIsSpice && !roleIsHousehold) {
+      throw new Error('Inventory resource projection received a standard-food Product.')
+    }
+
+    const unit = unitByCode.get(product.defaultUnitCode)
+    if (!unit) throw new Error('Inventory resource Product has an unresolved default unit.')
+
+    if (roleIsSpice) {
+      return {
+        product,
+        quantity: productLots.length > 0 ? 1 : 0,
+        unitCode: product.defaultUnitCode,
+        unitSymbol: unit.symbol,
+        present: productLots.length > 0,
+      }
+    }
+
+    let quantity = 0
+    for (const lot of productLots) {
+      if (lot.unitCode !== product.defaultUnitCode) {
+        throw new Error('Household Inventory must use the Product default tracking unit.')
+      }
+      quantity = addQuantities(
+        quantity,
+        lot.quantity,
+        'Łączny stan Domowe przekracza dozwolony zakres.',
+      )
+    }
+
+    return {
+      product,
+      quantity,
+      unitCode: product.defaultUnitCode,
+      unitSymbol: unit.symbol,
+      present: quantity > 0,
+    }
+  }
+
+  const spiceResources = products
+    .filter((product) => product.recipeEligible && product.inventoryTrackingMode === 'presence')
+    .map(buildResource)
+    .sort((a, b) => a.product.name.localeCompare(b.product.name, 'pl', { sensitivity: 'base' }))
+  const householdResources = products
+    .filter((product) => !product.recipeEligible && product.inventoryTrackingMode === 'quantity')
+    .map(buildResource)
+    .sort((a, b) => a.product.name.localeCompare(b.product.name, 'pl', { sensitivity: 'base' }))
+
   const groups: InventoryLocationGroup[] = locations.map((location) => ({
     location,
     lots: lots.filter((lot) => lot.storageLocationId === location.id),
+    resources: location.kind === 'spices'
+      ? spiceResources
+      : location.kind === 'household'
+        ? householdResources
+        : [],
   }))
+
+  const totalDisplayItems = groups.reduce((total, group) => (
+    total + (group.resources.length > 0 ? group.resources.length : group.lots.length)
+  ), 0)
+
+  const resourceProductIds = new Set(lots.map((lot) => lot.productId))
+  for (const resource of spiceResources) resourceProductIds.add(resource.product.id)
+  for (const resource of householdResources) resourceProductIds.add(resource.product.id)
 
   return {
     locations,
@@ -142,7 +214,9 @@ export async function loadInventoryReadModel(ownerId: string): Promise<Inventory
     units,
     groups,
     totalLots: lots.length,
+    totalDisplayItems,
     stockedProducts: new Set(lots.map((lot) => lot.productId)).size,
-    occupiedLocations: groups.filter((group) => group.lots.length > 0).length,
+    resourceProducts: resourceProductIds.size,
+    occupiedLocations: groups.filter((group) => group.lots.length > 0 || group.resources.length > 0).length,
   }
 }

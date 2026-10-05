@@ -8,6 +8,7 @@ export type ProductIdentityOption = {
   packageContentUnitCode: string | null
   recipeEligible: boolean
   inventoryTrackingMode: InventoryTrackingMode
+  minimumStockQuantity: number | null
 }
 
 export function normalizeProductName(value: string) {

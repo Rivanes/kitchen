@@ -96,3 +96,22 @@ export async function loadActiveShoppingCount(ownerId: string) {
 
   return result.count ?? 0
 }
+
+export async function loadActiveShoppingProductIds(ownerId: string) {
+  if (!supabase) throw new Error('Supabase is not configured.')
+
+  const result = await supabase
+    .from('shopping_items')
+    .select('product_id')
+    .eq('owner_id', ownerId)
+    .eq('is_purchased', false)
+    .not('product_id', 'is', null)
+
+  if (result.error) {
+    throw new Error(`Shopping Product lookup failed: ${result.error.message}`)
+  }
+
+  return new Set((result.data ?? [])
+    .map((row) => row.product_id as string | null)
+    .filter((productId): productId is string => Boolean(productId)))
+}

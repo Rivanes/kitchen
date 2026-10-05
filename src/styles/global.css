@@ -3344,3 +3344,167 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
   width: 100%;
   min-height: 44px;
 }
+
+/* V3.8.4 — persistent Przyprawy / Domowe resources */
+.special-resource-list-card { overflow: hidden; }
+.special-resource-row {
+  min-height: 64px;
+  display: grid;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 11px 9px 14px;
+}
+.spice-resource-row { grid-template-columns: minmax(0, 1fr) auto; }
+.spice-resource-row > strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14px;
+}
+.spice-presence-button {
+  min-width: 68px;
+  min-height: var(--touch-min);
+  padding: 0 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 13px;
+  font-size: 12px;
+  font-weight: 850;
+}
+.spice-presence-button.is-present {
+  border-color: #c9ddca;
+  background: #eef6ee;
+  color: var(--color-accent-strong);
+}
+.spice-presence-button.is-missing {
+  border-color: #ead1ca;
+  background: #fff3ef;
+  color: #9b5140;
+}
+.spice-presence-button:disabled { opacity: .58; }
+
+.household-resource-row {
+  grid-template-columns: minmax(0, 1fr) auto;
+  padding-right: 9px;
+}
+.household-resource-settings {
+  min-width: 0;
+  min-height: var(--touch-min);
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+}
+.household-resource-settings > svg { flex: 0 0 auto; color: #99a49d; }
+.household-resource-copy { min-width: 0; display: grid; gap: 2px; }
+.household-resource-copy strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14px;
+}
+.household-resource-copy small {
+  color: #a06938;
+  font-size: 10px;
+  font-weight: 760;
+}
+.household-stock-stepper {
+  min-height: var(--touch-min);
+  display: grid;
+  grid-template-columns: 40px minmax(66px, auto) 40px;
+  align-items: center;
+  overflow: hidden;
+  border: 1px solid #dfe7df;
+  border-radius: 13px;
+  background: #f7faf6;
+}
+.household-stock-stepper button {
+  min-width: 40px;
+  min-height: var(--touch-min);
+  border: 0;
+  background: transparent;
+  color: var(--color-accent-strong);
+  font-size: 21px;
+  font-weight: 700;
+}
+.household-stock-stepper button:disabled { color: #bcc4bf; }
+.household-stock-stepper span {
+  min-width: 66px;
+  padding: 0 5px;
+  color: var(--color-text);
+  font-size: 11px;
+  font-weight: 820;
+  text-align: center;
+  white-space: nowrap;
+}
+.household-resource-row.is-low .household-stock-stepper {
+  border-color: #e7d8bf;
+  background: #fffaf0;
+}
+.resource-action-error { margin: 0 0 10px; }
+
+.household-minimum-sheet { padding-bottom: max(14px, env(safe-area-inset-bottom)); }
+.household-minimum-input-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto 44px;
+  align-items: center;
+  gap: 7px;
+}
+.household-minimum-input-row > span {
+  color: var(--color-muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.home-low-stock { display: grid; gap: 8px; }
+.home-low-stock-heading { padding: 0 2px; }
+.home-low-stock-heading h2 { margin: 0; font-size: 15px; }
+.home-low-stock-list {
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: #fff;
+}
+.home-low-stock-row {
+  min-height: 58px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px 8px 13px;
+}
+.home-low-stock-row + .home-low-stock-row { border-top: 1px solid #f0f3ef; }
+.home-low-stock-copy { min-width: 0; display: grid; gap: 2px; }
+.home-low-stock-copy strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+}
+.home-low-stock-copy small { color: var(--color-muted); font-size: 10.5px; }
+.home-low-stock-add {
+  min-width: 86px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+}
+.home-low-stock-status {
+  min-height: 40px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 11px;
+  background: #eef5ee;
+  color: var(--color-accent-strong);
+  font-size: 11px;
+  font-weight: 820;
+}
+
+@media (max-width: 380px) {
+  .household-resource-row { grid-template-columns: minmax(0, 1fr); gap: 4px; }
+  .household-stock-stepper { justify-self: stretch; grid-template-columns: 44px minmax(0, 1fr) 44px; }
+}

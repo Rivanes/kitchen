@@ -2,7 +2,7 @@
 
 Private, single-user mobile-first PWA for household inventory, shopping and recipes.
 
-Closed milestones: **V1 Inventory — PASS/CLOSED**, **V2 Shopping — PASS/CLOSED**, **V3.1–V3.8 — PASS/CLOSED**. Current corrective candidate: **V3.8.3 — SMART UI Corrective**, superseding the V3.8.2 runtime candidate. V4 Recipe Matching remains blocked until this corrective passes GitHub QA / Pages / phone-first smoke.
+Closed milestones: **V1 Inventory — PASS/CLOSED**, **V2 Shopping — PASS/CLOSED**, **V3.1–V3.8 — PASS/CLOSED**. Current candidate: **V3.8.4 — Persistent Resources + Auto-Replenishment**, including the V3.8.1–V3.8.3 runtime corrections. V4 Recipe Matching remains blocked until V3.8.4 passes SQL gates, GitHub QA / Pages and phone-first smoke.
 
 Active Inventory capabilities:
 - owner-scoped stock read model
@@ -509,3 +509,20 @@ V3.8.2 fixes the mobile Add Product flow for `Przyprawy` and `Domowe` without cr
 - genuinely new Products are created directly with the role implied by the target section
 - no Product duplication and no name-based role inference
 - no SQL/schema/RLS/Auth/Storage-policy change
+
+## V3.8.4 — Persistent Resources + Auto-Replenishment
+
+V3.8.4 completes the special-resource behavior before V4.
+
+- `Przyprawy` is a persistent Product list with direct `Mam / Brak` state; missing spices stay visible and `Mam -> Brak` transactionally ensures Shopping.
+- `Domowe` is a persistent recurring-stock list; Products stay visible at `0` and normal changes use phone-first inline `- / +`.
+- optional `products.minimum_stock_quantity` is Household-only and uses the Product `default_unit_code`.
+- Home shows a SMART `Do uzupełnienia` block only for Household Products at/below their configured minimum.
+- automatic replenishment uses shared idempotent `ensure_active_shopping_product(...)`; it never increments an already-active Shopping row merely because an automatic event repeats.
+- standard Inventory create/merge remains `add_inventory_lot(...)`; Product reclassification remains `set_product_resource_semantics(...)`.
+- no zero-quantity fake Inventory lots and no parallel tracked-resource table are introduced.
+- Recipe quantities for spices remain authoring/scaling data and are not decremented from Spice Inventory.
+- V4 Recipe matching is still absent.
+
+Production upgrade requires `OUTSIDE_REPO/SQL/V3_8_4_PRECHECK.sql` -> migration -> `V3_8_4_POSTCHECK.sql` before runtime deploy.
+
