@@ -1,7 +1,7 @@
 import { supabase } from '../../lib/supabase/client'
 import { loadMeasurementUnits } from '../measurements/measurementUnits'
 import { loadOwnerProductCatalog } from '../products/productCatalogMutations'
-import { addQuantities, readStoredQuantity } from '../quantity/quantity'
+import { readStoredQuantity, sumQuantities } from '../quantity/quantity'
 import { compareExpiryDates, getEffectiveExpiryDate } from './expiry'
 import type {
   InventoryLocation,
@@ -160,17 +160,15 @@ export async function loadInventoryReadModel(ownerId: string): Promise<Inventory
       }
     }
 
-    let quantity = 0
-    for (const lot of productLots) {
-      if (lot.unitCode !== product.defaultUnitCode) {
-        throw new Error('Household Inventory must use the Product default tracking unit.')
-      }
-      quantity = addQuantities(
-        quantity,
-        lot.quantity,
-        'Łączny stan Domowe przekracza dozwolony zakres.',
-      )
-    }
+    const quantity = sumQuantities(
+      productLots.map((lot) => {
+        if (lot.unitCode !== product.defaultUnitCode) {
+          throw new Error('Household Inventory must use the Product default tracking unit.')
+        }
+        return lot.quantity
+      }),
+      'Łączny stan Domowe przekracza dozwolony zakres.',
+    )
 
     return {
       product,

@@ -62,6 +62,18 @@ export function addQuantities(left: number, right: number, overflowMessage: stri
   return total
 }
 
+export function sumQuantities(values: readonly number[], overflowMessage: string) {
+  let total: number | null = null
+
+  for (const value of values) {
+    total = total === null
+      ? assertValidQuantity(value)
+      : addQuantities(total, value, overflowMessage)
+  }
+
+  return total ?? 0
+}
+
 export function formatQuantity(value: number) {
   return new Intl.NumberFormat('pl-PL', {
     maximumFractionDigits: QUANTITY_DECIMAL_PLACES,

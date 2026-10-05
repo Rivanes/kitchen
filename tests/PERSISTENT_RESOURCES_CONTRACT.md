@@ -12,3 +12,4 @@
 - Spice state uses `set_spice_presence(...)`; Household quick stock uses `adjust_household_stock(...)`. These are business operations around existing shared authorities, not replacement Inventory save systems.
 - `add_inventory_lot(...)` remains the standard Inventory create/merge authority.
 - No V4 Recipe matching or quantity-sufficiency logic belongs in V3.8.4.
+- Household read-model aggregation must support zero physical lots as `0`, one physical lot without seeding shared positive-only addition with zero, and multiple physical lots through the shared Quantity authority. The project verifier must execute this regression against the real `sumQuantities(...)` implementation.
