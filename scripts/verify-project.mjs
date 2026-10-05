@@ -1366,11 +1366,11 @@ for (const marker of ['Przyprawy', 'Domowe', 'presence-only', 'Household Product
 for (const marker of ['recipeEligible', 'inventoryTrackingMode']) {
   if (!inventoryReadModel.includes(marker)) throw new Error(`V3.8 Inventory read model Product-role marker missing: ${marker}`)
 }
-for (const marker of ['ProductResourceRolePicker', 'isPresenceMode', 'isHouseholdMode', 'setCanonicalProductResourceRole', 'inventory-fixed-location']) {
+for (const marker of ['ProductResourceRolePicker', 'isPresenceMode', 'isHouseholdMode', 'setCanonicalProductResourceRole']) {
   if (!editor.includes(marker)) throw new Error(`V3.8 Inventory editor marker missing: ${marker}`)
 }
 if (!editor.includes("!isPresenceMode &&") || !editor.includes('Przyprawy') || !editor.includes('Domowe')) {
-  throw new Error('V3.8 mobile Inventory editor must hide quantitative actions for spices and expose fixed special sections.')
+  throw new Error('V3.8 mobile Inventory editor must hide quantitative actions for spices and preserve special-section semantics.')
 }
 if (!recipeEditor.includes('products.filter((product) => product.recipeEligible)')) {
   throw new Error('V3.8 Recipe authoring must filter out Recipe-ineligible Household Products.')
@@ -1378,7 +1378,7 @@ if (!recipeEditor.includes('products.filter((product) => product.recipeEligible)
 if (!recipeMutations.includes('if (!product.recipeEligible)')) {
   throw new Error('V3.8 Recipe client mutation must guard Recipe-ineligible Product identities.')
 }
-for (const marker of ['.product-role-picker', '.inventory-resource-role-card', '.quantity-pill-presence', '.location-mark-spices', '.location-mark-household']) {
+for (const marker of ['.product-role-picker', '.quantity-pill-presence', '.location-mark-spices', '.location-mark-household']) {
   if (!globalCss.includes(marker)) throw new Error(`V3.8 resource UI CSS marker missing: ${marker}`)
 }
 
@@ -1388,6 +1388,7 @@ for (const marker of [
   'set_product_resource_semantics(...)',
   'add_inventory_lot(...)',
   'No new spice-specific or household-specific Inventory save function exists',
+  'SMART normal-state rule',
 ]) {
   if (!specialResourceCreateContract.includes(marker)) {
     throw new Error(`V3.8.2 special-resource create contract marker missing: ${marker}`)
@@ -1412,6 +1413,17 @@ if (editor.includes("const activeRole = activeProduct ? productResourceRoleFromS
 }
 if (!globalCss.includes('.inventory-role-mismatch-card')) {
   throw new Error('V3.8.2 mobile role-mismatch card CSS is missing.')
+}
+if (editor.includes('inventory-resource-role-card') || editor.includes('inventory-fixed-location')) {
+  throw new Error('V3.8.3 SMART UI must not render redundant normal-state role/section summary cards in InventoryEditor.')
+}
+if (globalCss.includes('.inventory-resource-role-card') || globalCss.includes('.inventory-fixed-location')) {
+  throw new Error('V3.8.3 obsolete normal-state role/section summary CSS must be removed.')
+}
+
+const uiContract = await readFile('tests/UI_CONTRACT.md', 'utf8')
+for (const marker of ['SMART UI', 'normal valid state stays visually quiet', 'do not repeat context']) {
+  if (!uiContract.includes(marker)) throw new Error(`SMART UI contract marker missing: ${marker}`)
 }
 
 await execFileAsync(process.execPath, ['scripts/test-resource-semantics.mjs'])

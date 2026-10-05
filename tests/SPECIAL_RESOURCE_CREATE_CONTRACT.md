@@ -6,6 +6,8 @@ V3.8.2 corrects create orchestration for the first-class `Przyprawy` and `Domowe
 - An exact canonical Product match never silently rewrites the target role or routes the sheet to another Inventory section.
 - `Przyprawy` targets `spice`; `Domowe` targets `household`.
 - A genuinely new canonical Product is created with the target role through the existing canonical Product authority.
+- SMART normal-state rule: Add Product opened from `Przyprawy` or `Domowe` does not repeat permanent `Rodzaj` or `Sekcja` summary cards.
+- Role information is surfaced only when an existing canonical Product has a role mismatch that requires user action.
 - An existing Product with the same role is reused by UUID.
 - An existing Product with a different role creates an explicit mobile-first mismatch state before Inventory submit.
 - Role conversion reuses `set_product_resource_semantics(...)`.

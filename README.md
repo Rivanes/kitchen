@@ -2,7 +2,7 @@
 
 Private, single-user mobile-first PWA for household inventory, shopping and recipes.
 
-Closed milestones: **V1 Inventory — PASS/CLOSED**, **V2 Shopping — PASS/CLOSED**, **V3.1–V3.8 — PASS/CLOSED**. Current corrective candidate: **V3.8.2 — Special Resource Inventory Create**. V4 Recipe Matching remains blocked until this corrective passes GitHub QA / Pages / phone-first smoke.
+Closed milestones: **V1 Inventory — PASS/CLOSED**, **V2 Shopping — PASS/CLOSED**, **V3.1–V3.8 — PASS/CLOSED**. Current corrective candidate: **V3.8.3 — SMART UI Corrective**, superseding the V3.8.2 runtime candidate. V4 Recipe Matching remains blocked until this corrective passes GitHub QA / Pages / phone-first smoke.
 
 Active Inventory capabilities:
 - owner-scoped stock read model

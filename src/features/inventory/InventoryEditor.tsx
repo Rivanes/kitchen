@@ -744,13 +744,6 @@ export function InventoryEditor({
                 </div>
               )}
 
-              <div className={`inventory-resource-role-card resource-role-${activeRole}`}>
-                <span>Rodzaj</span>
-                <strong>{productResourceRoleLabel(activeRole)}</strong>
-                {isPresenceMode && <small>W Zapachach śledzimy tylko obecność. Ilość z przepisu pozostaje niezależna.</small>}
-                {isHouseholdMode && <small>Produkt domowy nie jest dostępny jako składnik przepisu.</small>}
-              </div>
-
               {createRoleMismatch && exactProduct && (
                 <div className="inventory-role-mismatch-card" role="status">
                   <div>
@@ -848,7 +841,7 @@ export function InventoryEditor({
                 </div>
               )}
 
-              {activeRole === 'food' ? (
+              {activeRole === 'food' && (
                 <div className="form-field storage-location-field">
                   <span className="form-field-label" id="inventory-location-label">Miejsce</span>
                   <StorageLocationPicker
@@ -861,11 +854,6 @@ export function InventoryEditor({
                     disabled={busy}
                     labelId="inventory-location-label"
                   />
-                </div>
-              ) : (
-                <div className="inventory-fixed-location">
-                  <span>Sekcja</span>
-                  <strong>{compatibleLocations[0]?.name ?? (isPresenceMode ? 'Przyprawy' : 'Domowe')}</strong>
                 </div>
               )}
 
