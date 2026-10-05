@@ -4,6 +4,12 @@ import { getDefaultUnitCode } from '../measurements/measurementUnits'
 import { ProductAutocompleteField, useProductAutocomplete } from '../products/ProductAutocomplete'
 import { normalizeProductName } from '../products/productIdentity'
 import { cleanCanonicalProductName } from '../products/productCatalogMutations'
+import { ProductResourceRolePicker } from '../products/ProductResourceRolePicker'
+import {
+  productResourceRoleFromSemantics,
+  productResourceRoleLabel,
+  type ProductResourceRole,
+} from '../products/productResourceSemantics'
 import { QuantityStepperInput } from '../quantity/QuantityStepperInput'
 import { parseQuantityInput, QUANTITY_INPUT_ERROR } from '../quantity/quantity'
 import { createShoppingItem, removeShoppingItem, updateShoppingItem } from './shoppingMutations'
@@ -39,6 +45,7 @@ export function ShoppingEditor({ ownerId, model, mode, onClose, onSaved }: Shopp
   )
   const [unitCode, setUnitCode] = useState(defaultUnit)
   const [unitTouched, setUnitTouched] = useState(mode.kind === 'edit')
+  const [resourceRole, setResourceRole] = useState<ProductResourceRole>('food')
   const [busy, setBusy] = useState(false)
   const [confirmingRemove, setConfirmingRemove] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
@@ -75,6 +82,7 @@ export function ShoppingEditor({ ownerId, model, mode, onClose, onSaved }: Shopp
 
   function chooseProduct(product: (typeof model.products)[number]) {
     setName(product.name)
+    setResourceRole(productResourceRoleFromSemantics(product))
     setUnitCode(product.defaultUnitCode)
     setUnitTouched(false)
     setErrorMessage('')
@@ -83,6 +91,7 @@ export function ShoppingEditor({ ownerId, model, mode, onClose, onSaved }: Shopp
   useEffect(() => {
     if (unitTouched) return
     setUnitCode(exactProduct?.defaultUnitCode ?? getDefaultUnitCode(model.units))
+    if (exactProduct) setResourceRole(productResourceRoleFromSemantics(exactProduct))
   }, [exactProduct, model.units, unitTouched])
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -120,6 +129,7 @@ export function ShoppingEditor({ ownerId, model, mode, onClose, onSaved }: Shopp
           existingProductId: exactProduct?.id ?? seededProductId,
           quantity: parsedQuantity,
           unitCode,
+          resourceRole,
         })
       } else {
         await updateShoppingItem({
@@ -189,6 +199,22 @@ export function ShoppingEditor({ ownerId, model, mode, onClose, onSaved }: Shopp
             onChange={handleNameChange}
             onChoose={chooseProduct}
           />
+
+          {mode.kind === 'create' && !exactProduct ? (
+            <ProductResourceRolePicker
+              value={resourceRole}
+              onChange={(nextRole) => {
+                setResourceRole(nextRole)
+                setErrorMessage('')
+              }}
+              disabled={busy}
+            />
+          ) : exactProduct ? (
+            <div className="product-role-readonly">
+              <span>Rodzaj produktu</span>
+              <strong>{productResourceRoleLabel(productResourceRoleFromSemantics(exactProduct))}</strong>
+            </div>
+          ) : null}
 
           <div className="form-split">
             <label className="form-field" htmlFor="shopping-quantity">

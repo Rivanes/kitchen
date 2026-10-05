@@ -11,6 +11,8 @@ type KitchenIconName =
   | 'fridge'
   | 'freezer'
   | 'pantry'
+  | 'spices'
+  | 'household'
   | 'plus'
   | 'edit'
   | 'close'
@@ -71,6 +73,10 @@ export function KitchenIcon({ name, size = 22, strokeWidth = 1.9 }: KitchenIconP
       return <svg {...common}><path d="M12 3v18" /><path d="m8.5 5 3.5 2 3.5-2" /><path d="m8.5 19 3.5-2 3.5 2" /><path d="m4.2 7.5 15.6 9" /><path d="m4.4 11.5-.2-4 3.6-1.8" /><path d="m19.6 12.5.2 4-3.6 1.8" /><path d="m19.8 7.5-15.6 9" /><path d="m16.2 5.7 3.6 1.8-.2 4" /><path d="m7.8 18.3-3.6-1.8.2-4" /></svg>
     case 'pantry':
       return <svg {...common}><rect x="4" y="4" width="16" height="16" rx="2.5" /><path d="M4 10h16" /><path d="M12 4v16" /><path d="M9.5 7h.01" /><path d="M14.5 7h.01" /><path d="M9.5 15h.01" /><path d="M14.5 15h.01" /></svg>
+    case 'spices':
+      return <svg {...common}><path d="M12 20V9" /><path d="M12 13c-3.8 0-6-2-6-5.5C9.8 7.5 12 9.4 12 13Z" /><path d="M12 10.5c3.6 0 5.8-1.8 5.8-5.2-3.6 0-5.8 1.8-5.8 5.2Z" /><path d="M8.5 20h7" /></svg>
+    case 'household':
+      return <svg {...common}><path d="M4 9.5 12 4l8 5.5" /><path d="M6 8.5V20h12V8.5" /><path d="M9 20v-6h6v6" /><path d="M16.5 5.5v-2h2v3.4" /></svg>
     case 'plus':
       return <svg {...common}><path d="M12 5v14" /><path d="M5 12h14" /></svg>
     case 'edit':

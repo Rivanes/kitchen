@@ -115,6 +115,8 @@ export function RecipeEditor({ ownerId, mode, onClose, onSaved }: RecipeEditorPr
     return initial?.coverImageUrl ?? null
   }, [coverChange.kind, initial?.coverImageUrl, processedPreviewUrl])
 
+  const recipeProducts = useMemo(() => products.filter((product) => product.recipeEligible), [products])
+
   const orderedIngredients = useMemo(() => (
     sections.flatMap((section) => ingredients.filter((ingredient) => ingredient.sectionId === section.id))
   ), [ingredients, sections])
@@ -690,7 +692,7 @@ export function RecipeEditor({ ownerId, mode, onClose, onSaved }: RecipeEditorPr
 
       {ingredientEditor && (
         <RecipeIngredientEditorSheet
-          products={products}
+          products={recipeProducts}
           units={units}
           sections={sections}
           ingredients={ingredients}

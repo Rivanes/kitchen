@@ -1,6 +1,11 @@
 import { supabase } from '../../lib/supabase/client'
 import { assertValidQuantity, readStoredQuantity } from '../quantity/quantity'
 import { normalizeProductName, ProductIdentityOption } from './productIdentity'
+import {
+  productResourceRoleFromSemantics,
+  semanticsForProductResourceRole,
+  type ProductResourceRole,
+} from './productResourceSemantics'
 
 export type CanonicalProductIdentity = ProductIdentityOption
 
@@ -9,6 +14,7 @@ export type ResolveCanonicalProductInput = {
   name: string
   existingProductId: string | null
   defaultUnitCode: string
+  resourceRole?: ProductResourceRole
 }
 
 export type ResolveCanonicalProductForEditInput = {
@@ -17,6 +23,7 @@ export type ResolveCanonicalProductForEditInput = {
   currentProductId: string | null
   selectedProductId: string | null
   defaultUnitCode: string
+  resourceRole?: ProductResourceRole
 }
 
 export type RenameCanonicalProductInput = {
@@ -40,6 +47,8 @@ type RawProductIdentity = {
   default_unit_code: string
   package_content_value: number | string | null
   package_content_unit: string | null
+  recipe_eligible: boolean
+  inventory_tracking_mode: 'quantity' | 'presence'
 }
 
 export function cleanCanonicalProductName(value: string) {
@@ -65,10 +74,12 @@ function mapProduct(row: RawProductIdentity): CanonicalProductIdentity {
     defaultUnitCode: row.default_unit_code,
     packageContentValue,
     packageContentUnitCode: row.package_content_unit,
+    recipeEligible: row.recipe_eligible,
+    inventoryTrackingMode: row.inventory_tracking_mode,
   }
 }
 
-const productSelect = 'id, name, default_unit_code, package_content_value, package_content_unit'
+const productSelect = 'id, name, default_unit_code, package_content_value, package_content_unit, recipe_eligible, inventory_tracking_mode'
 
 export async function loadOwnerProductCatalog(ownerId: string): Promise<CanonicalProductIdentity[]> {
   if (!supabase) throw new Error('Supabase is not configured.')
@@ -184,6 +195,8 @@ export async function resolveOrCreateCanonicalProduct(
   const existing = products.find((product) => normalizeProductName(product.name) === normalized) ?? null
   if (existing) return { ...existing, created: false }
 
+  const requestedSemantics = semanticsForProductResourceRole(input.resourceRole ?? 'food')
+
   const insertResult = await supabase
     .from('products')
     .insert({
@@ -192,6 +205,8 @@ export async function resolveOrCreateCanonicalProduct(
       default_unit_code: input.defaultUnitCode,
       package_content_value: null,
       package_content_unit: null,
+      recipe_eligible: requestedSemantics.recipeEligible,
+      inventory_tracking_mode: requestedSemantics.inventoryTrackingMode,
     })
     .select(productSelect)
     .single()
@@ -254,5 +269,49 @@ export async function resolveCanonicalProductForEdit(
     name: cleanName,
     existingProductId: input.selectedProductId,
     defaultUnitCode: input.defaultUnitCode,
+    resourceRole: input.resourceRole,
   })
+}
+
+
+export type SetCanonicalProductResourceRoleInput = {
+  ownerId: string
+  productId: string
+  role: ProductResourceRole
+  targetLocationId: string | null
+  replacementQuantity: number | null
+  replacementUnitCode: string | null
+}
+
+export async function setCanonicalProductResourceRole(input: SetCanonicalProductResourceRoleInput) {
+  if (!supabase) throw new Error('Supabase is not configured.')
+
+  const semantics = semanticsForProductResourceRole(input.role)
+  const replacementQuantity = input.replacementQuantity === null
+    ? null
+    : assertValidQuantity(input.replacementQuantity, 'Podaj prawidłową nową ilość zapasu.')
+
+  const result = await supabase.rpc('set_product_resource_semantics', {
+    p_owner_id: input.ownerId,
+    p_product_id: input.productId,
+    p_recipe_eligible: semantics.recipeEligible,
+    p_inventory_tracking_mode: semantics.inventoryTrackingMode,
+    p_target_location_id: input.targetLocationId,
+    p_replacement_quantity: replacementQuantity,
+    p_replacement_unit_code: input.replacementUnitCode,
+  })
+
+  if (result.error) {
+    throw new Error(`Nie udało się zmienić rodzaju produktu: ${result.error.message}`)
+  }
+
+  const products = await loadOwnerProductCatalog(input.ownerId)
+  const updated = products.find((product) => product.id === input.productId)
+  if (!updated) throw new Error('Nie udało się odczytać produktu po zmianie rodzaju.')
+
+  if (productResourceRoleFromSemantics(updated) !== input.role) {
+    throw new Error('Baza nie potwierdziła zmiany rodzaju produktu.')
+  }
+
+  return updated
 }

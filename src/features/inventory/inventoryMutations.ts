@@ -3,6 +3,7 @@ import {
   cleanupCreatedCanonicalProduct,
   resolveOrCreateCanonicalProduct,
 } from '../products/productCatalogMutations'
+import type { ProductResourceRole } from '../products/productResourceSemantics'
 import {
   assertValidQuantity,
   readStoredQuantity,
@@ -14,6 +15,7 @@ export type CreateInventoryLotInput = {
   ownerId: string
   productName: string
   existingProductId: string | null
+  resourceRole?: ProductResourceRole
   storageLocationId: string
   quantity: number
   unitCode: string
@@ -117,6 +119,7 @@ export async function createInventoryLot(input: CreateInventoryLotInput) {
     name: input.productName,
     existingProductId: input.existingProductId,
     defaultUnitCode: input.unitCode,
+    resourceRole: input.resourceRole,
   })
 
   try {

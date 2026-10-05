@@ -11,8 +11,17 @@ import {
 } from '../measurements/packageSemantics'
 import {
   cleanCanonicalProductName,
+  setCanonicalProductResourceRole,
   updateCanonicalProductSettings,
 } from '../products/productCatalogMutations'
+import { ProductResourceRolePicker } from '../products/ProductResourceRolePicker'
+import {
+  locationKindMatchesProductRole,
+  productResourceRoleFromSemantics,
+  productResourceRoleLabel,
+  roleForInventoryLocationKind,
+  type ProductResourceRole,
+} from '../products/productResourceSemantics'
 import { findExactProduct } from '../products/productIdentity'
 import { QuantityStepperInput } from '../quantity/QuantityStepperInput'
 import { formatQuantityInput, parseQuantityInput, QUANTITY_INPUT_ERROR } from '../quantity/quantity'
@@ -93,9 +102,14 @@ export function InventoryEditor({
   const [settingsPackageContentValue, setSettingsPackageContentValue] = useState(
     initialProduct?.packageContentValue ? formatQuantityInput(initialProduct.packageContentValue) : '',
   )
+  const initialProductRole = initialProduct ? productResourceRoleFromSemantics(initialProduct) : 'food'
   const [settingsPackageContentUnitCode, setSettingsPackageContentUnitCode] = useState(
     initialProduct?.packageContentUnitCode ?? getPackageContentUnits(model.units)[0]?.code ?? '',
   )
+  const [settingsRole, setSettingsRole] = useState<ProductResourceRole>(initialProductRole)
+  const [settingsTargetLocationId, setSettingsTargetLocationId] = useState('')
+  const [settingsReplacementQuantity, setSettingsReplacementQuantity] = useState('1')
+  const [settingsReplacementUnitCode, setSettingsReplacementUnitCode] = useState(getDefaultUnitCode(model.units))
   const [settingsSaving, setSettingsSaving] = useState(false)
   const [settingsError, setSettingsError] = useState('')
   const [quantity, setQuantity] = useState(initialQuantity(mode))
@@ -130,6 +144,14 @@ export function InventoryEditor({
     : createSeed
       ? initialProduct
       : exactProduct
+  const requestedCreateRole = roleForInventoryLocationKind(
+    model.locations.find((location) => location.id === initialLocationId)?.kind ?? 'custom',
+  )
+  const activeRole = activeProduct ? productResourceRoleFromSemantics(activeProduct) : requestedCreateRole
+  const isPresenceMode = activeRole === 'spice'
+  const isHouseholdMode = activeRole === 'household'
+  const compatibleLocations = model.locations.filter((location) => locationKindMatchesProductRole(location.kind, activeRole))
+  const directUnits = model.units.filter((unit) => ['count', 'mass', 'volume'].includes(unit.family))
 
   const settingsCollision = useMemo(() => {
     if (mode.kind !== 'edit') return null
@@ -179,6 +201,12 @@ export function InventoryEditor({
     setPackageContentUnitCode(draft.unitCode)
   }, [mode.kind, createSeed, exactProduct, unitCode, model, packageContentTouched])
 
+  useEffect(() => {
+    if (compatibleLocations.some((location) => location.id === locationId)) return
+    const preferred = compatibleLocations[0]
+    if (preferred) setLocationId(preferred.id)
+  }, [activeRole, compatibleLocations, locationId])
+
   function applyUnit(nextUnitCode: string, product: InventoryProduct | null = activeProduct) {
     setUnitCode(nextUnitCode)
     setUnitTouched(true)
@@ -202,9 +230,15 @@ export function InventoryEditor({
 
   function openProductSettings() {
     if (mode.kind !== 'edit' || busy || !initialProduct) return
+    const role = productResourceRoleFromSemantics(initialProduct)
     setSettingsName(currentProductName)
+    setSettingsRole(role)
     setSettingsPackageContentValue(initialProduct.packageContentValue ? formatQuantityInput(initialProduct.packageContentValue) : '')
     setSettingsPackageContentUnitCode(initialProduct.packageContentUnitCode ?? packageContentUnits[0]?.code ?? '')
+    const roleLocations = model.locations.filter((location) => locationKindMatchesProductRole(location.kind, role === 'household' ? 'food' : role))
+    setSettingsTargetLocationId(roleLocations[0]?.id ?? '')
+    setSettingsReplacementQuantity('1')
+    setSettingsReplacementUnitCode(directUnits.find((unit) => unit.code === initialProduct.defaultUnitCode)?.code ?? directUnits[0]?.code ?? '')
     setSettingsError('')
     setProductSettingsOpen(true)
   }
@@ -217,7 +251,7 @@ export function InventoryEditor({
 
   async function handleProductSettingsSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    if (mode.kind !== 'edit' || busy) return
+    if (mode.kind !== 'edit' || busy || !initialProduct) return
 
     let cleanName: string
     try {
@@ -232,8 +266,36 @@ export function InventoryEditor({
       return
     }
 
+    const currentRole = productResourceRoleFromSemantics(initialProduct)
+    const roleChanged = currentRole !== settingsRole
+    const targetRequiresNormalLocation = roleChanged && settingsRole === 'food' && currentRole === 'household'
+    const presenceNeedsReplacement = roleChanged && currentRole === 'spice' && settingsRole !== 'spice'
+
+    let replacementQuantity: number | null = null
+    let replacementUnitCode: string | null = null
+    if (presenceNeedsReplacement) {
+      replacementQuantity = parseQuantityInput(settingsReplacementQuantity)
+      if (!replacementQuantity) {
+        setSettingsError('Podaj nową ilość zapasu po zmianie z trybu „mam / nie mam”.')
+        return
+      }
+      if (!directUnits.some((unit) => unit.code === settingsReplacementUnitCode)) {
+        setSettingsError('Wybierz bezpośrednią jednostkę dla nowego zapasu.')
+        return
+      }
+      replacementUnitCode = settingsReplacementUnitCode
+    }
+
+    const targetLocationId = settingsRole === 'food' && (presenceNeedsReplacement || targetRequiresNormalLocation)
+      ? settingsTargetLocationId
+      : null
+    if (settingsRole === 'food' && roleChanged && !targetLocationId) {
+      setSettingsError('Wybierz miejsce dla produktu spożywczego.')
+      return
+    }
+
     let parsedDefaultContent: number | null = null
-    if (settingsPackageContentValue.trim()) {
+    if (settingsRole !== 'spice' && settingsPackageContentValue.trim()) {
       parsedDefaultContent = parseQuantityInput(settingsPackageContentValue)
       if (!parsedDefaultContent || !packageContentUnits.some((unit) => unit.code === settingsPackageContentUnitCode)) {
         setSettingsError('Podaj prawidłową domyślną zawartość opakowania.')
@@ -244,12 +306,23 @@ export function InventoryEditor({
     setSettingsSaving(true)
     setSettingsError('')
     try {
+      if (roleChanged) {
+        await setCanonicalProductResourceRole({
+          ownerId,
+          productId: mode.lot.productId,
+          role: settingsRole,
+          targetLocationId,
+          replacementQuantity,
+          replacementUnitCode,
+        })
+      }
+
       await updateCanonicalProductSettings({
         ownerId,
         productId: mode.lot.productId,
         nextName: cleanName,
-        packageContentValue: parsedDefaultContent,
-        packageContentUnitCode: parsedDefaultContent ? settingsPackageContentUnitCode : null,
+        packageContentValue: settingsRole === 'spice' ? null : parsedDefaultContent,
+        packageContentUnitCode: settingsRole === 'spice' || !parsedDefaultContent ? null : settingsPackageContentUnitCode,
       })
       onSaved()
     } catch (error: unknown) {
@@ -262,23 +335,34 @@ export function InventoryEditor({
     event.preventDefault()
     if (busy) return
 
-    const parsedQuantity = parseQuantityInput(quantity)
-    if (!parsedQuantity) {
+    if (mode.kind === 'edit' && isPresenceMode) {
+      onClose()
+      return
+    }
+
+    const effectiveQuantity = isPresenceMode
+      ? (createSeed ? Number(quantity) : 1)
+      : parseQuantityInput(quantity)
+    const effectiveUnitCode = isPresenceMode
+      ? (createSeed?.unitCode ?? 'pcs')
+      : unitCode
+
+    if (!effectiveQuantity) {
       setErrorMessage(QUANTITY_INPUT_ERROR)
       return
     }
-    if (!locationId || !unitCode) {
+    if (!locationId || !effectiveUnitCode) {
       setErrorMessage('Wybierz miejsce i jednostkę.')
       return
     }
 
-    if (!isContainerUnit && !isDirectUnit) {
+    if (!isPresenceMode && !isContainerUnit && !isDirectUnit) {
       setErrorMessage('Wybrana jednostka nie ma jeszcze obsługiwanej semantyki.')
       return
     }
 
     let packageContent = null
-    if (isContainerUnit) {
+    if (!isPresenceMode && isContainerUnit) {
       const parsedContent = parseQuantityInput(packageContentValue)
       if (!parsedContent) {
         setErrorMessage('Podaj zawartość jednego opakowania.')
@@ -286,7 +370,7 @@ export function InventoryEditor({
       }
       try {
         packageContent = resolveInventoryPackageContent({
-          rowUnitCode: unitCode,
+          rowUnitCode: effectiveUnitCode,
           units: model.units,
           explicitContent: { value: parsedContent, unitCode: packageContentUnitCode },
           productDefault: activeProduct,
@@ -297,13 +381,14 @@ export function InventoryEditor({
       }
     }
 
-    if (expiryDate && !isValidDateOnly(expiryDate)) {
+    const effectiveExpiryDate = isPresenceMode || isHouseholdMode ? null : expiryDate || null
+    if (effectiveExpiryDate && !isValidDateOnly(effectiveExpiryDate)) {
       setErrorMessage('Podaj prawidłowy termin ważności.')
       return
     }
 
     let parsedAfterOpenDays: number | null = null
-    if (afterOpenDays.trim()) {
+    if (!isPresenceMode && !isHouseholdMode && afterOpenDays.trim()) {
       const parsed = Number(afterOpenDays)
       if (!Number.isInteger(parsed) || parsed < 1 || parsed > 3650) {
         setErrorMessage('Termin po otwarciu musi mieć od 1 do 3650 dni.')
@@ -330,12 +415,13 @@ export function InventoryEditor({
           ownerId,
           productName,
           existingProductId: createSeed?.productId ?? exactProduct?.id ?? null,
+          resourceRole: activeProduct ? productResourceRoleFromSemantics(activeProduct) : requestedCreateRole,
           storageLocationId: locationId,
-          quantity: parsedQuantity,
-          unitCode,
-          packageContentValue: packageContent?.value ?? null,
-          packageContentUnitCode: packageContent?.unitCode ?? null,
-          expiryDate: expiryDate || null,
+          quantity: effectiveQuantity,
+          unitCode: effectiveUnitCode,
+          packageContentValue: isPresenceMode ? null : packageContent?.value ?? null,
+          packageContentUnitCode: isPresenceMode ? null : packageContent?.unitCode ?? null,
+          expiryDate: effectiveExpiryDate,
           afterOpenDays: parsedAfterOpenDays,
         })
       } else {
@@ -343,11 +429,11 @@ export function InventoryEditor({
           ownerId,
           lotId: mode.lot.id,
           storageLocationId: locationId,
-          quantity: parsedQuantity,
-          unitCode,
+          quantity: effectiveQuantity,
+          unitCode: effectiveUnitCode,
           packageContentValue: packageContent?.value ?? null,
           packageContentUnitCode: packageContent?.unitCode ?? null,
-          expiryDate: expiryDate || null,
+          expiryDate: effectiveExpiryDate,
           afterOpenDays: parsedAfterOpenDays,
         })
       }
@@ -426,7 +512,72 @@ export function InventoryEditor({
               <p className="field-hint">Zmiana obejmie wszystkie partie tego produktu.</p>
             </div>
 
-            <div className="product-package-default-card">
+            <ProductResourceRolePicker
+              value={settingsRole}
+              onChange={(nextRole) => {
+                setSettingsRole(nextRole)
+                setSettingsError('')
+              }}
+              disabled={busy}
+            />
+
+            {initialProduct && productResourceRoleFromSemantics(initialProduct) !== settingsRole && (
+              <div className="product-role-change-note">
+                <strong>Zmiana sposobu śledzenia</strong>
+                <span>
+                  {settingsRole === 'spice'
+                    ? 'Ilości partii zostaną zastąpione prostym stanem „mam / nie mam” w sekcji Przyprawy.'
+                    : settingsRole === 'household'
+                      ? 'Produkt trafi do sekcji Domowe i przestanie być dostępny jako składnik przepisu.'
+                      : 'Produkt wróci do zwykłych zapasów spożywczych.'}
+                </span>
+              </div>
+            )}
+
+            {initialProduct && productResourceRoleFromSemantics(initialProduct) === 'spice' && settingsRole !== 'spice' && (
+              <div className="product-role-replacement-card">
+                <strong>Nowy stan zapasu</strong>
+                <span>Przyprawa nie ma zapisanej gramatury, więc podaj realną ilość po zmianie.</span>
+                <div className="form-split">
+                  <label className="form-field" htmlFor="product-role-replacement-quantity">
+                    <span>Ilość</span>
+                    <QuantityStepperInput
+                      inputId="product-role-replacement-quantity"
+                      value={settingsReplacementQuantity}
+                      onChange={(value) => { setSettingsReplacementQuantity(value); setSettingsError('') }}
+                      disabled={busy}
+                      ariaLabel="Nowa ilość zapasu"
+                    />
+                  </label>
+                  <label className="form-field" htmlFor="product-role-replacement-unit">
+                    <span>Jednostka</span>
+                    <select
+                      id="product-role-replacement-unit"
+                      value={settingsReplacementUnitCode}
+                      onChange={(event) => { setSettingsReplacementUnitCode(event.target.value); setSettingsError('') }}
+                      disabled={busy}
+                    >
+                      {directUnits.map((unit) => <option value={unit.code} key={unit.code}>{unit.symbol}</option>)}
+                    </select>
+                  </label>
+                </div>
+              </div>
+            )}
+
+            {initialProduct && settingsRole === 'food' && productResourceRoleFromSemantics(initialProduct) !== 'food' && (
+              <div className="form-field storage-location-field">
+                <span className="form-field-label" id="product-role-location-label">Miejsce po zmianie</span>
+                <StorageLocationPicker
+                  locations={model.locations.filter((location) => locationKindMatchesProductRole(location.kind, 'food'))}
+                  value={settingsTargetLocationId}
+                  onChange={(nextLocationId) => { setSettingsTargetLocationId(nextLocationId); setSettingsError('') }}
+                  disabled={busy}
+                  labelId="product-role-location-label"
+                />
+              </div>
+            )}
+
+            {settingsRole !== 'spice' && <div className="product-package-default-card">
               <div>
                 <strong>Domyślna zawartość opakowania</strong>
                 <span>Używana jako podpowiedź dla opak., but., słoików, puszek i saszetek.</span>
@@ -463,7 +614,7 @@ export function InventoryEditor({
                 </div>
               </div>
               <p className="field-hint">Puste pole oznacza brak domyślnej zawartości. Zmiana nie przelicza istniejących partii w Zapachach.</p>
-            </div>
+            </div>}
 
             {settingsCollision && !settingsError && (
               <p className="form-error" role="alert">Produkt „{settingsCollision.name}” już istnieje. Wybierz inną nazwę.</p>
@@ -504,12 +655,25 @@ export function InventoryEditor({
               {mode.kind === 'create' && createSeed && (
                 <div className="inventory-create-seed-summary" aria-label="Kupiony produkt przenoszony do zapasów">
                   <strong>{createSeed.productName}</strong>
-                  <span>{quantity} {model.units.find((unit) => unit.code === unitCode)?.symbol ?? unitCode}</span>
-                  <small>Produkt i kupiona ilość pozostaną bez zmian.</small>
+                  {isPresenceMode ? (
+                    <small>Zakup zostanie zapisany jako posiadana przyprawa — bez śledzenia gramatury w Zapachach.</small>
+                  ) : (
+                    <>
+                      <span>{quantity} {model.units.find((unit) => unit.code === unitCode)?.symbol ?? unitCode}</span>
+                      <small>Produkt i kupiona ilość pozostaną bez zmian.</small>
+                    </>
+                  )}
                 </div>
               )}
 
-              {!createSeed && <div className="form-split">
+              <div className={`inventory-resource-role-card resource-role-${activeRole}`}>
+                <span>Rodzaj</span>
+                <strong>{productResourceRoleLabel(activeRole)}</strong>
+                {isPresenceMode && <small>W Zapachach śledzimy tylko obecność. Ilość z przepisu pozostaje niezależna.</small>}
+                {isHouseholdMode && <small>Produkt domowy nie jest dostępny jako składnik przepisu.</small>}
+              </div>
+
+              {!createSeed && !isPresenceMode && <div className="form-split">
                 <div className="form-field">
                   <label htmlFor="inventory-quantity">Ilość</label>
                   <QuantityStepperInput
@@ -540,7 +704,7 @@ export function InventoryEditor({
                 </div>
               </div>}
 
-              {isContainerUnit && (
+              {!isPresenceMode && isContainerUnit && (
                 <div className="package-content-card">
                   <div className="package-content-heading">
                     <strong>{packageLabel}</strong>
@@ -585,21 +749,30 @@ export function InventoryEditor({
                 </div>
               )}
 
-              <div className="form-field storage-location-field">
-                <span className="form-field-label" id="inventory-location-label">Miejsce</span>
-                <StorageLocationPicker
-                  locations={model.locations}
-                  value={locationId}
-                  onChange={(nextLocationId) => {
-                    setLocationId(nextLocationId)
-                    setErrorMessage('')
-                  }}
-                  disabled={busy}
-                  labelId="inventory-location-label"
-                />
-              </div>
+              {activeRole === 'food' ? (
+                <div className="form-field storage-location-field">
+                  <span className="form-field-label" id="inventory-location-label">Miejsce</span>
+                  <StorageLocationPicker
+                    locations={compatibleLocations}
+                    value={locationId}
+                    onChange={(nextLocationId) => {
+                      setLocationId(nextLocationId)
+                      setErrorMessage('')
+                    }}
+                    disabled={busy}
+                    labelId="inventory-location-label"
+                  />
+                </div>
+              ) : (
+                <div className="inventory-fixed-location">
+                  <span>Sekcja</span>
+                  <strong>{compatibleLocations[0]?.name ?? (isPresenceMode ? 'Przyprawy' : 'Domowe')}</strong>
+                </div>
+              )}
 
-              <div className="form-field">
+              {!isPresenceMode && !isHouseholdMode && (
+                <>
+                  <div className="form-field">
                 <div className="field-label-row">
                   <label htmlFor="inventory-expiry">Termin ważności</label>
                   <span>Opcjonalnie</span>
@@ -672,13 +845,15 @@ export function InventoryEditor({
                   )}
                 </div>
               </details>
+                </>
+              )}
 
               {errorMessage && <p className="form-error" role="alert">{errorMessage}</p>}
 
               <div className="sheet-actions">
                 <button className="secondary-button" type="button" onClick={onClose} disabled={busy}>Anuluj</button>
                 <button className="primary-button" type="submit" disabled={busy}>
-                  {saving ? 'Zapisuję…' : 'Zapisz'}
+                  {saving ? 'Zapisuję…' : mode.kind === 'edit' && isPresenceMode ? 'Gotowe' : mode.kind === 'create' && isPresenceMode ? 'Dodaj' : 'Zapisz'}
                 </button>
               </div>
             </form>
@@ -687,16 +862,18 @@ export function InventoryEditor({
               <section className="inventory-stock-actions" aria-label="Akcje zapasu">
                 {!confirmingRemove ? (
                   <div className="stock-action-buttons">
-                    <button
-                      className="stock-action-button"
-                      type="button"
-                      onClick={() => onConsumeRequested?.(mode.lot)}
-                      disabled={busy}
-                      aria-label={`Zużyj ${currentProductName}`}
-                    >
-                      <span className="stock-action-icon" aria-hidden="true"><KitchenIcon name="minus" size={18} /></span>
-                      <strong>Zużyj</strong>
-                    </button>
+                    {!isPresenceMode && (
+                      <button
+                        className="stock-action-button"
+                        type="button"
+                        onClick={() => onConsumeRequested?.(mode.lot)}
+                        disabled={busy}
+                        aria-label={`Zużyj ${currentProductName}`}
+                      >
+                        <span className="stock-action-icon" aria-hidden="true"><KitchenIcon name="minus" size={18} /></span>
+                        <strong>Zużyj</strong>
+                      </button>
+                    )}
                     <button
                       className="stock-action-button stock-action-danger"
                       type="button"

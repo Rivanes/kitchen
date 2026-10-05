@@ -113,6 +113,8 @@ export async function loadInventoryReadModel(ownerId: string): Promise<Inventory
       packageContentValue,
       packageContentUnitCode: row.package_content_unit,
       packageContentUnitSymbol: packageContentUnit?.symbol ?? null,
+      recipeEligible: product.recipeEligible,
+      inventoryTrackingMode: product.inventoryTrackingMode,
       expiryDate: row.expiry_date,
       afterOpenDays: toAfterOpenDays(row.after_open_days),
       openedAt: row.opened_at,

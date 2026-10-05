@@ -8,6 +8,7 @@ import {
   resolveOrCreateCanonicalProduct,
 } from '../products/productCatalogMutations'
 import { normalizeProductName } from '../products/productIdentity'
+import type { ProductResourceRole } from '../products/productResourceSemantics'
 import { requireInventoryItemId } from '../inventory/inventoryRpcResults'
 import {
   addQuantities,
@@ -21,6 +22,7 @@ export type CreateShoppingItemInput = {
   existingProductId: string | null
   quantity: number
   unitCode: string
+  resourceRole?: ProductResourceRole
 }
 
 export type UpdateShoppingItemInput = {
@@ -83,6 +85,7 @@ export async function createShoppingItem(input: CreateShoppingItemInput) {
     name: input.name,
     existingProductId: input.existingProductId,
     defaultUnitCode: input.unitCode,
+    resourceRole: input.resourceRole,
   })
 
   try {

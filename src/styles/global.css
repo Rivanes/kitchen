@@ -3232,3 +3232,104 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
 @media (max-width: 359px) {
   .package-content-fields { grid-template-columns: minmax(0, 1fr); }
 }
+
+/* V3.8 — Resource Types + Inventory Sections (mobile-first) */
+.product-role-field {
+  display: grid;
+  gap: 7px;
+}
+.product-role-picker {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+.product-role-option {
+  min-width: 0;
+  min-height: 42px;
+  padding: 8px 6px;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  background: #fff;
+  color: #5f6c63;
+  font-size: 11px;
+  font-weight: 820;
+  line-height: 1.15;
+}
+.product-role-option.is-selected {
+  border-color: #8eab92;
+  background: #eef5ee;
+  color: var(--color-accent-strong);
+  box-shadow: inset 0 0 0 1px rgba(83, 118, 86, .08);
+}
+.product-role-option:disabled { opacity: .58; }
+.product-role-readonly,
+.inventory-resource-role-card,
+.product-role-change-note,
+.product-role-replacement-card,
+.inventory-fixed-location {
+  display: grid;
+  gap: 3px;
+  padding: 10px 11px;
+  border: 1px solid var(--color-border);
+  border-radius: 13px;
+  background: #f8faf7;
+}
+.product-role-readonly span,
+.inventory-resource-role-card > span,
+.inventory-fixed-location > span {
+  color: var(--color-muted);
+  font-size: 9.5px;
+  font-weight: 750;
+  text-transform: uppercase;
+  letter-spacing: .055em;
+}
+.product-role-readonly strong,
+.inventory-resource-role-card strong,
+.inventory-fixed-location strong,
+.product-role-change-note strong,
+.product-role-replacement-card strong {
+  font-size: 12px;
+  line-height: 1.3;
+}
+.inventory-resource-role-card small,
+.product-role-change-note span,
+.product-role-replacement-card > span,
+.inventory-fixed-location small {
+  color: var(--color-muted);
+  font-size: 10.5px;
+  line-height: 1.4;
+}
+.resource-role-spice {
+  border-color: #ded8bf;
+  background: #fbf9ef;
+}
+.resource-role-household {
+  border-color: #d7dfdf;
+  background: #f4f8f8;
+}
+.product-role-change-note {
+  border-color: #e8dcc2;
+  background: #fffaf0;
+}
+.product-role-replacement-card { gap: 9px; }
+.quantity-pill-presence {
+  min-width: 50px;
+  justify-content: center;
+  background: #eef5ee;
+  color: var(--color-accent-strong);
+}
+.location-mark-spices {
+  background: #f7f3df;
+  color: #75662f;
+}
+.location-mark-household {
+  background: #edf3f3;
+  color: #4c6d70;
+}
+.location-entry-spices,
+.location-entry-household { border-color: #e1e7df; }
+
+@media (max-width: 359px) {
+  .product-role-picker { grid-template-columns: 1fr; }
+  .product-role-option { min-height: 38px; }
+}

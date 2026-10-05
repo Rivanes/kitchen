@@ -30,6 +30,8 @@ function locationIcon(kind: StorageLocationKind) {
   if (kind === 'fridge') return 'fridge' as const
   if (kind === 'freezer') return 'freezer' as const
   if (kind === 'pantry') return 'pantry' as const
+  if (kind === 'spices') return 'spices' as const
+  if (kind === 'household') return 'household' as const
   return 'inventory' as const
 }
 
@@ -254,12 +256,12 @@ function InventoryLocationView({
                   <button className="inventory-row inventory-row-action" type="button" onClick={() => onEdit(lot)}>
                     <div className="inventory-product-copy">
                       <strong>{lot.productName}</strong>
-                      {lot.packageContentValue !== null && lot.packageContentUnitSymbol && (
+                      {lot.inventoryTrackingMode !== 'presence' && lot.packageContentValue !== null && lot.packageContentUnitSymbol && (
                         <span className="inventory-package-content">
                           1 {lot.unitSymbol} = {formatQuantity(lot.packageContentValue)} {lot.packageContentUnitSymbol}
                         </span>
                       )}
-                      {(lot.expiryDate || lot.openedUseByDate) && (() => {
+                      {lot.inventoryTrackingMode !== 'presence' && (lot.expiryDate || lot.openedUseByDate) && (() => {
                         const expiry = getInventoryExpiryMeta(lot.expiryDate, lot.openedUseByDate)
                         const openedPrefix = expiry.effectiveSource === 'opened' ? 'Otwarty · ' : ''
                         return (
@@ -271,7 +273,11 @@ function InventoryLocationView({
                       })()}
                     </div>
                     <span className="inventory-row-end">
-                      <span className="quantity-pill">{formatQuantity(lot.quantity)} {lot.unitSymbol}</span>
+                      {lot.inventoryTrackingMode === 'presence' ? (
+                        <span className="quantity-pill quantity-pill-presence">Masz</span>
+                      ) : (
+                        <span className="quantity-pill">{formatQuantity(lot.quantity)} {lot.unitSymbol}</span>
+                      )}
                       <KitchenIcon name="edit" size={17} />
                     </span>
                   </button>

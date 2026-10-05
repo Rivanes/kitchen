@@ -93,7 +93,9 @@ export function HomePage({ ownerId, onAddProduct, onOpenExpiry, onOpenShopping }
     let critical = 0
     let warning = 0
     let missing = 0
-    const lots = homeStatus.model.groups.flatMap((group) => group.lots)
+    const lots = homeStatus.model.groups
+      .flatMap((group) => group.lots)
+      .filter((lot) => lot.recipeEligible && lot.inventoryTrackingMode === 'quantity')
 
     for (const lot of lots) {
       const meta = getInventoryExpiryMeta(lot.expiryDate, lot.openedUseByDate)

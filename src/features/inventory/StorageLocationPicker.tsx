@@ -13,6 +13,8 @@ function locationIcon(kind: StorageLocationKind) {
   if (kind === 'fridge') return 'fridge' as const
   if (kind === 'freezer') return 'freezer' as const
   if (kind === 'pantry') return 'pantry' as const
+  if (kind === 'spices') return 'spices' as const
+  if (kind === 'household') return 'household' as const
   return 'inventory' as const
 }
 

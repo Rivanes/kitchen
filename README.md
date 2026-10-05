@@ -466,7 +466,7 @@ V3.6B makes household container quantities explicit before Recipe matching.
 V3.6B requires its Supabase migration before the frontend is deployed.
 
 
-## V3.7 — V3 Closeout [IMPLEMENTED / READY FOR PRODUCTION QA]
+## V3.7 — V3 Closeout [PASS / CLOSED]
 
 V3.7 is a closeout/cleanup stage, not a new feature surface.
 
@@ -478,3 +478,17 @@ V3.7 is a closeout/cleanup stage, not a new feature surface.
 - updates project contracts/documentation so V4 starts from one unambiguous V3 baseline.
 
 Production closeout requires `V3_7_PRECHECK.sql` -> `V3_7_V3_CLOSEOUT.sql` -> `V3_7_POSTCHECK.sql`, then GitHub QA / Pages and focused phone-first smoke.
+
+
+## V3.8 — Resource Types + Inventory Sections
+
+V3.8 adds the final resource semantics prerequisite before Recipe matching:
+- first-class Inventory sections: **Przyprawy** and **Domowe**;
+- explicit Product recipe eligibility and Inventory tracking mode;
+- spices are tracked in Inventory as `mam / nie mam` while Recipe quantities remain normal;
+- household consumables remain Shopping/Inventory resources but cannot be Recipe ingredients;
+- role changes use one atomic owner-scoped database authority;
+- expiry surfaces ignore spice/household resource rows;
+- quantitative Products keep V3.6B package-content semantics.
+
+V3.8 deliberately does not implement `What Can I Cook?` or quantity shortage matching.

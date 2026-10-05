@@ -140,6 +140,11 @@ export async function saveRecipeSnapshot(input: SaveRecipeSnapshotInput) {
         defaultUnitCode: ingredient.unitCode,
       })
 
+      if (!product.recipeEligible) {
+        if (product.created) createdProductIds.push(product.id)
+        throw new Error(`Produkt „${product.name}” jest oznaczony jako Domowe i nie może być składnikiem przepisu.`)
+      }
+
       if (product.created) createdProductIds.push(product.id)
 
       resolvedIngredients.push({

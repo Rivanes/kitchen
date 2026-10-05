@@ -50,6 +50,8 @@ const requiredFiles = [
   'src/features/shopping/shoppingMutations.ts',
   'src/features/shopping/types.ts',
   'src/features/products/ProductAutocomplete.tsx',
+  'src/features/products/ProductResourceRolePicker.tsx',
+  'src/features/products/productResourceSemantics.ts',
   'src/features/products/productIdentity.ts',
   'src/features/products/productCatalogMutations.ts',
   'src/features/measurements/measurementUnits.ts',
@@ -68,6 +70,7 @@ const requiredFiles = [
   'tests/SHOPPING_PARTIAL_PURCHASE_CONTRACT.md',
   'tests/SHOPPING_TO_INVENTORY_CONTRACT.md',
   'tests/PACKAGE_SEMANTICS_CONTRACT.md',
+  'tests/RESOURCE_SEMANTICS_CONTRACT.md',
   'tests/STORAGE_LOCATION_PICKER_CONTRACT.md',
   'tests/SHOPPING_QUICK_PURCHASE_CONTRACT.md',
   'tests/USER_ERROR_PRESENTATION_CONTRACT.md',
@@ -78,6 +81,7 @@ const requiredFiles = [
   'src/features/recipes/recipeIngredientDraft.ts',
   'scripts/test-recipe-ingredient-draft.mjs',
   'scripts/test-package-semantics.mjs',
+  'scripts/test-resource-semantics.mjs',
   'src/features/recipes/RecipeCoverFocusEditor.tsx',
   'src/features/recipes/RecipeCoverImage.tsx',
   'src/features/recipes/RecipeServingsControl.tsx',
@@ -278,8 +282,8 @@ if (!editor.includes('mode.initialLocationId ?? model.locations[0]?.id')) {
   throw new Error('V1.5 create editor must accept a location-page initial location without removing manual location choice.')
 }
 
-if (!/type=["']date["']/.test(editor) || !editor.includes('inventory-expiry') || !editor.includes('expiryDate: expiryDate || null')) {
-  throw new Error('V1.6 editor must provide an optional date-only expiry field and persist it on create/edit.')
+if (!/type=["']date["']/.test(editor) || !editor.includes('inventory-expiry') || !editor.includes('expiryDate: effectiveExpiryDate')) {
+  throw new Error('Inventory editor must keep optional date-only expiry for standard food while V3.8 excludes special resource roles.')
 }
 if (!editor.includes('isValidDateOnly')) {
   throw new Error('V1.6 editor must validate the optional calendar date before mutation.')
@@ -314,6 +318,22 @@ for (const marker of ['seed?: InventoryCreateSeed', 'createHandler = createInven
   if (!editor.includes(marker)) {
     throw new Error(`V2.6 reusable seeded Inventory create marker missing: ${marker}`)
   }
+}
+
+const productResourceSemantics = await readFile('src/features/products/productResourceSemantics.ts', 'utf8')
+for (const marker of [
+  "'food' | 'spice' | 'household'",
+  "inventoryTrackingMode: 'presence'",
+  "recipeEligible: false",
+  "kind === 'spices'",
+  "kind === 'household'",
+]) {
+  if (!productResourceSemantics.includes(marker)) throw new Error(`V3.8 Product resource semantics marker missing: ${marker}`)
+}
+
+const productRolePicker = await readFile('src/features/products/ProductResourceRolePicker.tsx', 'utf8')
+for (const marker of ['ProductResourceRolePicker', 'role="radiogroup"', 'product-role-option']) {
+  if (!productRolePicker.includes(marker)) throw new Error(`V3.8 mobile Product role picker marker missing: ${marker}`)
 }
 
 const sharedProductIdentity = await readFile('src/features/products/productIdentity.ts', 'utf8')
@@ -1334,5 +1354,31 @@ for (const staleMarker of [
 ]) {
   if (globalCss.includes(staleMarker)) throw new Error(`Superseded Recipe CSS block still exists: ${staleMarker}`)
 }
+
+const resourceContract = await readFile('tests/RESOURCE_SEMANTICS_CONTRACT.md', 'utf8')
+for (const marker of ['Przyprawy', 'Domowe', 'presence-only', 'Household Products', 'no Recipe sufficiency']) {
+  if (!resourceContract.includes(marker)) throw new Error(`V3.8 resource contract marker missing: ${marker}`)
+}
+
+for (const marker of ['recipeEligible', 'inventoryTrackingMode']) {
+  if (!inventoryReadModel.includes(marker)) throw new Error(`V3.8 Inventory read model Product-role marker missing: ${marker}`)
+}
+for (const marker of ['ProductResourceRolePicker', 'isPresenceMode', 'isHouseholdMode', 'setCanonicalProductResourceRole', 'inventory-fixed-location']) {
+  if (!editor.includes(marker)) throw new Error(`V3.8 Inventory editor marker missing: ${marker}`)
+}
+if (!editor.includes("!isPresenceMode &&") || !editor.includes('Przyprawy') || !editor.includes('Domowe')) {
+  throw new Error('V3.8 mobile Inventory editor must hide quantitative actions for spices and expose fixed special sections.')
+}
+if (!recipeEditor.includes('products.filter((product) => product.recipeEligible)')) {
+  throw new Error('V3.8 Recipe authoring must filter out Recipe-ineligible Household Products.')
+}
+if (!recipeMutations.includes('if (!product.recipeEligible)')) {
+  throw new Error('V3.8 Recipe client mutation must guard Recipe-ineligible Product identities.')
+}
+for (const marker of ['.product-role-picker', '.inventory-resource-role-card', '.quantity-pill-presence', '.location-mark-spices', '.location-mark-household']) {
+  if (!globalCss.includes(marker)) throw new Error(`V3.8 resource UI CSS marker missing: ${marker}`)
+}
+
+await execFileAsync(process.execPath, ['scripts/test-resource-semantics.mjs'])
 
 console.log('Kitchen project contract verification: PASS')

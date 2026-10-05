@@ -4,7 +4,7 @@ import type { ProductIdentityOption } from '../products/productIdentity'
 export type MeasurementUnit = SharedMeasurementUnit
 export type InventoryProduct = ProductIdentityOption
 
-export type StorageLocationKind = 'fridge' | 'freezer' | 'pantry' | 'custom'
+export type StorageLocationKind = 'fridge' | 'freezer' | 'pantry' | 'spices' | 'household' | 'custom'
 
 export type InventoryLocation = {
   id: string
@@ -33,6 +33,8 @@ export type InventoryLot = {
   packageContentValue: number | null
   packageContentUnitCode: string | null
   packageContentUnitSymbol: string | null
+  recipeEligible: boolean
+  inventoryTrackingMode: 'quantity' | 'presence'
   expiryDate: string | null
   afterOpenDays: number | null
   openedAt: string | null

@@ -1,9 +1,13 @@
+import type { InventoryTrackingMode } from './productResourceSemantics'
+
 export type ProductIdentityOption = {
   id: string
   name: string
   defaultUnitCode: string
   packageContentValue: number | null
   packageContentUnitCode: string | null
+  recipeEligible: boolean
+  inventoryTrackingMode: InventoryTrackingMode
 }
 
 export function normalizeProductName(value: string) {

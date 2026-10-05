@@ -68,7 +68,9 @@ export function ExpiryPage({ ownerId, onBack }: ExpiryPageProps) {
 
   const allLots = useMemo(() => {
     if (loadState.status !== 'ready') return []
-    return loadState.model.groups.flatMap((group) => group.lots)
+    return loadState.model.groups
+      .flatMap((group) => group.lots)
+      .filter((lot) => lot.recipeEligible && lot.inventoryTrackingMode === 'quantity')
   }, [loadState])
 
   const locationNames = useMemo(() => {
