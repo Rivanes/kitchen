@@ -492,3 +492,7 @@ V3.8 adds the final resource semantics prerequisite before Recipe matching:
 - quantitative Products keep V3.6B package-content semantics.
 
 V3.8 deliberately does not implement `What Can I Cook?` or quantity shortage matching.
+
+### V3.8.1 — Resource Section Icons Corrective
+
+V3.8.1 is a runtime-only mobile-first visual corrective. `Przyprawy` uses a dedicated spice-shaker icon instead of the earlier generic plant mark, while `Domowe` uses a household-supplies spray-bottle icon instead of the Home-like house mark. Resource semantics, Inventory behavior and SQL remain unchanged.
