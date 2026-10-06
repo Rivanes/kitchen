@@ -111,6 +111,7 @@ export async function loadInventoryReadModel(ownerId: string): Promise<Inventory
       quantity: readStoredQuantity(row.quantity, 'Inventory read returned an invalid stock quantity.'),
       unitCode: unit.code,
       unitSymbol: unit.symbol,
+      unitFamily: unit.family,
       packageContentValue,
       packageContentUnitCode: row.package_content_unit,
       packageContentUnitSymbol: packageContentUnit?.symbol ?? null,

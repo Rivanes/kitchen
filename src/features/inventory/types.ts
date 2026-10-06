@@ -30,6 +30,7 @@ export type InventoryLot = {
   quantity: number
   unitCode: string
   unitSymbol: string
+  unitFamily: string
   packageContentValue: number | null
   packageContentUnitCode: string | null
   packageContentUnitSymbol: string | null

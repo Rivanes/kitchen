@@ -264,3 +264,54 @@ export async function removeInventoryLot(input: RemoveInventoryLotInput) {
     throw new Error('Nie znaleziono zapasu do usunięcia.')
   }
 }
+
+export type AdjustInventoryLotQuantityInput = {
+  ownerId: string
+  lotId: string
+  delta: -1 | 1
+}
+
+export type AdjustInventoryLotQuantityResult = {
+  currentQuantity: number
+  deleted: boolean
+}
+
+type AdjustInventoryLotQuantityRpcRow = {
+  current_quantity: number | string
+  deleted: boolean
+}
+
+export async function adjustInventoryLotQuantity(
+  input: AdjustInventoryLotQuantityInput,
+): Promise<AdjustInventoryLotQuantityResult> {
+  if (!supabase) throw new Error('Supabase is not configured.')
+
+  const result = await supabase
+    .rpc('adjust_inventory_lot_quantity', {
+      p_owner_id: input.ownerId,
+      p_item_id: input.lotId,
+      p_delta: input.delta,
+    })
+    .maybeSingle()
+
+  if (result.error) {
+    throw new Error(`Nie udało się zmienić liczby opakowań: ${result.error.message}`)
+  }
+  if (!result.data) {
+    throw new Error('Nie udało się potwierdzić zmiany zapasu.')
+  }
+
+  const row = result.data as AdjustInventoryLotQuantityRpcRow
+  const currentQuantity = typeof row.current_quantity === 'number'
+    ? row.current_quantity
+    : Number(row.current_quantity)
+
+  if (!Number.isFinite(currentQuantity) || currentQuantity < 0) {
+    throw new Error('Baza zwróciła nieprawidłową ilość po szybkiej zmianie zapasu.')
+  }
+
+  return {
+    currentQuantity,
+    deleted: row.deleted,
+  }
+}

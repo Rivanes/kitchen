@@ -1,11 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { KitchenIcon } from '../../components/KitchenIcon'
+import { CompactQuantityStepper } from '../quantity/CompactQuantityStepper'
 import { formatQuantity } from '../quantity/quantity'
 import { InventoryConsumeSheet } from './InventoryConsumeSheet'
 import { getInventoryExpiryMeta } from './expiry'
 import { InventoryEditor } from './InventoryEditor'
 import { loadInventoryReadModel } from './inventoryReadModel'
 import { adjustHouseholdStock, setSpicePresence } from './resourceMutations'
+import { adjustInventoryLotQuantity } from './inventoryMutations'
+import { canQuickIncrementInventoryLot, isQuickAdjustableInventoryLot } from './quickQuantity'
 import { isHouseholdLowStock } from './resourcePolicy'
 import { HouseholdMinimumSheet } from './HouseholdMinimumSheet'
 import { useInventoryShoppingBridge } from './InventoryShoppingBridge'
@@ -205,8 +208,10 @@ function InventoryLocationView({
   onAddToShopping,
   onToggleSpice,
   onAdjustHousehold,
+  onAdjustInventoryLot,
   onEditHouseholdMinimum,
   resourceUpdatingId,
+  quickUpdatingLotId,
   resourceError,
 }: {
   group: InventoryLocationGroup
@@ -218,8 +223,10 @@ function InventoryLocationView({
   onAddToShopping: (lot: InventoryLot) => void
   onToggleSpice: (resource: InventoryResource) => void
   onAdjustHousehold: (resource: InventoryResource, delta: -1 | 1) => void
+  onAdjustInventoryLot: (lot: InventoryLot, delta: -1 | 1) => void
   onEditHouseholdMinimum: (resource: InventoryResource) => void
   resourceUpdatingId: string | null
+  quickUpdatingLotId: string | null
   resourceError: string
 }) {
   const isSpecialResourceSection = group.location.kind === 'spices' || group.location.kind === 'household'
@@ -272,7 +279,7 @@ function InventoryLocationView({
         </label>
       )}
 
-      {resourceError && isSpecialResourceSection && <p className="form-error resource-action-error" role="alert">{resourceError}</p>}
+      {resourceError && <p className="form-error resource-action-error" role="alert">{resourceError}</p>}
 
       {itemCount === 0 ? (
         <div className="inventory-location-empty">
@@ -341,21 +348,15 @@ function InventoryLocationView({
                       </span>
                       <KitchenIcon name="edit" size={15} />
                     </button>
-                    <div className="household-stock-stepper" aria-label={`Stan: ${resource.product.name}`}>
-                      <button
-                        type="button"
-                        onClick={() => onAdjustHousehold(resource, -1)}
-                        disabled={updating || resource.quantity <= 0}
-                        aria-label={`Zmniejsz stan: ${resource.product.name}`}
-                      >−</button>
-                      <span>{updating ? '…' : `${formatQuantity(resource.quantity)} ${resource.unitSymbol}`}</span>
-                      <button
-                        type="button"
-                        onClick={() => onAdjustHousehold(resource, 1)}
-                        disabled={updating}
-                        aria-label={`Zwiększ stan: ${resource.product.name}`}
-                      >+</button>
-                    </div>
+                    <CompactQuantityStepper
+                      ariaLabel={`Stan: ${resource.product.name}`}
+                      value={`${formatQuantity(resource.quantity)} ${resource.unitSymbol}`}
+                      onDecrement={() => onAdjustHousehold(resource, -1)}
+                      onIncrement={() => onAdjustHousehold(resource, 1)}
+                      decrementDisabled={resource.quantity <= 0}
+                      busy={updating}
+                      tone={low ? 'warning' : 'default'}
+                    />
                   </div>
                 </li>
               )
@@ -365,45 +366,59 @@ function InventoryLocationView({
       ) : (
         <div className="inventory-location-list-card">
           <ul className="inventory-list">
-            {visibleLots.map((lot) => (
-              <li key={lot.id}>
-                <div className="inventory-row-shell">
-                  <button className="inventory-row inventory-row-action" type="button" onClick={() => onEdit(lot)}>
-                    <div className="inventory-product-copy">
-                      <strong>{lot.productName}</strong>
-                      {lot.inventoryTrackingMode !== 'presence' && lot.packageContentValue !== null && lot.packageContentUnitSymbol && (
-                        <span className="inventory-package-content">
-                          1 {lot.unitSymbol} = {formatQuantity(lot.packageContentValue)} {lot.packageContentUnitSymbol}
-                        </span>
-                      )}
-                      {lot.inventoryTrackingMode !== 'presence' && (lot.expiryDate || lot.openedUseByDate) && (() => {
-                        const expiry = getInventoryExpiryMeta(lot.expiryDate, lot.openedUseByDate)
-                        const openedPrefix = expiry.effectiveSource === 'opened' ? 'Otwarty · ' : ''
-                        return (
-                          <span className={`expiry-status expiry-${expiry.tone}`} title={expiry.exactLabel ? `Termin: ${expiry.exactLabel}` : undefined}>
-                            <KitchenIcon name="calendar" size={13} />
-                            {openedPrefix}{expiry.label}
+            {visibleLots.map((lot) => {
+              const quickAdjustable = isQuickAdjustableInventoryLot(lot)
+              const quickUpdating = quickUpdatingLotId === lot.id
+              return (
+                <li key={lot.id}>
+                  <div className={`inventory-row-shell${quickAdjustable ? ' has-quick-stepper' : ''}`}>
+                    <button className="inventory-row inventory-row-action" type="button" onClick={() => onEdit(lot)}>
+                      <div className="inventory-product-copy">
+                        <strong>{lot.productName}</strong>
+                        {lot.inventoryTrackingMode !== 'presence' && lot.packageContentValue !== null && lot.packageContentUnitSymbol && (
+                          <span className="inventory-package-content">
+                            1 {lot.unitSymbol} = {formatQuantity(lot.packageContentValue)} {lot.packageContentUnitSymbol}
                           </span>
-                        )
-                      })()}
-                    </div>
-                    <span className="inventory-row-end">
-                      <span className="quantity-pill">{formatQuantity(lot.quantity)} {lot.unitSymbol}</span>
-                      <KitchenIcon name="edit" size={17} />
-                    </span>
-                  </button>
-                  <button
-                    className="inventory-row-shopping"
-                    type="button"
-                    onClick={() => onAddToShopping(lot)}
-                    aria-label={`Dodaj ${lot.productName} do listy zakupów`}
-                    title="Dodaj do listy zakupów"
-                  >
-                    <KitchenIcon name="shoppingAdd" size={20} />
-                  </button>
-                </div>
-              </li>
-            ))}
+                        )}
+                        {lot.inventoryTrackingMode !== 'presence' && (lot.expiryDate || lot.openedUseByDate) && (() => {
+                          const expiry = getInventoryExpiryMeta(lot.expiryDate, lot.openedUseByDate)
+                          const openedPrefix = expiry.effectiveSource === 'opened' ? 'Otwarty · ' : ''
+                          return (
+                            <span className={`expiry-status expiry-${expiry.tone}`} title={expiry.exactLabel ? `Termin: ${expiry.exactLabel}` : undefined}>
+                              <KitchenIcon name="calendar" size={13} />
+                              {openedPrefix}{expiry.label}
+                            </span>
+                          )
+                        })()}
+                      </div>
+                      <span className="inventory-row-end">
+                        {!quickAdjustable && <span className="quantity-pill">{formatQuantity(lot.quantity)} {lot.unitSymbol}</span>}
+                        <KitchenIcon name="edit" size={17} />
+                      </span>
+                    </button>
+                    {quickAdjustable && (
+                      <CompactQuantityStepper
+                        ariaLabel={`Stan: ${lot.productName}`}
+                        value={`${formatQuantity(lot.quantity)} ${lot.unitSymbol}`}
+                        onDecrement={() => onAdjustInventoryLot(lot, -1)}
+                        onIncrement={() => onAdjustInventoryLot(lot, 1)}
+                        incrementDisabled={!canQuickIncrementInventoryLot(lot)}
+                        busy={quickUpdating}
+                      />
+                    )}
+                    <button
+                      className="inventory-row-shopping"
+                      type="button"
+                      onClick={() => onAddToShopping(lot)}
+                      aria-label={`Dodaj ${lot.productName} do listy zakupów`}
+                      title="Dodaj do listy zakupów"
+                    >
+                      <KitchenIcon name="shoppingAdd" size={20} />
+                    </button>
+                  </div>
+                </li>
+              )
+            })}
           </ul>
         </div>
       )}
@@ -424,6 +439,7 @@ export function InventoryPage({
   const [selectedLocationId, setSelectedLocationId] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [resourceUpdatingId, setResourceUpdatingId] = useState<string | null>(null)
+  const [quickUpdatingLotId, setQuickUpdatingLotId] = useState<string | null>(null)
   const [resourceError, setResourceError] = useState('')
   const [minimumResource, setMinimumResource] = useState<InventoryResource | null>(null)
   const handledCreateRequest = useRef(0)
@@ -547,6 +563,21 @@ export function InventoryPage({
     }
   }
 
+  async function handleInventoryLotAdjust(lot: InventoryLot, delta: -1 | 1) {
+    if (quickUpdatingLotId) return
+    setQuickUpdatingLotId(lot.id)
+    setResourceError('')
+    try {
+      await adjustInventoryLotQuantity({ ownerId, lotId: lot.id, delta })
+      await refreshSilently()
+    } catch (error) {
+      console.error('Kitchen Inventory quick quantity update failed.', error)
+      setResourceError(toUserErrorMessage(error, 'Nie udało się zmienić liczby zapasu.'))
+    } finally {
+      setQuickUpdatingLotId(null)
+    }
+  }
+
   const selectedGroup = useMemo(() => {
     if (loadState.status !== 'ready' || !selectedLocationId) return null
     return loadState.model.groups.find((group) => group.location.id === selectedLocationId) ?? null
@@ -619,8 +650,10 @@ export function InventoryPage({
           onAddToShopping={inventoryShopping.openForLot}
           onToggleSpice={(resource) => void handleSpiceToggle(resource)}
           onAdjustHousehold={(resource, delta) => void handleHouseholdAdjust(resource, delta)}
+          onAdjustInventoryLot={(lot, delta) => void handleInventoryLotAdjust(lot, delta)}
           onEditHouseholdMinimum={setMinimumResource}
           resourceUpdatingId={resourceUpdatingId}
+          quickUpdatingLotId={quickUpdatingLotId}
           resourceError={resourceError}
         />
       )}

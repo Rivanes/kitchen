@@ -2,7 +2,7 @@
 
 Private, single-user mobile-first PWA for household inventory, shopping and recipes.
 
-Closed milestones: **V1 Inventory — PASS/CLOSED**, **V2 Shopping — PASS/CLOSED**, **V3 Recipes + Resource Semantics — PASS/CLOSED through V3.8.4**, **V4.1 Recipe Package Snapshot + Measurement Conversion — PASS/CLOSED**, **V4.2 Recipe Categories + Home Discovery + Time-aware Suggestions — PASS/CLOSED**, and **V4.3 What Can I Cook? + V4.3.1 Cookable Meal Section UX — PASS/CLOSED**. **V4.4 Final V4 Polish and the whole V4 line are PASS/CLOSED. V5.1 Purchase Planning Authority and V5.2 Recipe → Shopping Upgrade are PASS/CLOSED. V5.3 QA + Closeout is READY FOR FINAL QA.** V5 adds no SQL migration and preserves Shopping as the sole write authority.
+Closed milestones: **V1 Inventory — PASS/CLOSED**, **V2 Shopping — PASS/CLOSED**, **V3 Recipes + Resource Semantics — PASS/CLOSED through V3.8.4**, **V4.1 Recipe Package Snapshot + Measurement Conversion — PASS/CLOSED**, **V4.2 Recipe Categories + Home Discovery + Time-aware Suggestions — PASS/CLOSED**, and **V4.3 What Can I Cook? + V4.3.1 Cookable Meal Section UX — PASS/CLOSED**. **V4.4 Final V4 Polish and the whole V4 line are PASS/CLOSED. V5.1 Purchase Planning Authority and V5.2 Recipe → Shopping Upgrade are PASS/CLOSED. V5.3 closeout is temporarily superseded by V5.3.1 Inventory Quick Quantity + Shared Compact Stepper corrective.** V5.3.1 adds one narrow Inventory quick-adjust RPC; Shopping remains the sole Shopping write authority.
 
 Active Inventory capabilities:
 - owner-scoped stock read model
@@ -96,6 +96,22 @@ V5.3 introduces no new Kitchen feature and no persistence change. It is the fina
 - deferred orphan/typo Product cleanup remains outside V5.
 
 Final V5 closure requires the read-only production data gate and final smoke checklist to PASS.
+
+
+## V5.3.1 — Inventory Quick Quantity + Shared Compact Stepper [READY FOR SQL + QA]
+
+V5.3.1 is a corrective discovered during final V5 smoke. It simplifies everyday stock changes without reusing the consumption/opening lifecycle.
+
+- one shared `CompactQuantityStepper` presents the compact `− / quantity / +` pattern in Domowe and ordinary Inventory;
+- Domowe keeps its existing `adjust_household_stock(...)` business authority and receives no manual Shopping button;
+- ordinary whole-unit Inventory lots use the dedicated `adjust_inventory_lot_quantity(...)` RPC;
+- quick adjustment supports count/package/jar/bottle/can/sachet, not continuous g/kg/ml/l rows;
+- `+1` is blocked for opened lots; `-1` can remove one whole unit and `1 -> 0` deletes the exact lot without opening semantics;
+- package snapshot, location and expiry metadata are preserved;
+- legacy resolved container lots may explicitly seed a missing Product package default only when the Product default purchase unit matches the lot unit;
+- existing Recipe/V4/V5 matching and Shopping planning remain unchanged.
+
+SQL must be deployed before the V5.3.1 runtime because the new UI calls the new exact-lot RPC.
 
 
 ## V1.6.1 — Mobile editor layout corrective

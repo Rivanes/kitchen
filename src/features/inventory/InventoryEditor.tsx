@@ -118,6 +118,7 @@ export function InventoryEditor({
   const [packageContentValue, setPackageContentValue] = useState(initialPackageDraft.value)
   const [packageContentUnitCode, setPackageContentUnitCode] = useState(initialPackageDraft.unitCode)
   const [packageContentTouched, setPackageContentTouched] = useState(mode.kind === 'edit' && mode.lot.packageContentValue !== null)
+  const [seedProductDefaultFromLot, setSeedProductDefaultFromLot] = useState(true)
   const [locationId, setLocationId] = useState(initialLocationId)
   const [expiryDate, setExpiryDate] = useState(mode.kind === 'edit' ? (mode.lot.expiryDate ?? '') : '')
   const [afterOpenDays, setAfterOpenDays] = useState(mode.kind === 'edit' && mode.lot.afterOpenDays ? String(mode.lot.afterOpenDays) : '')
@@ -135,6 +136,12 @@ export function InventoryEditor({
   const rowUnit = model.units.find((unit) => unit.code === unitCode) ?? null
   const isContainerUnit = isContainerMeasurementUnit(rowUnit)
   const isDirectUnit = isDirectMeasurementUnit(rowUnit)
+  const canSeedProductDefaultFromLot = mode.kind === 'edit'
+    && isContainerUnit
+    && initialProduct !== null
+    && initialProduct.defaultUnitCode === unitCode
+    && initialProduct.packageContentValue === null
+    && initialProduct.packageContentUnitCode === null
 
   const productAutocomplete = useProductAutocomplete(
     model.products,
@@ -513,6 +520,17 @@ export function InventoryEditor({
           expiryDate: effectiveExpiryDate,
           afterOpenDays: parsedAfterOpenDays,
         })
+
+        if (canSeedProductDefaultFromLot && seedProductDefaultFromLot && initialProduct && packageContent) {
+          await updateCanonicalProductSettings({
+            ownerId,
+            productId: initialProduct.id,
+            nextName: initialProduct.name,
+            packageContentValue: packageContent.value,
+            packageContentUnitCode: packageContent.unitCode,
+            minimumStockQuantity: initialProduct.minimumStockQuantity,
+          })
+        }
       }
       onSaved()
     } catch (error: unknown) {
@@ -839,6 +857,20 @@ export function InventoryEditor({
                     </div>
                   </div>
                   <p className="field-hint">To zapis fizycznej zawartości tej partii. Zmiana domyślnej wartości produktu później jej nie zmieni.</p>
+                  {canSeedProductDefaultFromLot && (
+                    <label className="package-default-seed-option">
+                      <input
+                        type="checkbox"
+                        checked={seedProductDefaultFromLot}
+                        onChange={(event) => setSeedProductDefaultFromLot(event.target.checked)}
+                        disabled={busy}
+                      />
+                      <span>
+                        <strong>Użyj także jako domyślnej zawartości produktu</strong>
+                        <small>Przyszłe zakupy będą używać tej wielkości opakowania.</small>
+                      </span>
+                    </label>
+                  )}
                 </div>
               )}
 

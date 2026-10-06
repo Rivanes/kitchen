@@ -63,12 +63,15 @@ const requiredFiles = [
   'src/features/measurements/packageSemantics.ts',
   'src/features/quantity/quantity.ts',
   'src/features/quantity/QuantityStepperInput.tsx',
+  'src/features/quantity/CompactQuantityStepper.tsx',
+  'src/features/inventory/quickQuantity.ts',
   'tests/SHOPPING_LIST_CONTRACT.md',
   'tests/PRODUCT_AUTOCOMPLETE_CONTRACT.md',
   'tests/PRODUCT_IDENTITY_CONTRACT.md',
   'tests/SHARED_CORE_CONSISTENCY_CONTRACT.md',
   'tests/INVENTORY_TO_SHOPPING_CONTRACT.md',
   'tests/QUANTITY_STEPPER_CONTRACT.md',
+  'tests/INVENTORY_QUICK_QUANTITY_CONTRACT.md',
   'tests/SHOPPING_PURCHASED_STATE_CONTRACT.md',
   'tests/MOBILE_DENSITY_CONTRACT.md',
   'tests/SHOPPING_OVERPURCHASE_CONTRACT.md',
@@ -95,6 +98,7 @@ const requiredFiles = [
   'scripts/test-resource-semantics.mjs',
   'scripts/test-inventory-create-intent.mjs',
   'scripts/test-persistent-resources.mjs',
+  'scripts/test-inventory-quick-quantity.mjs',
   'src/features/recipes/RecipeCoverFocusEditor.tsx',
   'src/features/recipes/RecipeCoverImage.tsx',
   'src/features/recipes/RecipeServingsControl.tsx',
@@ -1653,6 +1657,28 @@ for (const marker of ["rpc('set_spice_presence'", "rpc('adjust_household_stock'"
 if (!shoppingMutations.includes("rpc('ensure_active_shopping_product'")) {
   throw new Error('V3.8.4 automatic replenishment must use the shared idempotent Shopping ensure authority.')
 }
+
+const compactStepper = await readFile('src/features/quantity/CompactQuantityStepper.tsx', 'utf8')
+const quickQuantity = await readFile('src/features/inventory/quickQuantity.ts', 'utf8')
+const quickQuantityContract = await readFile('tests/INVENTORY_QUICK_QUANTITY_CONTRACT.md', 'utf8')
+for (const marker of ['compact-quantity-stepper', 'onDecrement', 'onIncrement']) {
+  if (!compactStepper.includes(marker)) throw new Error(`V5.3.1 compact stepper marker missing: ${marker}`)
+}
+for (const marker of ['count', 'package', 'jar', 'bottle', 'can', 'sachet']) {
+  if (!quickQuantity.includes(marker)) throw new Error(`V5.3.1 quick quantity family marker missing: ${marker}`)
+}
+if (!mutations.includes("rpc('adjust_inventory_lot_quantity'")) {
+  throw new Error('V5.3.1 ordinary Inventory quick adjustment must use its exact-lot RPC authority.')
+}
+for (const marker of ['CompactQuantityStepper', 'onAdjustInventoryLot', 'canQuickIncrementInventoryLot']) {
+  if (!inventoryPage.includes(marker)) throw new Error(`V5.3.1 Inventory UI marker missing: ${marker}`)
+}
+for (const marker of ['Użyj także jako domyślnej zawartości produktu', 'canSeedProductDefaultFromLot']) {
+  if (!editor.includes(marker)) throw new Error(`V5.3.1 legacy Product-default assist marker missing: ${marker}`)
+}
+for (const marker of ['adjust_inventory_lot_quantity(...)', 'Domowe', 'Shopping boundary']) {
+  if (!quickQuantityContract.includes(marker)) throw new Error(`V5.3.1 contract marker missing: ${marker}`)
+}
 for (const marker of ['spiceResources', 'householdResources', 'sumQuantities', 'resourceProducts']) {
   if (!inventoryReadModel.includes(marker)) throw new Error(`V3.8.4 persistent read-model marker missing: ${marker}`)
 }
@@ -1662,12 +1688,13 @@ for (const marker of ["resource.present ? 'Mam' : 'Brak'", 'onAdjustHousehold(re
 for (const marker of ['Do uzupełnienia', 'Na liście', 'ensureActiveShoppingProduct', 'isHouseholdLowStock']) {
   if (!homePage.includes(marker)) throw new Error(`V3.8.4 SMART Home replenishment marker missing: ${marker}`)
 }
-for (const marker of ['.spice-presence-button', '.household-stock-stepper', '.home-low-stock', '.household-minimum-sheet']) {
+for (const marker of ['.spice-presence-button', '.compact-quantity-stepper', '.home-low-stock', '.household-minimum-sheet']) {
   if (!globalCss.includes(marker)) throw new Error(`V3.8.4 resource UI CSS marker missing: ${marker}`)
 }
 
 await execFileAsync(process.execPath, ['scripts/test-resource-semantics.mjs'])
 await execFileAsync(process.execPath, ['scripts/test-inventory-create-intent.mjs'])
 await execFileAsync(process.execPath, ['scripts/test-persistent-resources.mjs'])
+await execFileAsync(process.execPath, ['scripts/test-inventory-quick-quantity.mjs'])
 
 console.log('Kitchen project contract verification: PASS')
