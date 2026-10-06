@@ -8,6 +8,7 @@ import {
 import {
   buildHomeRecipeSuggestions,
   filterRecipesByCategory,
+  filterRecipesByCookability,
   resolveCurrentMealCategory,
 } from '../src/features/recipes/recipeDiscovery.ts'
 
@@ -43,6 +44,7 @@ const recipes = [
 
 assert.deepEqual(filterRecipesByCategory(recipes, 'lunch').map((recipe) => recipe.id), ['lunch-a'])
 assert.equal(filterRecipesByCategory(recipes, 'all').length, recipes.length)
+assert.deepEqual(filterRecipesByCookability([{ id: 'a', cookable: true }, { id: 'b', cookable: false }], 'cookable').map((item) => item.id), ['a'])
 
 const morning = buildHomeRecipeSuggestions({
   recipes,

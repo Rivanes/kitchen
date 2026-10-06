@@ -25,18 +25,15 @@
 - Timing metadata is rendered separately from the compact servings summary.
 - Duration preview/display does not introduce a second Recipe save authority.
 
-## Ingredient Product presence
+## Ingredient cookability + Shopping context
 
-- The ingredient status dot is a Product-presence indicator only, not quantity sufficiency or Recipe matching.
-- Green means the canonical Product exists in Inventory.
-- Orange means the Product is absent from Inventory but exists on the active Shopping list.
-- Red means the Product exists in neither Inventory nor the active Shopping list.
-- Inventory has priority over active Shopping when the same Product exists in both places.
-- Purchased Shopping history does not count as active Shopping presence.
-- Presence state is exposed accessibly in addition to color.
-- A red/missing Product may expose an explicit Shopping-add action; this action is separate from the read-only presence projection.
-- One bulk action may add all unique red/missing Products and disappears when no missing Product remains.
-- Green/orange Products do not expose Recipe-to-Shopping add actions.
+- The ingredient status marker is canonical Recipe matching state: `Wystarczy`, `Częściowo`, `Brak`, or `Nieustalone`.
+- Quantity sufficiency is computed only from physical Inventory/Spice presence through the V4.3 shared matcher.
+- Active Shopping is secondary procurement context and never counts as physical availability.
+- `Na liście zakupów` may be shown as secondary context without changing the matching state.
+- A definitely missing Product that is not already active in Shopping may expose the existing explicit Shopping-add action.
+- V4.3 never auto-writes partial shortages; computed top-up remains V5.
+- Matching state is exposed accessibly in addition to color.
 
 ## Contextual Recipe search
 
@@ -77,4 +74,3 @@
 - Recipe list/detail display the stored category.
 - Home has always-visible general Recipe discovery plus optional time-aware `Na teraz`.
 - Home cards open the canonical Recipe detail.
-

@@ -2,7 +2,7 @@
 
 Private, single-user mobile-first PWA for household inventory, shopping and recipes.
 
-Closed milestones: **V1 Inventory — PASS/CLOSED**, **V2 Shopping — PASS/CLOSED**, **V3 Recipes + Resource Semantics — PASS/CLOSED through V3.8.4**, and **V4.1 Recipe Package Snapshot + Measurement Conversion — PASS/CLOSED**. **V4.2 Recipe Categories + Home Discovery + Time-aware Suggestions is IMPLEMENTED / READY FOR SQL-FIRST QA**: mandatory Recipe categories, exact user-confirmed backfill, category filters, always-visible Home Recipe discovery and local-time `Na teraz` suggestions. V4.3 cookability matching is not included yet.
+Closed milestones: **V1 Inventory — PASS/CLOSED**, **V2 Shopping — PASS/CLOSED**, **V3 Recipes + Resource Semantics — PASS/CLOSED through V3.8.4**, **V4.1 Recipe Package Snapshot + Measurement Conversion — PASS/CLOSED**, and **V4.2 Recipe Categories + Home Discovery + Time-aware Suggestions — PASS/CLOSED**. **V4.3 What Can I Cook? Matching + UI is IMPLEMENTED / READY FOR GITHUB QA + PRODUCTION SMOKE**: one pure physical-stock matcher, `Wystarczy / Częściowo / Brak / Nieustalone`, category + `Mogę ugotować` composition, Home/list/detail status and servings-aware detail recomputation. No V4.3 SQL migration is required.
 
 Active Inventory capabilities:
 - owner-scoped stock read model
@@ -20,6 +20,24 @@ V1.6 also simplifies everyday UI language: Home no longer exposes technical `poz
 Security remains Supabase Auth + owner authority + RLS. Public sign-up and anonymous access are not part of the product.
 
 No SQL/schema change is required for V1.6 because `inventory_items.expiry_date` already exists in the closed V1.1 schema.
+
+
+## V4.3 — What Can I Cook? Matching + UI
+
+V4.3 adds deterministic, read-only Recipe cookability over current physical Kitchen resources.
+
+- one pure `recipeMatching.ts` authority is shared by Home and RecipesPage;
+- Recipe and Inventory package snapshots remain immutable authorities for container meaning;
+- direct quantities reuse V4.1 Measurement Conversion;
+- duplicate requirements aggregate by canonical Product + effective direct family before stock comparison;
+- Spice uses `Mam / Brak`; Household is excluded;
+- non-comparable or unresolved physical stock yields `Nieustalone`, never a false `Brak`;
+- Recipe list/Home use stored servings, while Recipe detail recomputes immediately for the selected serving preview;
+- category filters compose with an independent `Mogę ugotować` filter;
+- active Shopping remains procurement context only and never counts as physical availability;
+- V4.3 performs no automatic Shopping top-up and introduces no database write/matching cache.
+
+No SQL/schema/RLS/Auth migration is required for V4.3.
 
 
 ## V1.6.1 — Mobile editor layout corrective

@@ -13,8 +13,10 @@ import {
   buildHomeRecipeSuggestions,
   resolveCurrentMealCategory,
   type RecipeCategoryFilter,
+  type RecipeCookabilityFilter,
 } from '../recipes/recipeDiscovery'
 import { loadRecipeDiscoveryReadModel, type RecipeDiscoveryReadModel } from '../recipes/recipeDiscoveryReadModel'
+import { buildRecipeMatchMap, recipeMatchStateLabel, type RecipeMatchResult } from '../recipes/recipeMatching'
 
 type HomePageProps = {
   ownerId: string
@@ -83,6 +85,7 @@ export function HomePage({ ownerId, onAddProduct, onOpenExpiry, onOpenShopping, 
   const [lowStockError, setLowStockError] = useState('')
   const [recipeStatus, setRecipeStatus] = useState<RecipeDiscoveryStatus>({ status: 'loading', model: null })
   const [recipeCategoryFilter, setRecipeCategoryFilter] = useState<RecipeCategoryFilter>('all')
+  const [recipeCookabilityFilter, setRecipeCookabilityFilter] = useState<RecipeCookabilityFilter>('all')
   const [localNow, setLocalNow] = useState(() => new Date())
 
   useEffect(() => {
@@ -210,15 +213,36 @@ export function HomePage({ ownerId, onAddProduct, onOpenExpiry, onOpenShopping, 
   }, [homeStatus])
 
   const currentMealCategory = resolveCurrentMealCategory(localNow.getHours())
-  const recipeSuggestions = useMemo(() => (
+  const recipeMatches = useMemo(() => {
+    if (recipeStatus.status !== 'ready' || homeStatus.status !== 'ready') return new Map<string, RecipeMatchResult>()
+    return buildRecipeMatchMap({
+      recipes: recipeStatus.model.recipes.map((recipe) => ({
+        id: recipe.id,
+        baseServings: recipe.servings,
+        ingredients: recipe.matchingIngredients,
+      })),
+      products: homeStatus.model.products,
+      units: homeStatus.model.units,
+      inventoryLots: homeStatus.model.groups.flatMap((group) => group.lots),
+    })
+  }, [homeStatus, recipeStatus])
+  const recipeCandidates = useMemo(() => (
     recipeStatus.status === 'ready'
-      ? buildHomeRecipeSuggestions({
-          recipes: recipeStatus.model.recipes,
-          currentMealCategory,
-          generalFilter: recipeCategoryFilter,
-        })
-      : { now: [], general: [] }
-  ), [currentMealCategory, recipeCategoryFilter, recipeStatus])
+      ? recipeStatus.model.recipes.map((recipe) => ({
+          ...recipe,
+          match: recipeMatches.get(recipe.id) ?? null,
+          cookable: recipeMatches.get(recipe.id)?.cookable === true,
+        }))
+      : []
+  ), [recipeMatches, recipeStatus])
+  const recipeSuggestions = useMemo(() => (
+    buildHomeRecipeSuggestions({
+      recipes: recipeCandidates,
+      currentMealCategory,
+      generalFilter: recipeCategoryFilter,
+      generalCookabilityFilter: recipeCookabilityFilter,
+    })
+  ), [currentMealCategory, recipeCandidates, recipeCategoryFilter, recipeCookabilityFilter])
 
   async function handleAddLowStock(productId: string) {
     if (lowStockUpdatingId || activeShoppingProductIds.has(productId)) return
@@ -340,6 +364,7 @@ export function HomePage({ ownerId, onAddProduct, onOpenExpiry, onOpenShopping, 
                 <span className="home-recipe-copy">
                   <strong>{recipe.name}</strong>
                   <small>{servingsLabel(recipe.servings)}</small>
+                  <span className={`recipe-match-badge is-${recipe.match?.state ?? 'unresolved'}`}>{recipeMatchStateLabel(recipe.match?.state ?? 'unresolved')}</span>
                 </span>
               </button>
             ))}
@@ -393,6 +418,14 @@ export function HomePage({ ownerId, onAddProduct, onOpenExpiry, onOpenShopping, 
                 </button>
               ))}
             </div>
+            <button
+              className={`recipe-cookable-filter${recipeCookabilityFilter === 'cookable' ? ' is-active' : ''}`}
+              type="button"
+              aria-pressed={recipeCookabilityFilter === 'cookable'}
+              onClick={() => setRecipeCookabilityFilter((current) => current === 'cookable' ? 'all' : 'cookable')}
+            >
+              Mogę ugotować
+            </button>
 
             {recipeStatus.model.recipes.length === 0 ? (
               <div className="home-recipe-state">
@@ -400,7 +433,7 @@ export function HomePage({ ownerId, onAddProduct, onOpenExpiry, onOpenShopping, 
                 <button className="secondary-button compact-button" type="button" onClick={onOpenRecipes}>Przejdź do przepisów</button>
               </div>
             ) : recipeSuggestions.general.length === 0 ? (
-              <div className="home-recipe-state">Brak przepisów w wybranej kategorii.</div>
+              <div className="home-recipe-state">Brak przepisów pasujących do wybranych filtrów.</div>
             ) : (
               <div className="home-recipe-grid">
                 {recipeSuggestions.general.map((recipe) => (
@@ -415,6 +448,7 @@ export function HomePage({ ownerId, onAddProduct, onOpenExpiry, onOpenShopping, 
                     <span className="home-recipe-copy">
                       <strong>{recipe.name}</strong>
                       <small>{recipeCategoryLabel(recipe.categoryCode)} · {servingsLabel(recipe.servings)}</small>
+                      <span className={`recipe-match-badge is-${recipe.match?.state ?? 'unresolved'}`}>{recipeMatchStateLabel(recipe.match?.state ?? 'unresolved')}</span>
                     </span>
                   </button>
                 ))}
@@ -424,23 +458,6 @@ export function HomePage({ ownerId, onAddProduct, onOpenExpiry, onOpenShopping, 
         )}
       </section>
 
-      <section className="home-coming" aria-labelledby="home-coming-title">
-        <div className="home-section-heading">
-          <p className="eyebrow">Wkrótce</p>
-          <h2 id="home-coming-title">Kitchen podpowie więcej</h2>
-        </div>
-
-        <div className="home-coming-grid">
-          <article className="home-coming-card" aria-disabled="true">
-            <span className="home-coming-icon" aria-hidden="true"><KitchenIcon name="sparkles" size={20} /></span>
-            <div>
-              <strong>Co ugotować</strong>
-              <span>Pomysły z zapasów</span>
-            </div>
-            <span className="coming-badge">V4.3</span>
-          </article>
-        </div>
-      </section>
     </section>
   )
 }

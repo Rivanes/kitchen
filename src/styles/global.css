@@ -3667,3 +3667,54 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
 @media (max-width: 360px) {
   .home-recipe-grid { grid-template-columns: 1fr; }
 }
+
+/* V4.3 — Recipe cookability matching */
+.recipe-match-badge {
+  display: inline-flex;
+  width: fit-content;
+  align-items: center;
+  min-height: 22px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1;
+}
+.recipe-match-badge.is-sufficient { background: #e8f4e9; color: #397244; }
+.recipe-match-badge.is-partial { background: #fff5df; color: #8b611d; }
+.recipe-match-badge.is-missing { background: #fff0f0; color: #9b343a; }
+.recipe-match-badge.is-unresolved { background: #eef1ef; color: #68736d; }
+.recipe-cookable-filter {
+  width: fit-content;
+  border: 1px solid #d9e2d9;
+  background: #fff;
+  color: var(--color-text);
+  border-radius: 999px;
+  padding: 7px 11px;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 800;
+  cursor: pointer;
+}
+.recipe-cookable-filter.is-active {
+  border-color: #5b9b63;
+  background: #e8f4e9;
+  color: #397244;
+}
+.recipe-ingredient-index.is-match-sufficient { background: #5b9b63; }
+.recipe-ingredient-index.is-match-partial { background: #d3922f; }
+.recipe-ingredient-index.is-match-missing { background: #c95b5f; }
+.recipe-ingredient-index.is-match-unresolved { background: #87938c; }
+.recipe-ingredient-meta {
+  display: grid;
+  justify-items: end;
+  gap: 2px;
+}
+.recipe-ingredient-meta > small,
+.recipe-ingredient-shopping-context {
+  color: var(--color-muted);
+  font-size: 9px;
+  line-height: 1.2;
+}
+.home-recipe-copy .recipe-match-badge,
+.recipe-row-copy .recipe-match-badge { margin-top: 2px; }

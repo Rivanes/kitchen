@@ -12,9 +12,9 @@ Editing one Recipe ingredient changes Product identity; it must not globally ren
 
 Recipe ingredient presence resolves by canonical Product UUID only. Recipe code must not infer Inventory/Shopping presence by Product display name, fuzzy text, package text or legacy Shopping custom-name matching.
 
-Recipe presence reads are owner-scoped and read-only. Recipe code must not own Inventory/Shopping mutation authority.
+Recipe physical matching reads are owner-scoped and read-only. Recipe code must not own Inventory/Shopping mutation authority.
 
-Presence means only `Inventory`, active `Shopping`, or `missing`; it must not claim quantity sufficiency before Package Semantics and later Recipe matching.
+The legacy `inventory | shopping | missing` presence projection remains procurement context only. V4.3 cookability is owned by the separate pure matching authority and never treats Shopping as stock.
 
 Recipe UI must not expose terms such as `canonical Product` or internal catalog architecture.
 
@@ -34,3 +34,9 @@ V4.1 still does not claim Recipe quantity sufficiency or cookability; the conver
 - Home uses `recipeDiscoveryReadModel.ts`, not the heavy full Recipe read model.
 - `save_recipe_snapshot(...)` remains the sole category write authority.
 
+
+## V4.3 matching shared core
+- `recipeMatching.ts` is the single pure cookability authority for Home and RecipesPage.
+- Matching reuses shared Measurement Conversion, Recipe/Inventory package snapshots, Product resource semantics and Recipe servings scaling.
+- Active Shopping state is orthogonal procurement context and never physical availability.
+- Duplicate Recipe requirements aggregate by canonical Product + effective direct family before stock comparison.

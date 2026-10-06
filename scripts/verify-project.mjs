@@ -109,8 +109,11 @@ const requiredFiles = [
   'src/features/recipes/recipeCategories.ts',
   'src/features/recipes/recipeDiscovery.ts',
   'src/features/recipes/recipeDiscoveryReadModel.ts',
+  'src/features/recipes/recipeMatching.ts',
   'src/features/recipes/types.ts',
   'scripts/test-recipe-discovery.mjs',
+  'scripts/test-recipe-matching.mjs',
+  'tests/RECIPE_MATCHING_CONTRACT.md',
   'tests/RECIPE_CATEGORY_CONTRACT.md',
   'tests/RECIPE_DISCOVERY_CONTRACT.md',
   'tests/RECIPES_UI_CONTRACT.md',
@@ -472,8 +475,8 @@ if (consumeSheet.includes('onSaved')) {
 }
 
 const homePage = await readFile('src/features/home/HomePage.tsx', 'utf8')
-if (!homePage.includes('Kitchen podpowie więcej') || !homePage.includes('Terminy ważności') || !homePage.includes('Co ugotować')) {
-  throw new Error('V1.6.2 Start must keep SMART future previews and provide quick access to the Expiry Center.')
+if (!homePage.includes('Terminy ważności') || !homePage.includes('Inspiracje i planowanie') || !homePage.includes('Mogę ugotować')) {
+  throw new Error('V4.3 Start must keep expiry access plus active Recipe discovery/cookability surfaces.')
 }
 if (!homePage.includes('getInventoryExpiryMeta') || !homePage.includes('bez terminu') || !homePage.includes('onOpenExpiry')) {
   throw new Error('V1.6.2 Start must summarize urgent/missing expiry data and open the Expiry Center.')
@@ -851,8 +854,7 @@ for (const marker of [
   ".from('recipe_sections')",
   ".from('recipe_ingredients')",
   ".eq('owner_id', ownerId)",
-  'loadOwnerProductCatalog(ownerId)',
-  'loadMeasurementUnits()',
+  'loadInventoryReadModel(ownerId)',
   'readStoredQuantity',
 ]) {
   if (!recipesReadModel.includes(marker)) throw new Error(`Recipes read-model marker missing: ${marker}`)
@@ -865,7 +867,7 @@ for (const marker of [
   'prep_time_minutes',
   'cook_time_minutes',
   'readStoredRecipeDuration',
-  ".from('inventory_items')",
+  'inventoryModel.groups',
   ".from('shopping_items')",
   ".eq('is_purchased', false)",
   'resolveIngredientPresence',
@@ -875,8 +877,8 @@ for (const marker of [
 ]) {
   if (!recipesReadModel.includes(marker)) throw new Error(`V3.5.2 Recipes presence/timing read marker missing: ${marker}`)
 }
-if ((recipesReadModel.match(/\.eq\('owner_id', ownerId\)/g) ?? []).length < 5) {
-  throw new Error('V3.6A Recipe, section, ingredient, Inventory presence and Shopping presence reads must all be explicitly owner-scoped.')
+if ((recipesReadModel.match(/\.eq\('owner_id', ownerId\)/g) ?? []).length < 4 || !recipesReadModel.includes('loadInventoryReadModel(ownerId)')) {
+  throw new Error('V4.3 Recipe, section, ingredient and Shopping reads must be owner-scoped, with physical stock delegated to InventoryReadModel.')
 }
 if (/custom_name|productName.*presence|name.*presence/i.test(recipesReadModel)) {
   throw new Error('V3.5.2 Recipe presence must resolve by canonical product_id only, never display/custom name.')
@@ -920,13 +922,10 @@ if (recipesPage.includes('recipe-detail-ingredient-count')) {
 for (const marker of [
   'formatRecipeDuration',
   'recipe-detail-timing',
-  'recipe-ingredient-index is-${ingredient.presence}',
-  'ingredientPresenceLabel',
+  'recipe-ingredient-index is-match-${matchState}',
+  'recipeMatchStateLabel',
 ]) {
   if (!recipesPage.includes(marker)) throw new Error(`V3.5.2 Recipe detail polish marker missing: ${marker}`)
-}
-if (/wystarczy|brakuje\s+\d|możesz ugotować/i.test(recipesPage)) {
-  throw new Error('V3.5.2 Product presence UI must not claim quantity sufficiency or Recipe matching.')
 }
 
 const recipeServings = await readFile('src/features/recipes/recipeServings.ts', 'utf8')
@@ -1263,8 +1262,11 @@ if (/supabase|\.from\(|\.rpc\(/i.test(recipeDiscovery)) {
 for (const marker of [".from('recipes')", 'category_code', 'createRecipeCoverSignedUrl']) {
   if (!recipeDiscoveryReadModel.includes(marker)) throw new Error(`V4.2 lightweight Recipe discovery read marker missing: ${marker}`)
 }
-if (recipeDiscoveryReadModel.includes('recipe_ingredients') || recipeDiscoveryReadModel.includes('inventory_items') || recipeDiscoveryReadModel.includes('shopping_items')) {
-  throw new Error('V4.2 Home Recipe discovery read model must remain lightweight and must not load ingredient/Inventory/Shopping detail.')
+if (recipeDiscoveryReadModel.includes('inventory_items') || recipeDiscoveryReadModel.includes('shopping_items') || recipeDiscoveryReadModel.includes('recipe_sections') || recipeDiscoveryReadModel.includes('instructions')) {
+  throw new Error('V4.3 Home Recipe discovery must stay compact: matching requirements are allowed, but Inventory/Shopping/sections/instructions are not.')
+}
+if (!recipeDiscoveryReadModel.includes('recipe_ingredients') || !recipeDiscoveryReadModel.includes('matchingIngredients')) {
+  throw new Error('V4.3 Home discovery must expose the compact Recipe requirement projection for the shared matcher.')
 }
 for (const marker of ['categoryCode', 'p_category_code', 'assertRecipeCategoryCode']) {
   if (!recipeMutations.includes(marker)) throw new Error(`V4.2 Recipe category persistence marker missing: ${marker}`)
@@ -1299,6 +1301,30 @@ for (const marker of ['06:00–11:59', '12:00–17:59', '18:00–22:59', '23:00�
   if (!recipeDiscoveryContract.includes(marker)) throw new Error(`V4.2 Recipe discovery contract marker missing: ${marker}`)
 }
 await execFileAsync(process.execPath, ['--experimental-strip-types', 'scripts/test-recipe-discovery.mjs'], {
+  env: { ...process.env, NODE_NO_WARNINGS: '1' },
+})
+
+const recipeMatching = await readFile('src/features/recipes/recipeMatching.ts', 'utf8')
+for (const marker of ['matchRecipe', 'buildRecipeMatchMap', 'sufficient', 'partial', 'missing', 'unresolved', 'scaleRecipeIngredientQuantity', 'toBaseMeasurementQuantity']) {
+  if (!recipeMatching.includes(marker)) throw new Error(`V4.3 Recipe matching authority marker missing: ${marker}`)
+}
+if (/supabase|\.from\(['"]|\.rpc\(|shopping_items/i.test(recipeMatching)) {
+  throw new Error('V4.3 Recipe matching authority must remain pure and independent from Shopping/Supabase.')
+}
+for (const marker of ['recipeMatches', 'recipe-cookable-filter', 'selectedRecipeMatch', 'recipeMatchStateLabel']) {
+  if (!recipesPage.includes(marker)) throw new Error(`V4.3 RecipesPage matching marker missing: ${marker}`)
+}
+for (const marker of ['recipeMatches', 'recipeCookabilityFilter', 'recipe-match-badge', 'buildRecipeMatchMap']) {
+  if (!homePage.includes(marker)) throw new Error(`V4.3 Home matching marker missing: ${marker}`)
+}
+for (const marker of ['.recipe-match-badge', '.recipe-cookable-filter', '.recipe-ingredient-index.is-match-sufficient', '.recipe-ingredient-index.is-match-unresolved']) {
+  if (!globalCss.includes(marker)) throw new Error(`V4.3 Recipe matching CSS marker missing: ${marker}`)
+}
+const recipeMatchingContract = await readFile('tests/RECIPE_MATCHING_CONTRACT.md', 'utf8')
+for (const marker of ['Wystarczy', 'Częściowo', 'Brak', 'Nieustalone', 'Mogę ugotować', 'Product + effective direct family', 'never promotes']) {
+  if (!recipeMatchingContract.includes(marker)) throw new Error(`V4.3 Recipe matching contract marker missing: ${marker}`)
+}
+await execFileAsync(process.execPath, ['--experimental-strip-types', 'scripts/test-recipe-matching.mjs'], {
   env: { ...process.env, NODE_NO_WARNINGS: '1' },
 })
 
@@ -1418,10 +1444,10 @@ const recipeSectionsContract = await readFile('tests/RECIPE_SECTIONS_CONTRACT.md
 const v3CloseoutContract = await readFile('tests/V3_CLOSEOUT_CONTRACT.md', 'utf8')
 for (const [contract, markers] of [
   [v3CloseoutContract, ['No runtime or database compatibility authority remains', 'structured 14-argument', 'does not add', 'Recipe cookability matching']],
-  [recipesUiContract, ['read surfaces', 'exactly one Recipe edit entry point', 'compact horizontal summary row', 'Ingredient count is not repeated', 'Product-presence indicator only', 'Inventory has priority', 'mandatory primary section', 'fast buttons/chips', 'no `Bez sekcji`', 'same dedicated bottom sheet/modal', 'nested forms are forbidden', 'Global Recipe Save is not disabled by Product Catalog loading', 'Escape from Ingredient Editor closes only Ingredient Editor']],
+  [recipesUiContract, ['read surfaces', 'exactly one Recipe edit entry point', 'compact horizontal summary row', 'Ingredient count is not repeated', 'canonical Recipe matching state', 'Active Shopping is secondary procurement context', 'mandatory primary section', 'fast buttons/chips', 'no `Bez sekcji`', 'same dedicated bottom sheet/modal', 'nested forms are forbidden', 'Global Recipe Save is not disabled by Product Catalog loading', 'Escape from Ingredient Editor closes only Ingredient Editor']],
   [recipeAuthoringContract, ['One Recipe authoring draft', 'save_recipe_snapshot', 'Canceling the whole Recipe editor discards', 'optional preparation time', 'optional cooking/baking time', 'structured Recipe-local sections', 'primary `Główne`', 'RecipeIngredientEditorSheet', 'transactional with ingredient Apply', 'Final Recipe Save must not depend on Product Catalog loading']],
   [recipeSectionsContract, ['exactly one mandatory primary section', 'section_id', 'only Recipe section authority', 'legacy `recipe_ingredients.section_label` compatibility column no longer exists', 'fast button/chip choices', '`Bez sekcji` no longer exists', 'no independent `Dodaj sekcję` authority', 'Pending section creation and ingredient Apply commit together', 'does not perform Recipe matching']],
-  [recipeSharedContract, ['canonical Product resolver/create authority', 'shared Quantity', 'must not globally rename', 'canonical Product UUID only', 'must not claim quantity sufficiency']],
+  [recipeSharedContract, ['canonical Product resolver/create authority', 'shared Quantity', 'must not globally rename', 'canonical Product UUID only', 'single pure cookability authority']],
   [recipeImageContract, ['full source image', 'pure crop geometry authority', 'RECIPE_COVER_HERO_ASPECT', 'must therefore match', 'Cleanup retries never block Recipe reading']],
   [recipeToShoppingContract, ["presence === 'missing'", 'current target-servings requirement', 'grouped by canonical Product + unit', 'createShoppingItem()', 'sequential', 'no unit conversion', 'V3.6']],
 ]) {

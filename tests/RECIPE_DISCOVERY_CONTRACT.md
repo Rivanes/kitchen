@@ -15,3 +15,9 @@
 - General category filters remain complete even when the same Recipe is also eligible for `Na teraz`. Automatic de-duplication applies only to the unfiltered preview when alternatives exist.
 - Category filters are independent from the future V4.3 `Mogę ugotować` predicate.
 - Home opens the canonical RecipesPage detail through an explicit AppShell request; Home never owns a duplicate Recipe detail/write authority.
+
+## V4.3 cookability composition
+- Home lightweight discovery additionally loads only the compact ingredient requirement projection needed by the shared matcher; it still does not load sections, instructions or editor state.
+- Home reuses the already-loaded Inventory read model as physical-stock authority.
+- General category filters compose with an independent `Mogę ugotować` toggle.
+- `Na teraz` remains complete and is not silently filtered by the general cookability toggle; cards expose canonical matching state.

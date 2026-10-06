@@ -1,11 +1,13 @@
 import type { RecipeCategoryCode } from './recipeCategories'
 
 export type RecipeCategoryFilter = 'all' | RecipeCategoryCode
+export type RecipeCookabilityFilter = 'all' | 'cookable'
 
 export type RecipeDiscoveryCandidate = {
   id: string
   categoryCode: RecipeCategoryCode
   updatedAt: string
+  cookable?: boolean
 }
 
 export function resolveCurrentMealCategory(localHour: number): RecipeCategoryCode | null {
@@ -27,6 +29,15 @@ export function filterRecipesByCategory<T extends { categoryCode: RecipeCategory
   return recipes.filter((recipe) => recipe.categoryCode === filter)
 }
 
+
+export function filterRecipesByCookability<T extends { cookable?: boolean }>(
+  recipes: readonly T[],
+  filter: RecipeCookabilityFilter,
+): T[] {
+  if (filter === 'all') return [...recipes]
+  return recipes.filter((recipe) => recipe.cookable === true)
+}
+
 function compareUpdatedDesc(a: RecipeDiscoveryCandidate, b: RecipeDiscoveryCandidate) {
   const delta = Date.parse(b.updatedAt) - Date.parse(a.updatedAt)
   if (delta !== 0) return delta
@@ -37,6 +48,7 @@ export function buildHomeRecipeSuggestions<T extends RecipeDiscoveryCandidate>(i
   recipes: readonly T[]
   currentMealCategory: RecipeCategoryCode | null
   generalFilter: RecipeCategoryFilter
+  generalCookabilityFilter?: RecipeCookabilityFilter
   nowLimit?: number
   generalLimit?: number
 }) {
@@ -47,7 +59,8 @@ export function buildHomeRecipeSuggestions<T extends RecipeDiscoveryCandidate>(i
     ? ordered.filter((recipe) => recipe.categoryCode === input.currentMealCategory).slice(0, nowLimit)
     : []
 
-  const filteredGeneral = filterRecipesByCategory(ordered, input.generalFilter)
+  const categoryGeneral = filterRecipesByCategory(ordered, input.generalFilter)
+  const filteredGeneral = filterRecipesByCookability(categoryGeneral, input.generalCookabilityFilter ?? 'all')
   if (input.generalFilter !== 'all' || now.length === 0) {
     return { now, general: filteredGeneral.slice(0, generalLimit) }
   }

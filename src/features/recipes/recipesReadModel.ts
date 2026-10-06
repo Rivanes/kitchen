@@ -1,8 +1,7 @@
 import { supabase } from '../../lib/supabase/client'
-import { loadMeasurementUnits } from '../measurements/measurementUnits'
 import { isContainerMeasurementUnit, isDirectMeasurementUnit } from '../measurements/packageSemantics'
-import { loadOwnerProductCatalog } from '../products/productCatalogMutations'
 import { readStoredQuantity } from '../quantity/quantity'
+import { loadInventoryReadModel } from '../inventory/inventoryReadModel'
 import { assertRecipeCategoryCode } from './recipeCategories'
 import { createRecipeCoverSignedUrl } from './recipeCoverStorage'
 import { readStoredRecipeDuration } from './recipeDuration'
@@ -49,10 +48,6 @@ type RawRecipeIngredient = {
   section_id: string
   note: string | null
   created_at: string
-}
-
-type RawInventoryPresence = {
-  product_id: string
 }
 
 type RawShoppingPresence = {
@@ -105,9 +100,9 @@ export async function loadRecipesReadModel(ownerId: string): Promise<RecipesRead
   assertNoQueryError(recipesResult.error, 'recipes')
 
   const rawRecipes = (recipesResult.data ?? []) as RawRecipe[]
-  if (rawRecipes.length === 0) return { recipes: [] }
+  if (rawRecipes.length === 0) return { recipes: [], inventory: await loadInventoryReadModel(ownerId) }
 
-  const [sectionsResult, ingredientsResult, products, units, inventoryPresenceResult, shoppingPresenceResult] = await Promise.all([
+  const [sectionsResult, ingredientsResult, inventoryModel, shoppingPresenceResult] = await Promise.all([
     supabase
       .from('recipe_sections')
       .select('id, recipe_id, name, sort_order, is_primary, created_at')
@@ -116,12 +111,7 @@ export async function loadRecipesReadModel(ownerId: string): Promise<RecipesRead
       .from('recipe_ingredients')
       .select('id, recipe_id, product_id, quantity, unit_code, package_content_value, package_content_unit, sort_order, section_id, note, created_at')
       .eq('owner_id', ownerId),
-    loadOwnerProductCatalog(ownerId),
-    loadMeasurementUnits(),
-    supabase
-      .from('inventory_items')
-      .select('product_id')
-      .eq('owner_id', ownerId),
+    loadInventoryReadModel(ownerId),
     supabase
       .from('shopping_items')
       .select('product_id')
@@ -131,15 +121,20 @@ export async function loadRecipesReadModel(ownerId: string): Promise<RecipesRead
 
   assertNoQueryError(sectionsResult.error, 'recipe_sections')
   assertNoQueryError(ingredientsResult.error, 'recipe_ingredients')
-  assertNoQueryError(inventoryPresenceResult.error, 'inventory_items presence')
   assertNoQueryError(shoppingPresenceResult.error, 'shopping_items presence')
 
   const recipeIds = new Set(rawRecipes.map((recipe) => recipe.id))
+  const products = inventoryModel.products
+  const units = inventoryModel.units
   const productById = new Map(products.map((product) => [product.id, product]))
   const unitByCode = new Map(units.map((unit) => [unit.code, unit]))
-  const inventoryProductIds = new Set(
-    ((inventoryPresenceResult.data ?? []) as RawInventoryPresence[]).map((row) => row.product_id),
-  )
+  const inventoryProductIds = new Set<string>()
+  for (const group of inventoryModel.groups) {
+    for (const lot of group.lots) inventoryProductIds.add(lot.productId)
+    for (const resource of group.resources) {
+      if (group.location.kind === 'spices' && resource.present) inventoryProductIds.add(resource.product.id)
+    }
+  }
   const activeShoppingProductIds = new Set(
     ((shoppingPresenceResult.data ?? []) as RawShoppingPresence[])
       .map((row) => row.product_id)
@@ -277,5 +272,5 @@ export async function loadRecipesReadModel(ownerId: string): Promise<RecipesRead
     ingredients: (ingredientsByRecipe.get(recipe.id) ?? []).map(({ createdAt: _createdAt, ...ingredient }) => ingredient),
   }))
 
-  return { recipes }
+  return { recipes, inventory: inventoryModel }
 }

@@ -1,4 +1,4 @@
-import { formatQuantity, normalizeQuantityPrecision } from '../quantity/quantity'
+import { formatQuantity, normalizeQuantityPrecision } from '../quantity/quantity.ts'
 
 export const RECIPE_SERVINGS_MIN = 1
 export const RECIPE_SERVINGS_MAX = 999

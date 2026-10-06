@@ -1,3 +1,4 @@
+import type { InventoryReadModel } from '../inventory/types'
 import type { RecipeCategoryCode } from './recipeCategories'
 
 export type RecipeIngredientPresence = 'inventory' | 'shopping' | 'missing'
@@ -43,4 +44,5 @@ export type RecipeReadItem = {
 
 export type RecipesReadModel = {
   recipes: RecipeReadItem[]
+  inventory: InventoryReadModel
 }

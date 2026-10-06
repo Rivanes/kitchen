@@ -7,12 +7,13 @@ import { formatScaledRecipeQuantity } from './recipeServings'
 import { buildRecipeShoppingPlan, getMissingRecipeProductIds } from './recipeShoppingPlan'
 import { RecipeCoverImage } from './RecipeCoverImage'
 import { RECIPE_CATEGORIES, recipeCategoryLabel } from './recipeCategories'
-import { filterRecipesByCategory, type RecipeCategoryFilter } from './recipeDiscovery'
+import { filterRecipesByCategory, filterRecipesByCookability, type RecipeCategoryFilter, type RecipeCookabilityFilter } from './recipeDiscovery'
 import { RECIPE_COVER_HERO_ASPECT, RECIPE_COVER_THUMBNAIL_ASPECT } from './recipeCoverCrop'
 import { RecipeEditor } from './RecipeEditor'
 import { flushRecipeImageCleanupQueue } from './recipeCoverStorage'
 import { loadRecipesReadModel } from './recipesReadModel'
-import type { RecipeIngredientPresence, RecipeReadItem, RecipesReadModel } from './types'
+import { buildRecipeMatchMap, matchRecipe, recipeMatchStateLabel, type RecipeMatchResult, type RecipeMatchState } from './recipeMatching'
+import type { RecipeReadItem, RecipesReadModel } from './types'
 
 type RecipesPageProps = {
   ownerId: string
@@ -64,11 +65,6 @@ function ingredientsLabel(count: number) {
   return `${count} składników`
 }
 
-function ingredientPresenceLabel(presence: RecipeIngredientPresence) {
-  if (presence === 'inventory') return 'W zapasach'
-  if (presence === 'shopping') return 'Na liście zakupów'
-  return 'Brak w zapasach i na liście zakupów'
-}
 
 export function RecipesPage({ ownerId, overviewRequestToken, openRecipeId, openRecipeRequestToken }: RecipesPageProps) {
   const [recipesStatus, setRecipesStatus] = useState<RecipesStatus>({ status: 'loading', model: null })
@@ -77,6 +73,7 @@ export function RecipesPage({ ownerId, overviewRequestToken, openRecipeId, openR
   const [targetServings, setTargetServings] = useState(1)
   const [searchQuery, setSearchQuery] = useState('')
   const [categoryFilter, setCategoryFilter] = useState<RecipeCategoryFilter>('all')
+  const [cookabilityFilter, setCookabilityFilter] = useState<RecipeCookabilityFilter>('all')
   const [shoppingAction, setShoppingAction] = useState<RecipeShoppingAction>(null)
   const [shoppingFeedback, setShoppingFeedback] = useState<RecipeShoppingFeedback>(null)
   const [shoppingRecoveryBlocked, setShoppingRecoveryBlocked] = useState(false)
@@ -104,10 +101,24 @@ export function RecipesPage({ ownerId, overviewRequestToken, openRecipeId, openR
     setSelectedRecipeId(null)
     setSearchQuery('')
     setCategoryFilter('all')
+    setCookabilityFilter('all')
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }, [overviewRequestToken])
 
   const model = recipesStatus.status === 'ready' ? recipesStatus.model : null
+  const recipeMatches = useMemo(() => {
+    if (!model) return new Map<string, RecipeMatchResult>()
+    return buildRecipeMatchMap({
+      recipes: model.recipes.map((recipe) => ({
+        id: recipe.id,
+        baseServings: recipe.servings,
+        ingredients: recipe.ingredients,
+      })),
+      products: model.inventory.products,
+      units: model.inventory.units,
+      inventoryLots: model.inventory.groups.flatMap((group) => group.lots),
+    })
+  }, [model])
 
   useEffect(() => {
     if (!model || openRecipeRequestToken <= 0 || !openRecipeId) return
@@ -117,6 +128,7 @@ export function RecipesPage({ ownerId, overviewRequestToken, openRecipeId, openR
     setSelectedRecipeId(openRecipeId)
     setSearchQuery('')
     setCategoryFilter('all')
+    setCookabilityFilter('all')
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }, [model, openRecipeId, openRecipeRequestToken])
 
@@ -124,6 +136,20 @@ export function RecipesPage({ ownerId, overviewRequestToken, openRecipeId, openR
     () => model?.recipes.find((recipe) => recipe.id === selectedRecipeId) ?? null,
     [model, selectedRecipeId],
   )
+  const selectedRecipeMatch = useMemo(() => {
+    if (!selectedRecipe || !model) return null
+    return matchRecipe({
+      recipe: {
+        id: selectedRecipe.id,
+        baseServings: selectedRecipe.servings,
+        targetServings,
+        ingredients: selectedRecipe.ingredients,
+      },
+      products: model.inventory.products,
+      units: model.inventory.units,
+      inventoryLots: model.inventory.groups.flatMap((group) => group.lots),
+    })
+  }, [model, selectedRecipe, targetServings])
 
   useEffect(() => {
     if (!selectedRecipe) return
@@ -144,15 +170,19 @@ export function RecipesPage({ ownerId, overviewRequestToken, openRecipeId, openR
     if (!model) return []
 
     const categoryRecipes = filterRecipesByCategory(model.recipes, categoryFilter)
-    if (!normalizedSearch) return categoryRecipes
+    const cookabilityRecipes = filterRecipesByCookability(
+      categoryRecipes.map((recipe) => ({ ...recipe, cookable: recipeMatches.get(recipe.id)?.cookable === true })),
+      cookabilityFilter,
+    )
+    if (!normalizedSearch) return cookabilityRecipes
 
-    return categoryRecipes.filter((recipe) => (
+    return cookabilityRecipes.filter((recipe) => (
       recipe.name.toLocaleLowerCase('pl-PL').includes(normalizedSearch)
       || recipe.ingredients.some((ingredient) => (
         ingredient.productName.toLocaleLowerCase('pl-PL').includes(normalizedSearch)
       ))
     ))
-  }, [categoryFilter, model, normalizedSearch])
+  }, [categoryFilter, cookabilityFilter, model, normalizedSearch, recipeMatches])
 
   async function handleEditorSaved(recipeId: string | null) {
     setEditorMode(null)
@@ -181,6 +211,7 @@ export function RecipesPage({ ownerId, overviewRequestToken, openRecipeId, openR
       return {
         status: 'ready',
         model: {
+          ...current.model,
           recipes: current.model.recipes.map((recipe) => ({
             ...recipe,
             ingredients: recipe.ingredients.map((ingredient) => (
@@ -262,6 +293,7 @@ export function RecipesPage({ ownerId, overviewRequestToken, openRecipeId, openR
             <p className="eyebrow">Przepis</p>
             <h1>{selectedRecipe.name}</h1>
             <span className="recipe-category-badge">{recipeCategoryLabel(selectedRecipe.categoryCode)}</span>
+            <span className={`recipe-match-badge is-${selectedRecipeMatch?.state ?? 'unresolved'}`}>{recipeMatchStateLabel(selectedRecipeMatch?.state ?? 'unresolved')}</span>
           </div>
           <button className="icon-button" type="button" onClick={() => setEditorMode({ kind: 'edit', recipe: selectedRecipe })} aria-label="Edytuj przepis" title="Edytuj przepis">
             <KitchenIcon name="edit" />
@@ -348,21 +380,23 @@ export function RecipesPage({ ownerId, overviewRequestToken, openRecipeId, openR
                         baseServings: selectedRecipe.servings,
                         targetServings,
                       })
+                      const matchState: RecipeMatchState = selectedRecipeMatch?.ingredientStates[ingredient.id] ?? 'unresolved'
 
                       return (
-                        <div className={`recipe-ingredient-row${ingredient.presence === 'missing' ? ' has-shopping-action' : ''}`} key={ingredient.id}>
+                        <div className={`recipe-ingredient-row${matchState === 'missing' && ingredient.presence === 'missing' ? ' has-shopping-action' : ''}`} key={ingredient.id}>
                           <span
-                            className={`recipe-ingredient-index is-${ingredient.presence}`}
+                            className={`recipe-ingredient-index is-match-${matchState}`}
                             role="img"
-                            aria-label={ingredientPresenceLabel(ingredient.presence)}
-                            title={ingredientPresenceLabel(ingredient.presence)}
+                            aria-label={recipeMatchStateLabel(matchState)}
+                            title={recipeMatchStateLabel(matchState)}
                           />
                           <span className="recipe-ingredient-copy">
                             <strong>{ingredient.productName}</strong>
                             {ingredient.note && <small>{ingredient.note}</small>}
+                            {ingredient.presence === 'shopping' && <small className="recipe-ingredient-shopping-context">Na liście zakupów</small>}
                           </span>
-                          <span className="recipe-ingredient-quantity">{displayQuantity} {ingredient.unitSymbol}</span>
-                          {ingredient.presence === 'missing' && (
+                          <span className="recipe-ingredient-meta"><span className="recipe-ingredient-quantity">{displayQuantity} {ingredient.unitSymbol}</span><small>{recipeMatchStateLabel(matchState)}</small></span>
+                          {matchState === 'missing' && ingredient.presence === 'missing' && (
                             <button
                               className="recipe-ingredient-shopping-action"
                               type="button"
@@ -488,6 +522,17 @@ export function RecipesPage({ ownerId, overviewRequestToken, openRecipeId, openR
         </div>
       )}
 
+      {model && model.recipes.length > 0 && (
+        <button
+          className={`recipe-cookable-filter${cookabilityFilter === 'cookable' ? ' is-active' : ''}`}
+          type="button"
+          aria-pressed={cookabilityFilter === 'cookable'}
+          onClick={() => setCookabilityFilter((current) => current === 'cookable' ? 'all' : 'cookable')}
+        >
+          Mogę ugotować
+        </button>
+      )}
+
       {model && shouldShowRecipeSearch && (
         <label className="inventory-search recipes-search">
           <KitchenIcon name="search" size={18} />
@@ -506,11 +551,11 @@ export function RecipesPage({ ownerId, overviewRequestToken, openRecipeId, openR
         </label>
       )}
 
-      {model && model.recipes.length > 0 && visibleRecipes.length === 0 && (normalizedSearch || categoryFilter !== 'all') && (
+      {model && model.recipes.length > 0 && visibleRecipes.length === 0 && (normalizedSearch || categoryFilter !== 'all' || cookabilityFilter === 'cookable') && (
         <div className="recipes-search-empty" role="status">
           {normalizedSearch
             ? 'Brak przepisów pasujących do wybranych filtrów i wyszukiwania.'
-            : 'Brak przepisów w wybranej kategorii.'}
+            : 'Brak przepisów pasujących do wybranych filtrów.'}
         </div>
       )}
 
@@ -530,6 +575,7 @@ export function RecipesPage({ ownerId, overviewRequestToken, openRecipeId, openR
                   <span className="recipe-row-copy">
                     <strong>{recipe.name}</strong>
                     <small>{recipeCategoryLabel(recipe.categoryCode)} · {servingsLabel(recipe.servings)} · {ingredientsLabel(recipe.ingredients.length)}</small>
+                    <span className={`recipe-match-badge is-${recipeMatches.get(recipe.id)?.state ?? 'unresolved'}`}>{recipeMatchStateLabel(recipeMatches.get(recipe.id)?.state ?? 'unresolved')}</span>
                   </span>
                   <KitchenIcon name="chevronRight" size={18} />
                 </button>
