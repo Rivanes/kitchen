@@ -1,3 +1,4 @@
+import { isAudioWorkletSupported, isGetUserMediaSupported } from './audioCapture'
 import type {
   LocalSpeechToTextAdapter,
   LocalSttBackend,
@@ -58,8 +59,8 @@ export class TransformersLocalSttAdapter implements LocalSpeechToTextAdapter {
 
   async getCapability(backend: LocalSttBackend): Promise<LocalSttCapability> {
     const workerCapability = await this.request<{ modelCached: boolean }>('capability', { backend })
-    const microphoneSupported = Boolean(navigator.mediaDevices?.getUserMedia)
-    const audioWorkletSupported = 'AudioWorkletNode' in window
+    const microphoneSupported = isGetUserMediaSupported()
+    const audioWorkletSupported = isAudioWorkletSupported()
     const webGpuSupported = 'gpu' in navigator
     const backendSupported = backend === 'wasm' || webGpuSupported
 

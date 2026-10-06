@@ -26,12 +26,20 @@ function getAudioContextConstructor(): typeof AudioContext | null {
   return candidate ?? null
 }
 
+export function isGetUserMediaSupported() {
+  return typeof navigator.mediaDevices?.getUserMedia === 'function'
+}
+
+export function isAudioWorkletSupported() {
+  return 'AudioWorkletNode' in window
+}
+
 export function isMicrophoneCaptureSupported() {
   return Boolean(
     window.isSecureContext
-      && navigator.mediaDevices?.getUserMedia
+      && isGetUserMediaSupported()
       && getAudioContextConstructor()
-      && 'AudioWorkletNode' in window,
+      && isAudioWorkletSupported(),
   )
 }
 
@@ -97,8 +105,8 @@ export class VoicePcmCapture {
   async start(maxDurationMs = VOICE_SPIKE_MAX_DURATION_MS) {
     if (this.session) throw new Error('Nagrywanie już trwa.')
     if (!window.isSecureContext) throw new Error('Mikrofon wymaga bezpiecznego połączenia HTTPS.')
-    if (!navigator.mediaDevices?.getUserMedia) throw new Error('Ta przeglądarka nie udostępnia mikrofonu przez getUserMedia().')
-    if (!('AudioWorkletNode' in window)) throw new Error('Ta przeglądarka nie obsługuje AudioWorklet.')
+    if (!isGetUserMediaSupported()) throw new Error('Ta przeglądarka nie udostępnia mikrofonu przez getUserMedia().')
+    if (!isAudioWorkletSupported()) throw new Error('Ta przeglądarka nie obsługuje AudioWorklet.')
 
     const AudioContextCtor = getAudioContextConstructor()
     if (!AudioContextCtor) throw new Error('Ta przeglądarka nie obsługuje Web Audio API.')
