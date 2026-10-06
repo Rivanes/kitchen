@@ -116,6 +116,7 @@ const requiredFiles = [
   'scripts/test-recipe-matching.mjs',
   'scripts/test-recipe-purchase-planning.mjs',
   'scripts/test-recipe-shopping-upgrade.mjs',
+  'scripts/test-v5-closeout.mjs',
   'tests/RECIPE_MATCHING_CONTRACT.md',
   'tests/RECIPE_PURCHASE_PLANNING_CONTRACT.md',
   'tests/RECIPE_CATEGORY_CONTRACT.md',
@@ -125,6 +126,7 @@ const requiredFiles = [
   'tests/RECIPE_SHARED_CORE_CONTRACT.md',
   'tests/RECIPE_IMAGE_CONTRACT.md',
   'tests/RECIPE_TO_SHOPPING_CONTRACT.md',
+  'tests/V5_CLOSEOUT_CONTRACT.md',
   'vite.config.ts',
 ]
 
@@ -982,6 +984,20 @@ if (/supabase|\.rpc\(/i.test(recipeShoppingPlan) || /\.from\(\s*['"]/i.test(reci
   throw new Error('V5.2 Recipe Shopping plan must remain pure and must not own persistence.')
 }
 await execFileAsync(process.execPath, ['--experimental-strip-types', 'scripts/test-recipe-shopping-upgrade.mjs'], {
+  env: { ...process.env, NODE_NO_WARNINGS: '1' },
+})
+
+const v5CloseoutContract = await readFile('tests/V5_CLOSEOUT_CONTRACT.md', 'utf8')
+for (const marker of [
+  'Canonical chain',
+  'active Shopping never changes',
+  'Retail-unit rule',
+  'at-least total active Shopping quantity',
+  'V5.3 closeout',
+]) {
+  if (!v5CloseoutContract.includes(marker)) throw new Error(`V5 closeout contract marker missing: ${marker}`)
+}
+await execFileAsync(process.execPath, ['--experimental-strip-types', 'scripts/test-v5-closeout.mjs'], {
   env: { ...process.env, NODE_NO_WARNINGS: '1' },
 })
 

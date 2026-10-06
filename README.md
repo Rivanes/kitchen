@@ -2,7 +2,7 @@
 
 Private, single-user mobile-first PWA for household inventory, shopping and recipes.
 
-Closed milestones: **V1 Inventory — PASS/CLOSED**, **V2 Shopping — PASS/CLOSED**, **V3 Recipes + Resource Semantics — PASS/CLOSED through V3.8.4**, **V4.1 Recipe Package Snapshot + Measurement Conversion — PASS/CLOSED**, **V4.2 Recipe Categories + Home Discovery + Time-aware Suggestions — PASS/CLOSED**, and **V4.3 What Can I Cook? + V4.3.1 Cookable Meal Section UX — PASS/CLOSED**. **V4.4 Final V4 Polish and the whole V4 line are PASS/CLOSED through the user-confirmed V5.1 baseline. V5.1 Purchase Planning Authority is PASS/CLOSED. V5.2 Recipe → Shopping Upgrade is IMPLEMENTED / READY FOR GITHUB QA.** V5.2 adds no SQL migration and preserves Shopping as the sole write authority.
+Closed milestones: **V1 Inventory — PASS/CLOSED**, **V2 Shopping — PASS/CLOSED**, **V3 Recipes + Resource Semantics — PASS/CLOSED through V3.8.4**, **V4.1 Recipe Package Snapshot + Measurement Conversion — PASS/CLOSED**, **V4.2 Recipe Categories + Home Discovery + Time-aware Suggestions — PASS/CLOSED**, and **V4.3 What Can I Cook? + V4.3.1 Cookable Meal Section UX — PASS/CLOSED**. **V4.4 Final V4 Polish and the whole V4 line are PASS/CLOSED. V5.1 Purchase Planning Authority and V5.2 Recipe → Shopping Upgrade are PASS/CLOSED. V5.3 QA + Closeout is READY FOR FINAL QA.** V5 adds no SQL migration and preserves Shopping as the sole write authority.
 
 Active Inventory capabilities:
 - owner-scoped stock read model
@@ -65,10 +65,10 @@ V5.1 adds one pure bridge from the V4.3 physical matcher result to a realistic f
 - Spice remains outside quantitative purchase planning; Household remains outside Recipe planning;
 - V5.1 performs no Supabase query and no `shopping_items` mutation.
 
-Known production-data prerequisite for later V5.2: current Product `Mleko` still needs its Product purchase default completed as `1 opakowanie = 1 l` before automatic Recipe -> Shopping planning for that Product can be enabled. The `Melko` typo cleanup is explicitly deferred to later Product maintenance.
+Historical PRE-V5.1 data audit found `Mleko` with incomplete Product purchase semantics. The final V5.3 read-only production gate is now the authority for current data and must prove all Recipe purchase groups plannable before V5 closure. The `Melko` typo cleanup remains deferred maintenance.
 
 
-## V5.2 — Recipe → Shopping Upgrade [READY FOR QA]
+## V5.2 — Recipe → Shopping Upgrade [PASS / CLOSED]
 
 V5.2 connects the existing Recipe Shopping actions to the V5.1 purchase targets instead of the old presence-only Recipe quantities.
 
@@ -82,7 +82,20 @@ V5.2 connects the existing Recipe Shopping actions to the V5.1 purchase targets 
 - `Na liście zakupów` is secondary procurement context and never changes physical cookability;
 - actual writes remain in `shoppingMutations.ts` and reuse `createShoppingItem(...)`; Recipe UI never writes `shopping_items` directly.
 
-No SQL/schema/RLS/Auth/RPC change is required. `Mleko` still needs Product purchase semantics `1 opakowanie = 1 l` before its automatic V5.2 path can be production-accepted.
+No SQL/schema/RLS/Auth/RPC change is required. Current Product purchase semantics are verified by the final V5.3 read-only production gate rather than assumed from the earlier PRE-V5.1 snapshot.
+
+
+## V5.3 — QA + Closeout [READY FOR FINAL QA]
+
+V5.3 introduces no new Kitchen feature and no persistence change. It is the final verification/consolidation stage for the complete Recipe purchase-planning chain.
+
+- adds an integrated executable regression across V4.3 matching -> V5.1 purchase planning -> V5.2 Shopping coverage;
+- proves direct shortage, whole package, `pcs + package content`, active-Shopping coverage, fail-closed incomplete semantics and servings-driven target changes in one chain;
+- preserves Shopping as procurement context only, never physical Recipe availability;
+- requires no SQL/schema/RLS/Auth/RPC migration;
+- deferred orphan/typo Product cleanup remains outside V5.
+
+Final V5 closure requires the read-only production data gate and final smoke checklist to PASS.
 
 
 ## V1.6.1 — Mobile editor layout corrective
