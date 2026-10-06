@@ -7,7 +7,7 @@ import { formatScaledRecipeQuantity } from './recipeServings'
 import { buildRecipeShoppingPlan, getMissingRecipeProductIds } from './recipeShoppingPlan'
 import { RecipeCoverImage } from './RecipeCoverImage'
 import { RECIPE_CATEGORIES, recipeCategoryLabel } from './recipeCategories'
-import { filterRecipesByCategory, filterRecipesByCookability, type RecipeCategoryFilter, type RecipeCookabilityFilter } from './recipeDiscovery'
+import { filterRecipesByCategory, type RecipeCategoryFilter } from './recipeDiscovery'
 import { RECIPE_COVER_HERO_ASPECT, RECIPE_COVER_THUMBNAIL_ASPECT } from './recipeCoverCrop'
 import { RecipeEditor } from './RecipeEditor'
 import { flushRecipeImageCleanupQueue } from './recipeCoverStorage'
@@ -73,7 +73,6 @@ export function RecipesPage({ ownerId, overviewRequestToken, openRecipeId, openR
   const [targetServings, setTargetServings] = useState(1)
   const [searchQuery, setSearchQuery] = useState('')
   const [categoryFilter, setCategoryFilter] = useState<RecipeCategoryFilter>('all')
-  const [cookabilityFilter, setCookabilityFilter] = useState<RecipeCookabilityFilter>('all')
   const [shoppingAction, setShoppingAction] = useState<RecipeShoppingAction>(null)
   const [shoppingFeedback, setShoppingFeedback] = useState<RecipeShoppingFeedback>(null)
   const [shoppingRecoveryBlocked, setShoppingRecoveryBlocked] = useState(false)
@@ -101,7 +100,6 @@ export function RecipesPage({ ownerId, overviewRequestToken, openRecipeId, openR
     setSelectedRecipeId(null)
     setSearchQuery('')
     setCategoryFilter('all')
-    setCookabilityFilter('all')
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }, [overviewRequestToken])
 
@@ -128,7 +126,6 @@ export function RecipesPage({ ownerId, overviewRequestToken, openRecipeId, openR
     setSelectedRecipeId(openRecipeId)
     setSearchQuery('')
     setCategoryFilter('all')
-    setCookabilityFilter('all')
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }, [model, openRecipeId, openRecipeRequestToken])
 
@@ -170,19 +167,15 @@ export function RecipesPage({ ownerId, overviewRequestToken, openRecipeId, openR
     if (!model) return []
 
     const categoryRecipes = filterRecipesByCategory(model.recipes, categoryFilter)
-    const cookabilityRecipes = filterRecipesByCookability(
-      categoryRecipes.map((recipe) => ({ ...recipe, cookable: recipeMatches.get(recipe.id)?.cookable === true })),
-      cookabilityFilter,
-    )
-    if (!normalizedSearch) return cookabilityRecipes
+    if (!normalizedSearch) return categoryRecipes
 
-    return cookabilityRecipes.filter((recipe) => (
+    return categoryRecipes.filter((recipe) => (
       recipe.name.toLocaleLowerCase('pl-PL').includes(normalizedSearch)
       || recipe.ingredients.some((ingredient) => (
         ingredient.productName.toLocaleLowerCase('pl-PL').includes(normalizedSearch)
       ))
     ))
-  }, [categoryFilter, cookabilityFilter, model, normalizedSearch, recipeMatches])
+  }, [categoryFilter, model, normalizedSearch])
 
   async function handleEditorSaved(recipeId: string | null) {
     setEditorMode(null)
@@ -522,17 +515,6 @@ export function RecipesPage({ ownerId, overviewRequestToken, openRecipeId, openR
         </div>
       )}
 
-      {model && model.recipes.length > 0 && (
-        <button
-          className={`recipe-cookable-filter${cookabilityFilter === 'cookable' ? ' is-active' : ''}`}
-          type="button"
-          aria-pressed={cookabilityFilter === 'cookable'}
-          onClick={() => setCookabilityFilter((current) => current === 'cookable' ? 'all' : 'cookable')}
-        >
-          Mogę ugotować
-        </button>
-      )}
-
       {model && shouldShowRecipeSearch && (
         <label className="inventory-search recipes-search">
           <KitchenIcon name="search" size={18} />
@@ -551,7 +533,7 @@ export function RecipesPage({ ownerId, overviewRequestToken, openRecipeId, openR
         </label>
       )}
 
-      {model && model.recipes.length > 0 && visibleRecipes.length === 0 && (normalizedSearch || categoryFilter !== 'all' || cookabilityFilter === 'cookable') && (
+      {model && model.recipes.length > 0 && visibleRecipes.length === 0 && (normalizedSearch || categoryFilter !== 'all') && (
         <div className="recipes-search-empty" role="status">
           {normalizedSearch
             ? 'Brak przepisów pasujących do wybranych filtrów i wyszukiwania.'

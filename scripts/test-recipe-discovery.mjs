@@ -8,7 +8,6 @@ import {
 import {
   buildHomeRecipeSuggestions,
   filterRecipesByCategory,
-  filterRecipesByCookability,
   resolveCurrentMealCategory,
 } from '../src/features/recipes/recipeDiscovery.ts'
 
@@ -34,18 +33,16 @@ assert.throws(() => resolveCurrentMealCategory(-1))
 assert.throws(() => resolveCurrentMealCategory(24))
 
 const recipes = [
-  { id: 'breakfast-a', categoryCode: 'breakfast', updatedAt: '2026-10-06T10:00:00Z' },
-  { id: 'breakfast-b', categoryCode: 'breakfast', updatedAt: '2026-10-06T09:00:00Z' },
-  { id: 'lunch-a', categoryCode: 'lunch', updatedAt: '2026-10-06T08:00:00Z' },
-  { id: 'dinner-a', categoryCode: 'dinner', updatedAt: '2026-10-06T07:00:00Z' },
-  { id: 'snack-a', categoryCode: 'snack', updatedAt: '2026-10-06T06:00:00Z' },
-  { id: 'cake-a', categoryCode: 'cake', updatedAt: '2026-10-06T05:00:00Z' },
+  { id: 'breakfast-a', categoryCode: 'breakfast', updatedAt: '2026-10-06T10:00:00Z', cookable: true },
+  { id: 'breakfast-b', categoryCode: 'breakfast', updatedAt: '2026-10-06T09:00:00Z', cookable: false },
+  { id: 'lunch-a', categoryCode: 'lunch', updatedAt: '2026-10-06T08:00:00Z', cookable: true },
+  { id: 'dinner-a', categoryCode: 'dinner', updatedAt: '2026-10-06T07:00:00Z', cookable: true },
+  { id: 'snack-a', categoryCode: 'snack', updatedAt: '2026-10-06T06:00:00Z', cookable: true },
+  { id: 'cake-a', categoryCode: 'cake', updatedAt: '2026-10-06T05:00:00Z', cookable: true },
 ]
 
 assert.deepEqual(filterRecipesByCategory(recipes, 'lunch').map((recipe) => recipe.id), ['lunch-a'])
 assert.equal(filterRecipesByCategory(recipes, 'all').length, recipes.length)
-assert.deepEqual(filterRecipesByCookability([{ id: 'a', cookable: true }, { id: 'b', cookable: false }], 'cookable').map((item) => item.id), ['a'])
-
 const morning = buildHomeRecipeSuggestions({
   recipes,
   currentMealCategory: 'breakfast',
@@ -54,6 +51,7 @@ const morning = buildHomeRecipeSuggestions({
   generalLimit: 4,
 })
 assert.deepEqual(morning.now.map((recipe) => recipe.id), ['breakfast-a', 'breakfast-b'])
+assert.deepEqual(morning.cookableNow.map((recipe) => recipe.id), ['breakfast-a'], 'Mogę ugotować must be a separate current-meal section containing only sufficient Recipes')
 assert.equal(morning.general.length, 4)
 assert.ok(morning.general.some((recipe) => recipe.categoryCode === 'snack'))
 assert.ok(morning.general.some((recipe) => recipe.categoryCode === 'cake'))
@@ -81,7 +79,16 @@ const night = buildHomeRecipeSuggestions({
   generalFilter: 'all',
 })
 assert.equal(night.now.length, 0)
+assert.equal(night.cookableNow.length, 0, 'time-aware Mogę ugotować section is hidden outside breakfast/lunch/dinner windows')
 assert.equal(night.general.length, 6, 'general discovery must remain available at night')
+
+
+const lunchDiscovery = buildHomeRecipeSuggestions({
+  recipes,
+  currentMealCategory: 'lunch',
+  generalFilter: 'all',
+})
+assert.deepEqual(lunchDiscovery.cookableNow.map((recipe) => recipe.id), ['lunch-a'])
 
 for (const promoted of ['snack', 'cake']) {
   assert.notEqual(resolveCurrentMealCategory(10), promoted)
@@ -103,9 +110,13 @@ assert.match(recipesPage, /openRecipeRequestToken/)
 assert.match(home, /Na teraz/)
 assert.match(home, /Inspiracje i planowanie/)
 assert.match(home, /recipeCategoryFilter/)
+assert.match(home, /home-recipes-cookable/)
+assert.match(home, /mealOccasionLabel/)
+assert.doesNotMatch(home, /recipeCookabilityFilter/)
+assert.doesNotMatch(recipesPage, /recipe-cookable-filter/)
 assert.match(home, /visibilitychange/)
 assert.match(shell, /openRecipeFromHome/)
 assert.match(discoveryRead, /category_code/)
 assert.doesNotMatch(home, /loadRecipesReadModel/)
 
-console.log('V4.2 Recipe category + Home discovery tests: PASS')
+console.log('V4.3.1 Recipe discovery + separate cookable meal section tests: PASS')

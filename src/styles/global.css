@@ -3684,23 +3684,7 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
 .recipe-match-badge.is-partial { background: #fff5df; color: #8b611d; }
 .recipe-match-badge.is-missing { background: #fff0f0; color: #9b343a; }
 .recipe-match-badge.is-unresolved { background: #eef1ef; color: #68736d; }
-.recipe-cookable-filter {
-  width: fit-content;
-  border: 1px solid #d9e2d9;
-  background: #fff;
-  color: var(--color-text);
-  border-radius: 999px;
-  padding: 7px 11px;
-  font: inherit;
-  font-size: 11px;
-  font-weight: 800;
-  cursor: pointer;
-}
-.recipe-cookable-filter.is-active {
-  border-color: #5b9b63;
-  background: #e8f4e9;
-  color: #397244;
-}
+.home-recipes-cookable .home-recipes-heading h2 { color: #397244; }
 .recipe-ingredient-index.is-match-sufficient { background: #5b9b63; }
 .recipe-ingredient-index.is-match-partial { background: #d3922f; }
 .recipe-ingredient-index.is-match-missing { background: #c95b5f; }

@@ -2,7 +2,7 @@
 
 Private, single-user mobile-first PWA for household inventory, shopping and recipes.
 
-Closed milestones: **V1 Inventory — PASS/CLOSED**, **V2 Shopping — PASS/CLOSED**, **V3 Recipes + Resource Semantics — PASS/CLOSED through V3.8.4**, **V4.1 Recipe Package Snapshot + Measurement Conversion — PASS/CLOSED**, and **V4.2 Recipe Categories + Home Discovery + Time-aware Suggestions — PASS/CLOSED**. **V4.3 What Can I Cook? Matching + UI is IMPLEMENTED / READY FOR GITHUB QA + PRODUCTION SMOKE**: one pure physical-stock matcher, `Wystarczy / Częściowo / Brak / Nieustalone`, category + `Mogę ugotować` composition, Home/list/detail status and servings-aware detail recomputation. No V4.3 SQL migration is required.
+Closed milestones: **V1 Inventory — PASS/CLOSED**, **V2 Shopping — PASS/CLOSED**, **V3 Recipes + Resource Semantics — PASS/CLOSED through V3.8.4**, **V4.1 Recipe Package Snapshot + Measurement Conversion — PASS/CLOSED**, and **V4.2 Recipe Categories + Home Discovery + Time-aware Suggestions — PASS/CLOSED**. **V4.3.1 Cookable Meal Section UX Corrective is IMPLEMENTED / READY FOR GITHUB QA + PRODUCTION SMOKE**: one pure physical-stock matcher, `Wystarczy / Częściowo / Brak / Nieustalone`, dedicated time-aware `Mogę ugotować` Home section, Home/list/detail status and servings-aware detail recomputation. No V4.3 SQL migration is required.
 
 Active Inventory capabilities:
 - owner-scoped stock read model
@@ -22,9 +22,9 @@ Security remains Supabase Auth + owner authority + RLS. Public sign-up and anony
 No SQL/schema change is required for V1.6 because `inventory_items.expiry_date` already exists in the closed V1.1 schema.
 
 
-## V4.3 — What Can I Cook? Matching + UI
+## V4.3.1 — Cookable Meal Section UX Corrective
 
-V4.3 adds deterministic, read-only Recipe cookability over current physical Kitchen resources.
+V4.3 matcher remains deterministic and read-only. V4.3.1 corrects only how cookability is discovered in the UI.
 
 - one pure `recipeMatching.ts` authority is shared by Home and RecipesPage;
 - Recipe and Inventory package snapshots remain immutable authorities for container meaning;
@@ -33,7 +33,7 @@ V4.3 adds deterministic, read-only Recipe cookability over current physical Kitc
 - Spice uses `Mam / Brak`; Household is excluded;
 - non-comparable or unresolved physical stock yields `Nieustalone`, never a false `Brak`;
 - Recipe list/Home use stored servings, while Recipe detail recomputes immediately for the selected serving preview;
-- category filters compose with an independent `Mogę ugotować` filter;
+- `Mogę ugotować` is a separate time-aware Home section for the current Śniadanie / Obiad / Kolacja window; it is not a general filter;
 - active Shopping remains procurement context only and never counts as physical availability;
 - V4.3 performs no automatic Shopping top-up and introduces no database write/matching cache.
 
@@ -570,4 +570,4 @@ Every Recipe requires exactly one category: **Śniadanie / Obiad / Kolacja / Prz
 
 Home keeps a general Recipe discovery section visible at all times for planning/inspiration and exposes category filters. A separate `Na teraz` section is device-local time-aware: Śniadanie 06:00–11:59, Obiad 12:00–17:59, Kolacja 18:00–22:59; from 23:00–05:59 the time-aware section is hidden. Przekąski and Ciasta stay available in General but are never time-promoted. The unfiltered preview avoids duplication with `Na teraz` when alternatives exist, while manual filters remain complete.
 
-Home uses a lightweight Recipe projection and opens the canonical RecipesPage detail through AppShell. The later V4.3 `Mogę ugotować` filter remains independent from category filters so both dimensions can be combined.
+Home uses a lightweight Recipe projection and opens the canonical RecipesPage detail through AppShell. V4.3.1 presents `Mogę ugotować` as a separate time-aware Home discovery section; general category filters remain planning controls rather than cookability toggles.

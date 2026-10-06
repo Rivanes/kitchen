@@ -1311,14 +1311,20 @@ for (const marker of ['matchRecipe', 'buildRecipeMatchMap', 'sufficient', 'parti
 if (/supabase|\.from\(['"]|\.rpc\(|shopping_items/i.test(recipeMatching)) {
   throw new Error('V4.3 Recipe matching authority must remain pure and independent from Shopping/Supabase.')
 }
-for (const marker of ['recipeMatches', 'recipe-cookable-filter', 'selectedRecipeMatch', 'recipeMatchStateLabel']) {
+for (const marker of ['recipeMatches', 'selectedRecipeMatch', 'recipeMatchStateLabel']) {
   if (!recipesPage.includes(marker)) throw new Error(`V4.3 RecipesPage matching marker missing: ${marker}`)
 }
-for (const marker of ['recipeMatches', 'recipeCookabilityFilter', 'recipe-match-badge', 'buildRecipeMatchMap']) {
+for (const marker of ['recipeMatches', 'home-recipes-cookable', 'recipe-match-badge', 'buildRecipeMatchMap', 'cookableNow']) {
   if (!homePage.includes(marker)) throw new Error(`V4.3 Home matching marker missing: ${marker}`)
 }
-for (const marker of ['.recipe-match-badge', '.recipe-cookable-filter', '.recipe-ingredient-index.is-match-sufficient', '.recipe-ingredient-index.is-match-unresolved']) {
+for (const marker of ['.recipe-match-badge', '.home-recipes-cookable', '.recipe-ingredient-index.is-match-sufficient', '.recipe-ingredient-index.is-match-unresolved']) {
   if (!globalCss.includes(marker)) throw new Error(`V4.3 Recipe matching CSS marker missing: ${marker}`)
+}
+if (recipesPage.includes('recipe-cookable-filter') || recipesPage.includes('cookabilityFilter')) {
+  throw new Error('V4.3.1 Mogę ugotować must not remain a RecipesPage filter; it is a dedicated time-aware Home section.')
+}
+if (homePage.includes('recipeCookabilityFilter') || homePage.includes('generalCookabilityFilter')) {
+  throw new Error('V4.3.1 Home general Recipe discovery must not be filtered by Mogę ugotować.')
 }
 const recipeMatchingContract = await readFile('tests/RECIPE_MATCHING_CONTRACT.md', 'utf8')
 for (const marker of ['Wystarczy', 'Częściowo', 'Brak', 'Nieustalone', 'Mogę ugotować', 'Product + effective direct family', 'never promotes']) {

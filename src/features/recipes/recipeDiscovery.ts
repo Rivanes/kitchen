@@ -1,7 +1,6 @@
 import type { RecipeCategoryCode } from './recipeCategories'
 
 export type RecipeCategoryFilter = 'all' | RecipeCategoryCode
-export type RecipeCookabilityFilter = 'all' | 'cookable'
 
 export type RecipeDiscoveryCandidate = {
   id: string
@@ -29,15 +28,6 @@ export function filterRecipesByCategory<T extends { categoryCode: RecipeCategory
   return recipes.filter((recipe) => recipe.categoryCode === filter)
 }
 
-
-export function filterRecipesByCookability<T extends { cookable?: boolean }>(
-  recipes: readonly T[],
-  filter: RecipeCookabilityFilter,
-): T[] {
-  if (filter === 'all') return [...recipes]
-  return recipes.filter((recipe) => recipe.cookable === true)
-}
-
 function compareUpdatedDesc(a: RecipeDiscoveryCandidate, b: RecipeDiscoveryCandidate) {
   const delta = Date.parse(b.updatedAt) - Date.parse(a.updatedAt)
   if (delta !== 0) return delta
@@ -48,29 +38,33 @@ export function buildHomeRecipeSuggestions<T extends RecipeDiscoveryCandidate>(i
   recipes: readonly T[]
   currentMealCategory: RecipeCategoryCode | null
   generalFilter: RecipeCategoryFilter
-  generalCookabilityFilter?: RecipeCookabilityFilter
   nowLimit?: number
+  cookableNowLimit?: number
   generalLimit?: number
 }) {
   const nowLimit = input.nowLimit ?? 3
+  const cookableNowLimit = input.cookableNowLimit ?? 3
   const generalLimit = input.generalLimit ?? 6
   const ordered = [...input.recipes].sort(compareUpdatedDesc)
-  const now = input.currentMealCategory
-    ? ordered.filter((recipe) => recipe.categoryCode === input.currentMealCategory).slice(0, nowLimit)
+  const currentMealRecipes = input.currentMealCategory
+    ? ordered.filter((recipe) => recipe.categoryCode === input.currentMealCategory)
     : []
+  const now = currentMealRecipes.slice(0, nowLimit)
+  const cookableNow = currentMealRecipes
+    .filter((recipe) => recipe.cookable === true)
+    .slice(0, cookableNowLimit)
 
-  const categoryGeneral = filterRecipesByCategory(ordered, input.generalFilter)
-  const filteredGeneral = filterRecipesByCookability(categoryGeneral, input.generalCookabilityFilter ?? 'all')
+  const general = filterRecipesByCategory(ordered, input.generalFilter)
   if (input.generalFilter !== 'all' || now.length === 0) {
-    return { now, general: filteredGeneral.slice(0, generalLimit) }
+    return { now, cookableNow, general: general.slice(0, generalLimit) }
   }
 
   const nowIds = new Set(now.map((recipe) => recipe.id))
-  const alternatives = filteredGeneral.filter((recipe) => !nowIds.has(recipe.id))
+  const alternatives = general.filter((recipe) => !nowIds.has(recipe.id))
 
   if (alternatives.length > 0) {
-    return { now, general: alternatives.slice(0, generalLimit) }
+    return { now, cookableNow, general: alternatives.slice(0, generalLimit) }
   }
 
-  return { now, general: filteredGeneral.slice(0, generalLimit) }
+  return { now, cookableNow, general: general.slice(0, generalLimit) }
 }

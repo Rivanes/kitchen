@@ -74,3 +74,9 @@
 - Recipe list/detail display the stored category.
 - Home has always-visible general Recipe discovery plus optional time-aware `Na teraz`.
 - Home cards open the canonical Recipe detail.
+
+## V4.3.1 cookability discovery UX
+- `Mogę ugotować` is not a RecipesPage filter and is not a toggle in general Home `Przepisy`.
+- Home exposes a dedicated `Mogę ugotować` section only during the breakfast/lunch/dinner time windows.
+- The section contains only Recipe-level `Wystarczy` Recipes from the current meal category.
+- Category filters in the general Recipe overview remain independent planning/navigation controls.

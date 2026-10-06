@@ -1,6 +1,5 @@
 import assert from 'node:assert/strict'
 import { matchRecipe } from '../src/features/recipes/recipeMatching.ts'
-import { filterRecipesByCategory, filterRecipesByCookability } from '../src/features/recipes/recipeDiscovery.ts'
 
 const units = [
   { code: 'pcs', labelPl: 'sztuka', symbol: 'szt.', family: 'count', sortOrder: 10, toBaseFactor: 1 },
@@ -21,6 +20,7 @@ function run({ ingredients, lots = [], products, baseServings = 1, targetServing
 
 let result = run({ ingredients: [ingredient('i', 'flour', 500, 'g')], lots: [lot('flour', 500, 'g')], products: [food('flour')] })
 assert.equal(result.state, 'sufficient')
+assert.equal(result.cookable, true)
 result = run({ ingredients: [ingredient('i', 'flour', 0.5, 'kg')], lots: [lot('flour', 500, 'g')], products: [food('flour')] })
 assert.equal(result.state, 'sufficient')
 result = run({ ingredients: [ingredient('i', 'flour', 500, 'g')], lots: [lot('flour', 300, 'g')], products: [food('flour')] })
@@ -54,14 +54,6 @@ result = run({ ingredients: [ingredient('i', 'flour', 500, 'g')], lots: [lot('fl
 assert.equal(result.state, 'sufficient')
 result = run({ ingredients: [ingredient('i', 'flour', 500, 'g')], lots: [lot('flour', 750, 'g')], products: [food('flour')], baseServings: 2, targetServings: 4 })
 assert.equal(result.state, 'partial')
-
-const discoverable = [
-  { id: 'a', categoryCode: 'lunch', cookable: true },
-  { id: 'b', categoryCode: 'lunch', cookable: false },
-  { id: 'c', categoryCode: 'breakfast', cookable: true },
-]
-const lunches = filterRecipesByCategory(discoverable, 'lunch')
-assert.deepEqual(filterRecipesByCookability(lunches, 'cookable').map((x) => x.id), ['a'])
 
 const sameInput = { ingredients: [ingredient('i', 'flour', 500, 'g')], lots: [lot('flour', 500, 'g')], products: [food('flour')] }
 assert.equal(run(sameInput).state, run(sameInput).state, 'Home and RecipesPage must consume the same pure matcher result')
