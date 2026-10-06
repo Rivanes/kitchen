@@ -3,6 +3,7 @@ import { loadMeasurementUnits } from '../measurements/measurementUnits'
 import { isContainerMeasurementUnit, isDirectMeasurementUnit } from '../measurements/packageSemantics'
 import { loadOwnerProductCatalog } from '../products/productCatalogMutations'
 import { readStoredQuantity } from '../quantity/quantity'
+import { assertRecipeCategoryCode } from './recipeCategories'
 import { createRecipeCoverSignedUrl } from './recipeCoverStorage'
 import { readStoredRecipeDuration } from './recipeDuration'
 import type {
@@ -16,6 +17,7 @@ import type {
 type RawRecipe = {
   id: string
   name: string
+  category_code: string
   servings: number
   prep_time_minutes: number | string | null
   cook_time_minutes: number | string | null
@@ -96,7 +98,7 @@ export async function loadRecipesReadModel(ownerId: string): Promise<RecipesRead
 
   const recipesResult = await supabase
     .from('recipes')
-    .select('id, name, servings, prep_time_minutes, cook_time_minutes, instructions, cover_image_path, cover_focus_x, cover_focus_y, updated_at')
+    .select('id, name, category_code, servings, prep_time_minutes, cook_time_minutes, instructions, cover_image_path, cover_focus_x, cover_focus_y, updated_at')
     .eq('owner_id', ownerId)
     .order('updated_at', { ascending: false })
 
@@ -261,6 +263,7 @@ export async function loadRecipesReadModel(ownerId: string): Promise<RecipesRead
   const recipes: RecipeReadItem[] = rawRecipes.map((recipe) => ({
     id: recipe.id,
     name: recipe.name.trim(),
+    categoryCode: assertRecipeCategoryCode(recipe.category_code),
     servings: recipe.servings,
     prepTimeMinutes: readStoredRecipeDuration(recipe.prep_time_minutes, 'Czas przygotowania'),
     cookTimeMinutes: readStoredRecipeDuration(recipe.cook_time_minutes, 'Czas gotowania / pieczenia'),

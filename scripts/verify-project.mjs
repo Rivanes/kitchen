@@ -106,7 +106,13 @@ const requiredFiles = [
   'src/features/recipes/recipeCoverStorage.ts',
   'src/features/recipes/recipeImageProcessor.ts',
   'src/features/recipes/recipesReadModel.ts',
+  'src/features/recipes/recipeCategories.ts',
+  'src/features/recipes/recipeDiscovery.ts',
+  'src/features/recipes/recipeDiscoveryReadModel.ts',
   'src/features/recipes/types.ts',
+  'scripts/test-recipe-discovery.mjs',
+  'tests/RECIPE_CATEGORY_CONTRACT.md',
+  'tests/RECIPE_DISCOVERY_CONTRACT.md',
   'tests/RECIPES_UI_CONTRACT.md',
   'tests/RECIPE_AUTHORING_CONTRACT.md',
   'tests/RECIPE_SHARED_CORE_CONTRACT.md',
@@ -1241,6 +1247,60 @@ const recipePackageSnapshotContract = await readFile('tests/RECIPE_PACKAGE_SNAPS
 for (const marker of ['immutable Recipe meaning', 'Product default', 'package_content_value', 'package_content_unit', 'servings']) {
   if (!recipePackageSnapshotContract.includes(marker)) throw new Error(`V4.1 Recipe package snapshot contract marker missing: ${marker}`)
 }
+
+const recipeCategories = await readFile('src/features/recipes/recipeCategories.ts', 'utf8')
+const recipeDiscovery = await readFile('src/features/recipes/recipeDiscovery.ts', 'utf8')
+const recipeDiscoveryReadModel = await readFile('src/features/recipes/recipeDiscoveryReadModel.ts', 'utf8')
+for (const marker of ["'breakfast'", "'lunch'", "'dinner'", "'snack'", "'cake'", 'assertRecipeCategoryCode']) {
+  if (!recipeCategories.includes(marker)) throw new Error(`V4.2 Recipe category authority marker missing: ${marker}`)
+}
+for (const marker of ['resolveCurrentMealCategory', 'localHour >= 6', 'localHour < 12', 'localHour < 18', 'localHour < 23', 'buildHomeRecipeSuggestions']) {
+  if (!recipeDiscovery.includes(marker)) throw new Error(`V4.2 Recipe discovery authority marker missing: ${marker}`)
+}
+if (/supabase|\.from\(|\.rpc\(/i.test(recipeDiscovery)) {
+  throw new Error('V4.2 Recipe discovery filtering/time authority must remain pure.')
+}
+for (const marker of [".from('recipes')", 'category_code', 'createRecipeCoverSignedUrl']) {
+  if (!recipeDiscoveryReadModel.includes(marker)) throw new Error(`V4.2 lightweight Recipe discovery read marker missing: ${marker}`)
+}
+if (recipeDiscoveryReadModel.includes('recipe_ingredients') || recipeDiscoveryReadModel.includes('inventory_items') || recipeDiscoveryReadModel.includes('shopping_items')) {
+  throw new Error('V4.2 Home Recipe discovery read model must remain lightweight and must not load ingredient/Inventory/Shopping detail.')
+}
+for (const marker of ['categoryCode', 'p_category_code', 'assertRecipeCategoryCode']) {
+  if (!recipeMutations.includes(marker)) throw new Error(`V4.2 Recipe category persistence marker missing: ${marker}`)
+}
+if (recipeMutations.includes(".from('recipes')")) {
+  throw new Error('V4.2 category persistence must remain inside save_recipe_snapshot and never use a second direct Recipe update.')
+}
+for (const marker of ['RECIPE_CATEGORIES', 'Wybierz jedną kategorię', 'recipe-category-choice']) {
+  if (!recipeEditor.includes(marker)) throw new Error(`V4.2 Recipe editor category marker missing: ${marker}`)
+}
+for (const marker of ['recipe-category-filters', 'filterRecipesByCategory', 'openRecipeRequestToken', 'recipeCategoryLabel']) {
+  if (!recipesPage.includes(marker)) throw new Error(`V4.2 RecipesPage category/navigation marker missing: ${marker}`)
+}
+for (const marker of ['loadRecipeDiscoveryReadModel', 'Na teraz', 'Inspiracje i planowanie', 'visibilitychange', 'recipeCategoryFilter']) {
+  if (!homePage.includes(marker)) throw new Error(`V4.2 Home Recipe discovery marker missing: ${marker}`)
+}
+if (homePage.includes('loadRecipesReadModel')) {
+  throw new Error('V4.2 Home must not load the heavy full Recipe read model for discovery cards.')
+}
+for (const marker of ['openRecipeFromHome', 'openRecipeId={recipeOpenRequest.recipeId}', 'onOpenRecipes']) {
+  if (!shell.includes(marker)) throw new Error(`V4.2 Home -> Recipe detail navigation marker missing: ${marker}`)
+}
+for (const marker of ['.recipe-category-filter', '.home-recipe-grid', '.home-recipe-card', '.recipe-category-choice']) {
+  if (!globalCss.includes(marker)) throw new Error(`V4.2 Recipe discovery/category CSS marker missing: ${marker}`)
+}
+const recipeCategoryContract = await readFile('tests/RECIPE_CATEGORY_CONTRACT.md', 'utf8')
+for (const marker of ['breakfast', 'Kawa z mlekiem', 'Lasagne', 'sole Recipe write authority']) {
+  if (!recipeCategoryContract.includes(marker)) throw new Error(`V4.2 Recipe category contract marker missing: ${marker}`)
+}
+const recipeDiscoveryContract = await readFile('tests/RECIPE_DISCOVERY_CONTRACT.md', 'utf8')
+for (const marker of ['06:00–11:59', '12:00–17:59', '18:00–22:59', '23:00–05:59', 'lightweight owner-scoped Recipe projection']) {
+  if (!recipeDiscoveryContract.includes(marker)) throw new Error(`V4.2 Recipe discovery contract marker missing: ${marker}`)
+}
+await execFileAsync(process.execPath, ['--experimental-strip-types', 'scripts/test-recipe-discovery.mjs'], {
+  env: { ...process.env, NODE_NO_WARNINGS: '1' },
+})
 
 for (const [sourceName, source] of [['Recipe mutations', recipeMutations], ['Recipe read model', recipesReadModel], ['Recipe editor', recipeEditor], ['Recipes page', recipesPage]]) {
   if (source.includes('section_label')) throw new Error(`V3.7 Recipe runtime must not reference legacy section_label: ${sourceName}.`)

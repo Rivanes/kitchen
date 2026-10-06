@@ -6,6 +6,8 @@ import { formatRecipeDuration } from './recipeDuration'
 import { formatScaledRecipeQuantity } from './recipeServings'
 import { buildRecipeShoppingPlan, getMissingRecipeProductIds } from './recipeShoppingPlan'
 import { RecipeCoverImage } from './RecipeCoverImage'
+import { RECIPE_CATEGORIES, recipeCategoryLabel } from './recipeCategories'
+import { filterRecipesByCategory, type RecipeCategoryFilter } from './recipeDiscovery'
 import { RECIPE_COVER_HERO_ASPECT, RECIPE_COVER_THUMBNAIL_ASPECT } from './recipeCoverCrop'
 import { RecipeEditor } from './RecipeEditor'
 import { flushRecipeImageCleanupQueue } from './recipeCoverStorage'
@@ -15,6 +17,8 @@ import type { RecipeIngredientPresence, RecipeReadItem, RecipesReadModel } from 
 type RecipesPageProps = {
   ownerId: string
   overviewRequestToken: number
+  openRecipeId: string | null
+  openRecipeRequestToken: number
 }
 
 type RecipesStatus =
@@ -66,12 +70,13 @@ function ingredientPresenceLabel(presence: RecipeIngredientPresence) {
   return 'Brak w zapasach i na liście zakupów'
 }
 
-export function RecipesPage({ ownerId, overviewRequestToken }: RecipesPageProps) {
+export function RecipesPage({ ownerId, overviewRequestToken, openRecipeId, openRecipeRequestToken }: RecipesPageProps) {
   const [recipesStatus, setRecipesStatus] = useState<RecipesStatus>({ status: 'loading', model: null })
   const [selectedRecipeId, setSelectedRecipeId] = useState<string | null>(null)
   const [editorMode, setEditorMode] = useState<EditorMode>(null)
   const [targetServings, setTargetServings] = useState(1)
   const [searchQuery, setSearchQuery] = useState('')
+  const [categoryFilter, setCategoryFilter] = useState<RecipeCategoryFilter>('all')
   const [shoppingAction, setShoppingAction] = useState<RecipeShoppingAction>(null)
   const [shoppingFeedback, setShoppingFeedback] = useState<RecipeShoppingFeedback>(null)
   const [shoppingRecoveryBlocked, setShoppingRecoveryBlocked] = useState(false)
@@ -98,10 +103,23 @@ export function RecipesPage({ ownerId, overviewRequestToken }: RecipesPageProps)
     setEditorMode(null)
     setSelectedRecipeId(null)
     setSearchQuery('')
+    setCategoryFilter('all')
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }, [overviewRequestToken])
 
   const model = recipesStatus.status === 'ready' ? recipesStatus.model : null
+
+  useEffect(() => {
+    if (!model || openRecipeRequestToken <= 0 || !openRecipeId) return
+    if (!model.recipes.some((recipe) => recipe.id === openRecipeId)) return
+
+    setEditorMode(null)
+    setSelectedRecipeId(openRecipeId)
+    setSearchQuery('')
+    setCategoryFilter('all')
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }, [model, openRecipeId, openRecipeRequestToken])
+
   const selectedRecipe = useMemo(
     () => model?.recipes.find((recipe) => recipe.id === selectedRecipeId) ?? null,
     [model, selectedRecipeId],
@@ -124,15 +142,17 @@ export function RecipesPage({ ownerId, overviewRequestToken }: RecipesPageProps)
     : ''
   const visibleRecipes = useMemo(() => {
     if (!model) return []
-    if (!normalizedSearch) return model.recipes
 
-    return model.recipes.filter((recipe) => (
+    const categoryRecipes = filterRecipesByCategory(model.recipes, categoryFilter)
+    if (!normalizedSearch) return categoryRecipes
+
+    return categoryRecipes.filter((recipe) => (
       recipe.name.toLocaleLowerCase('pl-PL').includes(normalizedSearch)
       || recipe.ingredients.some((ingredient) => (
         ingredient.productName.toLocaleLowerCase('pl-PL').includes(normalizedSearch)
       ))
     ))
-  }, [model, normalizedSearch])
+  }, [categoryFilter, model, normalizedSearch])
 
   async function handleEditorSaved(recipeId: string | null) {
     setEditorMode(null)
@@ -241,6 +261,7 @@ export function RecipesPage({ ownerId, overviewRequestToken }: RecipesPageProps)
           <div>
             <p className="eyebrow">Przepis</p>
             <h1>{selectedRecipe.name}</h1>
+            <span className="recipe-category-badge">{recipeCategoryLabel(selectedRecipe.categoryCode)}</span>
           </div>
           <button className="icon-button" type="button" onClick={() => setEditorMode({ kind: 'edit', recipe: selectedRecipe })} aria-label="Edytuj przepis" title="Edytuj przepis">
             <KitchenIcon name="edit" />
@@ -443,6 +464,30 @@ export function RecipesPage({ ownerId, overviewRequestToken }: RecipesPageProps)
         </section>
       )}
 
+      {model && model.recipes.length > 0 && (
+        <div className="recipe-category-filters" role="group" aria-label="Filtr kategorii przepisów">
+          <button
+            className={`recipe-category-filter${categoryFilter === 'all' ? ' is-active' : ''}`}
+            type="button"
+            aria-pressed={categoryFilter === 'all'}
+            onClick={() => setCategoryFilter('all')}
+          >
+            Wszystkie
+          </button>
+          {RECIPE_CATEGORIES.map((category) => (
+            <button
+              className={`recipe-category-filter${categoryFilter === category.code ? ' is-active' : ''}`}
+              type="button"
+              aria-pressed={categoryFilter === category.code}
+              key={category.code}
+              onClick={() => setCategoryFilter(category.code)}
+            >
+              {category.label}
+            </button>
+          ))}
+        </div>
+      )}
+
       {model && shouldShowRecipeSearch && (
         <label className="inventory-search recipes-search">
           <KitchenIcon name="search" size={18} />
@@ -461,9 +506,11 @@ export function RecipesPage({ ownerId, overviewRequestToken }: RecipesPageProps)
         </label>
       )}
 
-      {model && model.recipes.length > 0 && normalizedSearch && visibleRecipes.length === 0 && (
+      {model && model.recipes.length > 0 && visibleRecipes.length === 0 && (normalizedSearch || categoryFilter !== 'all') && (
         <div className="recipes-search-empty" role="status">
-          Brak przepisów pasujących do wyszukiwania.
+          {normalizedSearch
+            ? 'Brak przepisów pasujących do wybranych filtrów i wyszukiwania.'
+            : 'Brak przepisów w wybranej kategorii.'}
         </div>
       )}
 
@@ -482,7 +529,7 @@ export function RecipesPage({ ownerId, overviewRequestToken }: RecipesPageProps)
                   </span>
                   <span className="recipe-row-copy">
                     <strong>{recipe.name}</strong>
-                    <small>{servingsLabel(recipe.servings)} · {ingredientsLabel(recipe.ingredients.length)}</small>
+                    <small>{recipeCategoryLabel(recipe.categoryCode)} · {servingsLabel(recipe.servings)} · {ingredientsLabel(recipe.ingredients.length)}</small>
                   </span>
                   <KitchenIcon name="chevronRight" size={18} />
                 </button>

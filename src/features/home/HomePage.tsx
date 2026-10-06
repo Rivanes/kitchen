@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { KitchenIcon } from '../../components/KitchenIcon'
 import { getInventoryExpiryMeta } from '../inventory/expiry'
 import { formatQuantity } from '../quantity/quantity'
@@ -7,13 +7,28 @@ import { isHouseholdLowStock } from '../inventory/resourcePolicy'
 import { loadActiveShoppingCount, loadActiveShoppingProductIds } from '../shopping/shoppingReadModel'
 import { ensureActiveShoppingProduct } from '../shopping/shoppingMutations'
 import type { InventoryReadModel } from '../inventory/types'
+import { RecipeCoverImage } from '../recipes/RecipeCoverImage'
+import { RECIPE_CATEGORIES, recipeCategoryLabel } from '../recipes/recipeCategories'
+import {
+  buildHomeRecipeSuggestions,
+  resolveCurrentMealCategory,
+  type RecipeCategoryFilter,
+} from '../recipes/recipeDiscovery'
+import { loadRecipeDiscoveryReadModel, type RecipeDiscoveryReadModel } from '../recipes/recipeDiscoveryReadModel'
 
 type HomePageProps = {
   ownerId: string
   onAddProduct: () => void
   onOpenExpiry: () => void
   onOpenShopping: () => void
+  onOpenRecipes: () => void
+  onOpenRecipe: (recipeId: string) => void
 }
+
+type RecipeDiscoveryStatus =
+  | { status: 'loading'; model: null }
+  | { status: 'ready'; model: RecipeDiscoveryReadModel }
+  | { status: 'error'; model: null }
 
 type HomeStatus =
   | { status: 'loading'; model: null }
@@ -52,12 +67,23 @@ function shoppingSummary(count: number) {
   return `${count} rzeczy do kupienia`
 }
 
-export function HomePage({ ownerId, onAddProduct, onOpenExpiry, onOpenShopping }: HomePageProps) {
+function servingsLabel(count: number) {
+  if (count === 1) return '1 porcja'
+  const mod10 = count % 10
+  const mod100 = count % 100
+  if (mod10 >= 2 && mod10 <= 4 && !(mod100 >= 12 && mod100 <= 14)) return `${count} porcje`
+  return `${count} porcji`
+}
+
+export function HomePage({ ownerId, onAddProduct, onOpenExpiry, onOpenShopping, onOpenRecipes, onOpenRecipe }: HomePageProps) {
   const [homeStatus, setHomeStatus] = useState<HomeStatus>({ status: 'loading', model: null })
   const [shoppingCount, setShoppingCount] = useState<number | null>(null)
   const [activeShoppingProductIds, setActiveShoppingProductIds] = useState<Set<string>>(new Set())
   const [lowStockUpdatingId, setLowStockUpdatingId] = useState<string | null>(null)
   const [lowStockError, setLowStockError] = useState('')
+  const [recipeStatus, setRecipeStatus] = useState<RecipeDiscoveryStatus>({ status: 'loading', model: null })
+  const [recipeCategoryFilter, setRecipeCategoryFilter] = useState<RecipeCategoryFilter>('all')
+  const [localNow, setLocalNow] = useState(() => new Date())
 
   useEffect(() => {
     let active = true
@@ -98,6 +124,51 @@ export function HomePage({ ownerId, onAddProduct, onOpenExpiry, onOpenShopping }
     }
   }, [ownerId])
 
+  const loadRecipeDiscovery = useCallback(async () => {
+    setRecipeStatus({ status: 'loading', model: null })
+    try {
+      const model = await loadRecipeDiscoveryReadModel(ownerId)
+      setRecipeStatus({ status: 'ready', model })
+    } catch {
+      setRecipeStatus({ status: 'error', model: null })
+    }
+  }, [ownerId])
+
+  useEffect(() => {
+    void loadRecipeDiscovery()
+  }, [loadRecipeDiscovery])
+
+  useEffect(() => {
+    let timer: number | undefined
+
+    const refreshClock = () => setLocalNow(new Date())
+    const scheduleMinuteBoundary = () => {
+      if (timer !== undefined) window.clearTimeout(timer)
+      const now = new Date()
+      const delay = Math.max(250, 60_000 - now.getSeconds() * 1000 - now.getMilliseconds() + 25)
+      timer = window.setTimeout(() => {
+        refreshClock()
+        scheduleMinuteBoundary()
+      }, delay)
+    }
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        refreshClock()
+        scheduleMinuteBoundary()
+      }
+    }
+
+    refreshClock()
+    scheduleMinuteBoundary()
+    window.addEventListener('focus', refreshClock)
+    document.addEventListener('visibilitychange', handleVisibility)
+    return () => {
+      if (timer !== undefined) window.clearTimeout(timer)
+      window.removeEventListener('focus', refreshClock)
+      document.removeEventListener('visibilitychange', handleVisibility)
+    }
+  }, [])
+
   const hasResources = homeStatus.status === 'ready' && homeStatus.model.resourceProducts > 0
 
   const expirySummary = useMemo(() => {
@@ -137,6 +208,17 @@ export function HomePage({ ownerId, onAddProduct, onOpenExpiry, onOpenShopping }
       isHouseholdLowStock(resource.quantity, resource.product.minimumStockQuantity)
     ))
   }, [homeStatus])
+
+  const currentMealCategory = resolveCurrentMealCategory(localNow.getHours())
+  const recipeSuggestions = useMemo(() => (
+    recipeStatus.status === 'ready'
+      ? buildHomeRecipeSuggestions({
+          recipes: recipeStatus.model.recipes,
+          currentMealCategory,
+          generalFilter: recipeCategoryFilter,
+        })
+      : { now: [], general: [] }
+  ), [currentMealCategory, recipeCategoryFilter, recipeStatus])
 
   async function handleAddLowStock(productId: string) {
     if (lowStockUpdatingId || activeShoppingProductIds.has(productId)) return
@@ -236,6 +318,112 @@ export function HomePage({ ownerId, onAddProduct, onOpenExpiry, onOpenShopping }
         </section>
       )}
 
+      {recipeStatus.status === 'ready' && currentMealCategory && recipeSuggestions.now.length > 0 && (
+        <section className="home-recipes-section home-recipes-now" aria-labelledby="home-recipes-now-title">
+          <div className="home-section-heading home-recipes-heading">
+            <div>
+              <p className="eyebrow">Na teraz</p>
+              <h2 id="home-recipes-now-title">{recipeCategoryLabel(currentMealCategory)}</h2>
+            </div>
+            <button className="home-recipes-link" type="button" onClick={onOpenRecipes}>Wszystkie przepisy</button>
+          </div>
+          <div className="home-recipe-grid">
+            {recipeSuggestions.now.map((recipe) => (
+              <button className="home-recipe-card" type="button" key={recipe.id} onClick={() => onOpenRecipe(recipe.id)}>
+                <span className={`home-recipe-cover${recipe.coverImageUrl ? ' has-image' : ''}`}>
+                  {recipe.coverImageUrl ? (
+                    <RecipeCoverImage src={recipe.coverImageUrl} alt="" focusX={recipe.coverFocusX} focusY={recipe.coverFocusY} />
+                  ) : (
+                    <KitchenIcon name="recipes" size={23} />
+                  )}
+                </span>
+                <span className="home-recipe-copy">
+                  <strong>{recipe.name}</strong>
+                  <small>{servingsLabel(recipe.servings)}</small>
+                </span>
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
+
+      <section className="home-recipes-section home-recipes-general" aria-labelledby="home-recipes-general-title">
+        <div className="home-section-heading home-recipes-heading">
+          <div>
+            <p className="eyebrow">Inspiracje i planowanie</p>
+            <h2 id="home-recipes-general-title">Przepisy</h2>
+          </div>
+          <button className="home-recipes-link" type="button" onClick={onOpenRecipes}>Otwórz</button>
+        </div>
+
+        {recipeStatus.status === 'loading' && (
+          <div className="home-recipe-state" aria-live="polite">
+            <span className="loading-dot" aria-hidden="true" />
+            <span>Ładuję przepisy…</span>
+          </div>
+        )}
+
+        {recipeStatus.status === 'error' && (
+          <div className="home-recipe-state home-recipe-state-error">
+            <span>Nie udało się wczytać przepisów na Start.</span>
+            <button className="secondary-button compact-button" type="button" onClick={() => void loadRecipeDiscovery()}>Spróbuj ponownie</button>
+          </div>
+        )}
+
+        {recipeStatus.status === 'ready' && (
+          <>
+            <div className="recipe-category-filters home-recipe-filters" role="group" aria-label="Filtr kategorii przepisów na Start">
+              <button
+                className={`recipe-category-filter${recipeCategoryFilter === 'all' ? ' is-active' : ''}`}
+                type="button"
+                aria-pressed={recipeCategoryFilter === 'all'}
+                onClick={() => setRecipeCategoryFilter('all')}
+              >
+                Wszystkie
+              </button>
+              {RECIPE_CATEGORIES.map((category) => (
+                <button
+                  className={`recipe-category-filter${recipeCategoryFilter === category.code ? ' is-active' : ''}`}
+                  type="button"
+                  aria-pressed={recipeCategoryFilter === category.code}
+                  key={category.code}
+                  onClick={() => setRecipeCategoryFilter(category.code)}
+                >
+                  {category.label}
+                </button>
+              ))}
+            </div>
+
+            {recipeStatus.model.recipes.length === 0 ? (
+              <div className="home-recipe-state">
+                <span>Dodaj pierwszy przepis, aby pojawiły się tutaj inspiracje.</span>
+                <button className="secondary-button compact-button" type="button" onClick={onOpenRecipes}>Przejdź do przepisów</button>
+              </div>
+            ) : recipeSuggestions.general.length === 0 ? (
+              <div className="home-recipe-state">Brak przepisów w wybranej kategorii.</div>
+            ) : (
+              <div className="home-recipe-grid">
+                {recipeSuggestions.general.map((recipe) => (
+                  <button className="home-recipe-card" type="button" key={recipe.id} onClick={() => onOpenRecipe(recipe.id)}>
+                    <span className={`home-recipe-cover${recipe.coverImageUrl ? ' has-image' : ''}`}>
+                      {recipe.coverImageUrl ? (
+                        <RecipeCoverImage src={recipe.coverImageUrl} alt="" focusX={recipe.coverFocusX} focusY={recipe.coverFocusY} />
+                      ) : (
+                        <KitchenIcon name="recipes" size={23} />
+                      )}
+                    </span>
+                    <span className="home-recipe-copy">
+                      <strong>{recipe.name}</strong>
+                      <small>{recipeCategoryLabel(recipe.categoryCode)} · {servingsLabel(recipe.servings)}</small>
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </>
+        )}
+      </section>
+
       <section className="home-coming" aria-labelledby="home-coming-title">
         <div className="home-section-heading">
           <p className="eyebrow">Wkrótce</p>
@@ -249,7 +437,7 @@ export function HomePage({ ownerId, onAddProduct, onOpenExpiry, onOpenShopping }
               <strong>Co ugotować</strong>
               <span>Pomysły z zapasów</span>
             </div>
-            <span className="coming-badge">V4</span>
+            <span className="coming-badge">V4.3</span>
           </article>
         </div>
       </section>

@@ -11,6 +11,7 @@ import {
   flushRecipeImageCleanupQueue,
   uploadRecipeCover,
 } from './recipeCoverStorage'
+import { assertRecipeCategoryCode, type RecipeCategoryCode } from './recipeCategories'
 import { parseOptionalRecipeDuration } from './recipeDuration'
 import type { ProcessedRecipeImage } from './recipeImageProcessor'
 import { validateRecipeSections } from './recipeSections'
@@ -43,6 +44,7 @@ export type SaveRecipeSnapshotInput = {
   mode: 'create' | 'update'
   recipeId: string | null
   name: string
+  categoryCode: RecipeCategoryCode
   servings: number
   prepTimeMinutes: string
   cookTimeMinutes: string
@@ -195,6 +197,7 @@ export async function saveRecipeSnapshot(input: SaveRecipeSnapshotInput) {
       p_recipe_id: recipeId,
       p_mode: input.mode,
       p_name: cleanRecipeName(input.name),
+      p_category_code: assertRecipeCategoryCode(input.categoryCode),
       p_servings: validateRecipeServings(input.servings),
       p_prep_time_minutes: parseOptionalRecipeDuration(input.prepTimeMinutes, 'Czas przygotowania'),
       p_cook_time_minutes: parseOptionalRecipeDuration(input.cookTimeMinutes, 'Czas gotowania / pieczenia'),

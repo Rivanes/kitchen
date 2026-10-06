@@ -1,3 +1,5 @@
+import type { RecipeCategoryCode } from './recipeCategories'
+
 export type RecipeIngredientPresence = 'inventory' | 'shopping' | 'missing'
 
 export type RecipeSectionRead = {
@@ -25,6 +27,7 @@ export type RecipeIngredientRead = {
 export type RecipeReadItem = {
   id: string
   name: string
+  categoryCode: RecipeCategoryCode
   servings: number
   prepTimeMinutes: number | null
   cookTimeMinutes: number | null

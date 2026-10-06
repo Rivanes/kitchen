@@ -41,3 +41,10 @@ Ingredient validation errors belong inside the ingredient sheet. Section rename 
 Container Recipe units expose one compact `Zawartość 1 …` block inside the existing Ingredient child sheet. The value/unit is part of the child draft and is committed to the parent only by `Dodaj/Zastosuj`.
 
 Direct units clear package-content draft metadata. Container units require it. A valid Product default may prefill a new snapshot, but editing an existing ingredient starts from its stored Recipe snapshot and never reinterprets it from Product defaults.
+
+## V4.2 category authoring
+- Every Recipe save includes exactly one explicit category.
+- Create has no implicit default category.
+- Edit preloads the stored category.
+- Category persists atomically through `save_recipe_snapshot(...)`; no direct second Recipe update is allowed.
+

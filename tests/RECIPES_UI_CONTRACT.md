@@ -70,3 +70,11 @@
 - A visible section-rename subdraft must be completed/canceled before final Recipe Save; the UI shows the reason locally.
 - Escape from Ingredient Editor closes only Ingredient Editor, not the whole Recipe Editor.
 - Ingredient validation errors are rendered in the ingredient sheet, not behind the overlay.
+
+## V4.2 category + discovery UI
+- Recipes overview always exposes category filters, even below the contextual-search threshold.
+- Category filter composes with text search.
+- Recipe list/detail display the stored category.
+- Home has always-visible general Recipe discovery plus optional time-aware `Na teraz`.
+- Home cards open the canonical Recipe detail.
+

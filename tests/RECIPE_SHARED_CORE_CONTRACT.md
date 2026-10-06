@@ -27,3 +27,10 @@ Recipe may build a pure Product+unit requirement plan from the current servings 
 Recipe container semantics reuse `src/features/measurements/packageSemantics.ts`. Compatible direct-unit arithmetic reuses the pure `measurementConversion.ts` authority backed by `measurement_units.to_base_factor`.
 
 V4.1 still does not claim Recipe quantity sufficiency or cookability; the conversion authority is only foundation for later V4 matching.
+
+## V4.2 shared Recipe discovery
+- `recipeCategories.ts` owns category codes/labels.
+- `recipeDiscovery.ts` owns pure filters/time projection.
+- Home uses `recipeDiscoveryReadModel.ts`, not the heavy full Recipe read model.
+- `save_recipe_snapshot(...)` remains the sole category write authority.
+

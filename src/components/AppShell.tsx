@@ -19,12 +19,16 @@ export function AppShell({ user }: AppShellProps) {
   const [inventoryCreateRequest, setInventoryCreateRequest] = useState(0)
   const [inventoryOverviewRequest, setInventoryOverviewRequest] = useState(0)
   const [recipesOverviewRequest, setRecipesOverviewRequest] = useState(0)
+  const [recipeOpenRequest, setRecipeOpenRequest] = useState<{ recipeId: string | null; token: number }>({ recipeId: null, token: 0 })
 
   async function handleLogout() {
     await supabase?.auth.signOut()
   }
 
   function changeView(nextView: AppView) {
+    if (nextView === 'recipes') {
+      setRecipeOpenRequest((current) => ({ ...current, recipeId: null }))
+    }
     if (nextView === 'inventory' && view === 'inventory') {
       setInventoryOverviewRequest((value) => value + 1)
     }
@@ -38,6 +42,12 @@ export function AppShell({ user }: AppShellProps) {
   function openInventoryCreate() {
     setInventoryCreateRequest((value) => value + 1)
     setView('inventory')
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  function openRecipeFromHome(recipeId: string) {
+    setRecipeOpenRequest((current) => ({ recipeId, token: current.token + 1 }))
+    setView('recipes')
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
@@ -68,6 +78,8 @@ export function AppShell({ user }: AppShellProps) {
           onAddProduct={openInventoryCreate}
           onOpenExpiry={() => changeView('expiry')}
           onOpenShopping={() => changeView('shopping')}
+          onOpenRecipes={() => changeView('recipes')}
+          onOpenRecipe={openRecipeFromHome}
         />
       )}
 
@@ -87,7 +99,12 @@ export function AppShell({ user }: AppShellProps) {
       {view === 'shopping' && <ShoppingPage ownerId={user.id} />}
 
       {view === 'recipes' && (
-        <RecipesPage ownerId={user.id} overviewRequestToken={recipesOverviewRequest} />
+        <RecipesPage
+          ownerId={user.id}
+          overviewRequestToken={recipesOverviewRequest}
+          openRecipeId={recipeOpenRequest.recipeId}
+          openRecipeRequestToken={recipeOpenRequest.token}
+        />
       )}
 
       <nav className="bottom-nav" aria-label="Główna nawigacja Kitchen">

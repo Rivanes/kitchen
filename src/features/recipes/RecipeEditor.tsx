@@ -6,6 +6,11 @@ import { loadOwnerProductCatalog, type CanonicalProductIdentity } from '../produ
 import { formatQuantity } from '../quantity/quantity'
 import { RecipeCoverFocusEditor } from './RecipeCoverFocusEditor'
 import {
+  assertRecipeCategoryCode,
+  RECIPE_CATEGORIES,
+  type RecipeCategoryCode,
+} from './recipeCategories'
+import {
   RecipeIngredientEditorSheet,
   type RecipeIngredientEditorCommit,
   type RecipeIngredientEditorRow,
@@ -79,6 +84,7 @@ export function RecipeEditor({ ownerId, mode, onClose, onSaved }: RecipeEditorPr
   const cameraInputRef = useRef<HTMLInputElement>(null)
 
   const [name, setName] = useState(initial?.name ?? '')
+  const [categoryCode, setCategoryCode] = useState<RecipeCategoryCode | ''>(initial?.categoryCode ?? '')
   const [servings, setServings] = useState(String(initial?.servings ?? 1))
   const [prepTimeMinutes, setPrepTimeMinutes] = useState(initial?.prepTimeMinutes ? String(initial.prepTimeMinutes) : '')
   const [cookTimeMinutes, setCookTimeMinutes] = useState(initial?.cookTimeMinutes ? String(initial.cookTimeMinutes) : '')
@@ -301,6 +307,7 @@ export function RecipeEditor({ ownerId, mode, onClose, onSaved }: RecipeEditorPr
     let parsedServings: number
     try {
       cleanRecipeName(name)
+      assertRecipeCategoryCode(categoryCode)
       parsedServings = validateRecipeServings(Number(servings))
       parseOptionalRecipeDuration(prepTimeMinutes, 'Czas przygotowania')
       parseOptionalRecipeDuration(cookTimeMinutes, 'Czas gotowania / pieczenia')
@@ -337,6 +344,7 @@ export function RecipeEditor({ ownerId, mode, onClose, onSaved }: RecipeEditorPr
         mode: mode.kind === 'create' ? 'create' : 'update',
         recipeId: mode.kind === 'edit' ? mode.recipe.id : null,
         name,
+        categoryCode: assertRecipeCategoryCode(categoryCode),
         servings: parsedServings,
         prepTimeMinutes,
         cookTimeMinutes,
@@ -400,6 +408,26 @@ export function RecipeEditor({ ownerId, mode, onClose, onSaved }: RecipeEditorPr
                 onChange={(event) => { setName(event.target.value); setErrorMessage('') }}
               />
             </label>
+
+            <fieldset className="recipe-category-fieldset">
+              <legend>Kategoria</legend>
+              <div className="recipe-category-choice-list" role="radiogroup" aria-label="Kategoria przepisu">
+                {RECIPE_CATEGORIES.map((category) => (
+                  <button
+                    className={`recipe-category-choice${categoryCode === category.code ? ' is-active' : ''}`}
+                    type="button"
+                    role="radio"
+                    aria-checked={categoryCode === category.code}
+                    key={category.code}
+                    disabled={busy}
+                    onClick={() => { setCategoryCode(category.code); setErrorMessage('') }}
+                  >
+                    {category.label}
+                  </button>
+                ))}
+              </div>
+              {!categoryCode && <small>Wybierz jedną kategorię. Jest wymagana do zapisania przepisu.</small>}
+            </fieldset>
 
             <label className="form-field recipe-servings-field" htmlFor="recipe-servings">
               <span>Liczba porcji</span>

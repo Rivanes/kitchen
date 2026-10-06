@@ -2,7 +2,7 @@
 
 Private, single-user mobile-first PWA for household inventory, shopping and recipes.
 
-Closed milestones: **V1 Inventory — PASS/CLOSED**, **V2 Shopping — PASS/CLOSED**, **V3 Recipes + Resource Semantics — PASS/CLOSED through V3.8.4**. **V4.1 is the current SQL-first stage**: Recipe container requirements gain immutable package-content snapshots and Measurement Units expose one shared factor-based conversion authority. Cookability matching and Home discovery are intentionally deferred to later V4 stages.
+Closed milestones: **V1 Inventory — PASS/CLOSED**, **V2 Shopping — PASS/CLOSED**, **V3 Recipes + Resource Semantics — PASS/CLOSED through V3.8.4**, and **V4.1 Recipe Package Snapshot + Measurement Conversion — PASS/CLOSED**. **V4.2 Recipe Categories + Home Discovery + Time-aware Suggestions is IMPLEMENTED / READY FOR SQL-FIRST QA**: mandatory Recipe categories, exact user-confirmed backfill, category filters, always-visible Home Recipe discovery and local-time `Na teraz` suggestions. V4.3 cookability matching is not included yet.
 
 Active Inventory capabilities:
 - owner-scoped stock read model
@@ -528,7 +528,7 @@ Production upgrade requires `OUTSIDE_REPO/SQL/V3_8_4_PRECHECK.sql` -> migration 
 
 
 
-## V4.1 — Recipe Package Snapshot + Measurement Conversion Authority [READY FOR SQL / QA]
+## V4.1 — Recipe Package Snapshot + Measurement Conversion Authority [PASS / CLOSED]
 
 V4.1 creates the deterministic quantity foundation required before `Co mogę ugotować?`.
 
@@ -541,15 +541,15 @@ V4.1 creates the deterministic quantity foundation required before `Co mogę ugo
 - Product package defaults may seed a **new** Recipe snapshot, but never reinterpret an already-saved Recipe;
 - serving previews scale the ingredient requirement only; package content remains the fixed content of one container.
 
-V4.1 does **not** implement cookability matching, category filtering, Home Recipe discovery or Shopping writes. Production rollout is SQL-first: V4.1 precheck -> migration -> postcheck -> GitHub QA/Pages -> phone smoke.
+V4.1 does **not** implement cookability matching, category filtering, Home Recipe discovery or Shopping writes. Production V4.1 migration is already applied (PRECHECK/POSTCHECK PASS), GitHub Pages build/deploy PASS and phone smoke 11/11 PASS after the TypeScript narrowing corrective. Do **not** rerun the migration. The separate Kitchen QA workflow result was not independently supplied; Pages performed its own verifier, TypeScript check and production build.
 
 Planned next V4 stages are documented outside the runtime package: V4.2 adds mandatory Recipe categories plus general Home discovery and time-aware `Na teraz`; V4.3 adds `Co mogę ugotować?` matching; V4.4 closes/polishes V4.
 
 
-## Planned V4.2 — Recipe Categories + Home Discovery
+## V4.2 — Recipe Categories + Home Discovery [IMPLEMENTED / READY FOR SQL + QA]
 
-After V4.1 is production PASS, every Recipe will require exactly one category: **Śniadanie / Obiad / Kolacja / Przekąska / Ciasto**. `Ogólne` is a filterable all-Recipes view, not a stored category.
+Every Recipe requires exactly one category: **Śniadanie / Obiad / Kolacja / Przekąska / Ciasto**. `Ogólne` / `Wszystkie` is a filterable all-Recipes view, never a stored category. Create requires an explicit selection; edit preloads the saved category; persistence remains atomic through `save_recipe_snapshot(...)`.
 
-Home will keep a general Recipe discovery section visible at all times for planning/inspiration. A separate `Na teraz` section will be time-aware: Śniadanie 06:00–11:59, Obiad 12:00–17:59, Kolacja 18:00–22:59; from 23:00–05:59 the time-aware section is hidden. Przekąski and Ciasta are available in general discovery but are not automatically time-promoted. Where alternatives exist, the same Recipe should not be duplicated between `Na teraz` and the general Home section.
+Home keeps a general Recipe discovery section visible at all times for planning/inspiration and exposes category filters. A separate `Na teraz` section is device-local time-aware: Śniadanie 06:00–11:59, Obiad 12:00–17:59, Kolacja 18:00–22:59; from 23:00–05:59 the time-aware section is hidden. Przekąski and Ciasta stay available in General but are never time-promoted. The unfiltered preview avoids duplication with `Na teraz` when alternatives exist, while manual filters remain complete.
 
-The later V4.3 `Mogę ugotować` filter remains independent from category filters so both dimensions can be combined.
+Home uses a lightweight Recipe projection and opens the canonical RecipesPage detail through AppShell. The later V4.3 `Mogę ugotować` filter remains independent from category filters so both dimensions can be combined.
