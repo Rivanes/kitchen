@@ -6,6 +6,7 @@ import { assertRecipeCategoryCode } from './recipeCategories'
 import { createRecipeCoverSignedUrl } from './recipeCoverStorage'
 import { readStoredRecipeDuration } from './recipeDuration'
 import type {
+  RecipeActiveShoppingItem,
   RecipeIngredientPresence,
   RecipeIngredientRead,
   RecipeReadItem,
@@ -50,8 +51,10 @@ type RawRecipeIngredient = {
   created_at: string
 }
 
-type RawShoppingPresence = {
+type RawActiveShoppingItem = {
   product_id: string | null
+  quantity: number | string
+  unit_code: string
 }
 
 function assertNoQueryError(error: { message: string } | null, resource: string) {
@@ -100,7 +103,7 @@ export async function loadRecipesReadModel(ownerId: string): Promise<RecipesRead
   assertNoQueryError(recipesResult.error, 'recipes')
 
   const rawRecipes = (recipesResult.data ?? []) as RawRecipe[]
-  if (rawRecipes.length === 0) return { recipes: [], inventory: await loadInventoryReadModel(ownerId) }
+  if (rawRecipes.length === 0) return { recipes: [], inventory: await loadInventoryReadModel(ownerId), activeShoppingItems: [] }
 
   const [sectionsResult, ingredientsResult, inventoryModel, shoppingPresenceResult] = await Promise.all([
     supabase
@@ -114,7 +117,7 @@ export async function loadRecipesReadModel(ownerId: string): Promise<RecipesRead
     loadInventoryReadModel(ownerId),
     supabase
       .from('shopping_items')
-      .select('product_id')
+      .select('product_id, quantity, unit_code')
       .eq('owner_id', ownerId)
       .eq('is_purchased', false),
   ])
@@ -135,11 +138,22 @@ export async function loadRecipesReadModel(ownerId: string): Promise<RecipesRead
       if (group.location.kind === 'spices' && resource.present) inventoryProductIds.add(resource.product.id)
     }
   }
-  const activeShoppingProductIds = new Set(
-    ((shoppingPresenceResult.data ?? []) as RawShoppingPresence[])
-      .map((row) => row.product_id)
-      .filter((productId): productId is string => Boolean(productId)),
-  )
+  const activeShoppingItems: RecipeActiveShoppingItem[] = []
+  for (const row of (shoppingPresenceResult.data ?? []) as RawActiveShoppingItem[]) {
+    if (!row.product_id) continue
+    if (!productById.has(row.product_id)) {
+      throw new Error('Recipes read returned Shopping with an unresolved canonical Product.')
+    }
+    if (!unitByCode.has(row.unit_code)) {
+      throw new Error('Recipes read returned Shopping with an unresolved Measurement Unit.')
+    }
+    activeShoppingItems.push({
+      productId: row.product_id,
+      quantity: readStoredQuantity(row.quantity, 'Recipes read returned an invalid active Shopping quantity.'),
+      unitCode: row.unit_code,
+    })
+  }
+  const activeShoppingProductIds = new Set(activeShoppingItems.map((item) => item.productId))
 
   const sectionsByRecipe = new Map<string, Array<RecipeSectionRead & { createdAt: string }>>()
   const sectionById = new Map<string, { recipeId: string; section: RecipeSectionRead }>()
@@ -272,5 +286,5 @@ export async function loadRecipesReadModel(ownerId: string): Promise<RecipesRead
     ingredients: (ingredientsByRecipe.get(recipe.id) ?? []).map(({ createdAt: _createdAt, ...ingredient }) => ingredient),
   }))
 
-  return { recipes, inventory: inventoryModel }
+  return { recipes, inventory: inventoryModel, activeShoppingItems }
 }

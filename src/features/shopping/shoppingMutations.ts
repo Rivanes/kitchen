@@ -13,6 +13,7 @@ import { requireInventoryItemId } from '../inventory/inventoryRpcResults'
 import {
   addQuantities,
   assertValidQuantity,
+  normalizeQuantityPrecision,
   readStoredQuantity,
 } from '../quantity/quantity'
 
@@ -175,6 +176,83 @@ export async function createCanonicalShoppingItemsSequentially(inputs: CreateCan
   }
 
   return createdItemIds
+}
+
+
+export type EnsureCanonicalShoppingTargetInput = {
+  ownerId: string
+  name: string
+  existingProductId: string
+  targetQuantity: number
+  unitCode: string
+  wholeUnits: boolean
+}
+
+const SHOPPING_TARGET_TOLERANCE = 1e-9
+
+function isWholeShoppingQuantity(value: number) {
+  return Math.abs(value - Math.round(value)) <= SHOPPING_TARGET_TOLERANCE
+}
+
+export async function ensureCanonicalShoppingTargetsSequentially(inputs: EnsureCanonicalShoppingTargetInput[]) {
+  const seen = new Set<string>()
+  for (const input of inputs) {
+    if (!input.ownerId.trim() || !input.name.trim() || !input.existingProductId?.trim() || !input.unitCode.trim()) {
+      throw new Error('Nie udało się przygotować produktów do listy zakupów.')
+    }
+    assertValidQuantity(input.targetQuantity)
+    if (input.wholeUnits && !isWholeShoppingQuantity(input.targetQuantity)) {
+      throw new Error('Zakup pełnych opakowań musi używać całkowitej liczby sztuk.')
+    }
+    const key = `${input.existingProductId}\u0000${input.unitCode}`
+    if (seen.has(key)) throw new Error('Plan zakupów zawiera zduplikowany produkt i jednostkę.')
+    seen.add(key)
+  }
+
+  const results: Array<{ productId: string; changed: boolean }> = []
+  for (const input of inputs) {
+    const activeItems = await loadActiveShoppingItems(input.ownerId)
+    const matchingItems = activeItems.filter((item) => (
+      item.unit_code === input.unitCode
+      && isSameIdentity(item, input.existingProductId, input.name)
+    ))
+
+    let activeQuantity = 0
+    for (const item of matchingItems) {
+      const quantity = readStoredQuantity(
+        item.quantity,
+        'Zapisana ilość na liście jest nieprawidłowa.',
+      )
+      activeQuantity = activeQuantity === 0
+        ? quantity
+        : addQuantities(activeQuantity, quantity, 'Łączna ilość na liście przekracza dozwolony zakres.')
+    }
+
+    if (activeQuantity + SHOPPING_TARGET_TOLERANCE >= input.targetQuantity) {
+      results.push({ productId: input.existingProductId, changed: false })
+      continue
+    }
+
+    if (input.wholeUnits && activeQuantity > 0 && !isWholeShoppingQuantity(activeQuantity)) {
+      throw new Error(`Produkt „${input.name}” ma ułamkową liczbę pełnych opakowań na liście zakupów.`)
+    }
+
+    const topUpQuantity = normalizeQuantityPrecision(input.targetQuantity - activeQuantity)
+    if (topUpQuantity <= 0 || (input.wholeUnits && !isWholeShoppingQuantity(topUpQuantity))) {
+      throw new Error(`Nie udało się bezpiecznie wyliczyć uzupełnienia produktu „${input.name}”.`)
+    }
+
+    await createShoppingItem({
+      ownerId: input.ownerId,
+      name: input.name,
+      existingProductId: input.existingProductId,
+      quantity: topUpQuantity,
+      unitCode: input.unitCode,
+    })
+    results.push({ productId: input.existingProductId, changed: true })
+  }
+
+  return results
 }
 
 export async function updateShoppingItem(input: UpdateShoppingItemInput) {

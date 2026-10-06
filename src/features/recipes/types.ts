@@ -42,7 +42,14 @@ export type RecipeReadItem = {
   ingredients: RecipeIngredientRead[]
 }
 
+export type RecipeActiveShoppingItem = {
+  productId: string
+  quantity: number
+  unitCode: string
+}
+
 export type RecipesReadModel = {
   recipes: RecipeReadItem[]
   inventory: InventoryReadModel
+  activeShoppingItems: RecipeActiveShoppingItem[]
 }

@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { KitchenIcon } from '../../components/KitchenIcon'
-import { createCanonicalShoppingItemsSequentially } from '../shopping/shoppingMutations'
+import { ensureCanonicalShoppingTargetsSequentially } from '../shopping/shoppingMutations'
 import { RecipeServingsControl } from './RecipeServingsControl'
 import { formatRecipeDuration } from './recipeDuration'
 import { formatScaledRecipeQuantity } from './recipeServings'
-import { buildRecipeShoppingPlan, getMissingRecipeProductIds } from './recipeShoppingPlan'
+import { buildRecipeShoppingPlan, getRecipeShoppingActionProductIds, getRecipeShoppingBlockedProductIds, getRecipeShoppingListedProductIds } from './recipeShoppingPlan'
 import { RecipeCoverImage } from './RecipeCoverImage'
 import { RECIPE_CATEGORIES, recipeCategoryLabel } from './recipeCategories'
 import { filterRecipesByCategory, type RecipeCategoryFilter } from './recipeDiscovery'
@@ -13,6 +13,7 @@ import { RecipeEditor } from './RecipeEditor'
 import { flushRecipeImageCleanupQueue } from './recipeCoverStorage'
 import { loadRecipesReadModel } from './recipesReadModel'
 import { buildRecipeMatchMap, matchRecipe, recipeMatchStateLabel, type RecipeMatchResult, type RecipeMatchState } from './recipeMatching'
+import { buildRecipePurchasePlan } from './recipePurchasePlanning'
 import type { RecipeReadItem, RecipesReadModel } from './types'
 
 type RecipesPageProps = {
@@ -189,70 +190,73 @@ export function RecipesPage({ ownerId, overviewRequestToken, openRecipeId, openR
       : []
   ), [selectedRecipe])
   const shouldShowRecipeSectionHeadings = visibleRecipeSections.length > 1
-  const missingRecipeProductIds = useMemo(
-    () => selectedRecipe ? getMissingRecipeProductIds(selectedRecipe.ingredients) : [],
-    [selectedRecipe],
-  )
-
-  function markRecipeProductsAsShopping(productIds: Iterable<string>) {
-    const ids = new Set(productIds)
-    if (ids.size === 0) return
-
-    setRecipesStatus((current) => {
-      if (current.status !== 'ready') return current
-
-      return {
-        status: 'ready',
-        model: {
-          ...current.model,
-          recipes: current.model.recipes.map((recipe) => ({
-            ...recipe,
-            ingredients: recipe.ingredients.map((ingredient) => (
-              ids.has(ingredient.productId) && ingredient.presence !== 'inventory'
-                ? { ...ingredient, presence: 'shopping' as const }
-                : ingredient
-            )),
-          })),
-        },
-      }
+  const selectedRecipePurchasePlan = useMemo(() => {
+    if (!selectedRecipeMatch || !model) return null
+    return buildRecipePurchasePlan({
+      match: selectedRecipeMatch,
+      products: model.inventory.products,
+      units: model.inventory.units,
     })
-  }
+  }, [model, selectedRecipeMatch])
+  const selectedRecipeShoppingPlan = useMemo(() => {
+    if (!selectedRecipePurchasePlan || !model) return null
+    return buildRecipeShoppingPlan({
+      purchasePlan: selectedRecipePurchasePlan,
+      activeShoppingItems: model.activeShoppingItems,
+    })
+  }, [model, selectedRecipePurchasePlan])
+  const shoppingActionProductIds = useMemo(
+    () => selectedRecipeShoppingPlan ? getRecipeShoppingActionProductIds(selectedRecipeShoppingPlan) : [],
+    [selectedRecipeShoppingPlan],
+  )
+  const shoppingActionProductIdSet = useMemo(() => new Set(shoppingActionProductIds), [shoppingActionProductIds])
+  const shoppingListedProductIdSet = useMemo(
+    () => new Set(selectedRecipeShoppingPlan ? getRecipeShoppingListedProductIds(selectedRecipeShoppingPlan) : []),
+    [selectedRecipeShoppingPlan],
+  )
+  const blockedShoppingProductIdSet = useMemo(
+    () => new Set(selectedRecipeShoppingPlan ? getRecipeShoppingBlockedProductIds(selectedRecipeShoppingPlan) : []),
+    [selectedRecipeShoppingPlan],
+  )
+  const unresolvedPurchaseProductIdSet = useMemo(
+    () => new Set(selectedRecipeShoppingPlan?.unresolvedProductIds ?? []),
+    [selectedRecipeShoppingPlan],
+  )
 
   async function refreshRecipesSilently() {
     const refreshed = await loadRecipesReadModel(ownerId)
     setRecipesStatus({ status: 'ready', model: refreshed })
   }
 
-  async function addMissingProductsToShopping(productIds: string[], action: RecipeShoppingAction) {
-    if (!selectedRecipe || shoppingAction || shoppingRecoveryBlocked || productIds.length === 0) return
+  async function updateRecipeShoppingTargets(productIds: string[], action: RecipeShoppingAction) {
+    if (!selectedRecipeShoppingPlan || shoppingAction || shoppingRecoveryBlocked || productIds.length === 0) return
 
     setShoppingAction(action)
     setShoppingFeedback(null)
 
     try {
-      const plan = buildRecipeShoppingPlan({
-        ingredients: selectedRecipe.ingredients,
-        baseServings: selectedRecipe.servings,
-        targetServings,
-        productIds,
-      })
+      const productIdSet = new Set(productIds)
+      const entries = selectedRecipeShoppingPlan.entries.filter((entry) => (
+        productIdSet.has(entry.productId) && entry.state === 'needs-top-up'
+      ))
 
-      if (plan.length === 0) return
+      if (entries.length === 0) return
 
-      await createCanonicalShoppingItemsSequentially(plan.map((entry) => ({
+      await ensureCanonicalShoppingTargetsSequentially(entries.map((entry) => ({
         ownerId,
         name: entry.productName,
         existingProductId: entry.productId,
-        quantity: entry.quantity,
+        targetQuantity: entry.targetQuantity,
         unitCode: entry.unitCode,
+        wholeUnits: entry.purchaseMode === 'container' || entry.purchaseMode === 'count-pack',
       })))
 
-      markRecipeProductsAsShopping(productIds)
+      await refreshRecipesSilently()
       setShoppingFeedback({
         kind: 'success',
         message: productIds.length === 1
-          ? 'Dodano brakujący produkt do listy zakupów.'
-          : `Dodano brakujące produkty do listy zakupów (${productIds.length}).`,
+          ? 'Zaktualizowano listę zakupów dla produktu.'
+          : `Zaktualizowano brakujące zakupy (${productIds.length}).`,
       })
     } catch (error) {
       let refreshed = false
@@ -338,16 +342,16 @@ export function RecipesPage({ ownerId, overviewRequestToken, openRecipeId, openR
           <div className="recipe-detail-section-heading recipe-ingredients-heading">
             <span className="recipe-detail-section-icon" aria-hidden="true"><KitchenIcon name="inventory" size={18} /></span>
             <h2 id="recipe-ingredients-title">Składniki</h2>
-            {missingRecipeProductIds.length > 0 && (
+            {shoppingActionProductIds.length > 0 && (
               <button
                 className="secondary-button compact-button recipe-shopping-add-all"
                 type="button"
                 disabled={shoppingAction !== null || shoppingRecoveryBlocked}
-                onClick={() => void addMissingProductsToShopping(missingRecipeProductIds, { kind: 'bulk' })}
-                aria-label={`Dodaj wszystkie brakujące produkty do listy zakupów (${missingRecipeProductIds.length})`}
+                onClick={() => void updateRecipeShoppingTargets(shoppingActionProductIds, { kind: 'bulk' })}
+                aria-label={`Dodaj brakujące ilości produktów do listy zakupów (${shoppingActionProductIds.length})`}
               >
                 <KitchenIcon name="shoppingAdd" size={16} />
-                <span>{shoppingAction?.kind === 'bulk' ? 'Dodawanie…' : `Dodaj wszystkie brakujące (${missingRecipeProductIds.length})`}</span>
+                <span>{shoppingAction?.kind === 'bulk' ? 'Aktualizowanie…' : `Dodaj brakujące (${shoppingActionProductIds.length})`}</span>
               </button>
             )}
           </div>
@@ -376,7 +380,7 @@ export function RecipesPage({ ownerId, overviewRequestToken, openRecipeId, openR
                       const matchState: RecipeMatchState = selectedRecipeMatch?.ingredientStates[ingredient.id] ?? 'unresolved'
 
                       return (
-                        <div className={`recipe-ingredient-row${matchState === 'missing' && ingredient.presence === 'missing' ? ' has-shopping-action' : ''}`} key={ingredient.id}>
+                        <div className={`recipe-ingredient-row${shoppingActionProductIdSet.has(ingredient.productId) ? ' has-shopping-action' : ''}`} key={ingredient.id}>
                           <span
                             className={`recipe-ingredient-index is-match-${matchState}`}
                             role="img"
@@ -386,20 +390,22 @@ export function RecipesPage({ ownerId, overviewRequestToken, openRecipeId, openR
                           <span className="recipe-ingredient-copy">
                             <strong>{ingredient.productName}</strong>
                             {ingredient.note && <small>{ingredient.note}</small>}
-                            {ingredient.presence === 'shopping' && <small className="recipe-ingredient-shopping-context">Na liście zakupów</small>}
+                            {(shoppingListedProductIdSet.has(ingredient.productId) || ingredient.presence === 'shopping') && <small className="recipe-ingredient-shopping-context">Na liście zakupów</small>}
+                            {unresolvedPurchaseProductIdSet.has(ingredient.productId) && ingredient.presence !== 'shopping' && (matchState === 'partial' || matchState === 'missing') && <small className="recipe-ingredient-shopping-context">Ustaw sposób zakupu</small>}
+                            {blockedShoppingProductIdSet.has(ingredient.productId) && <small className="recipe-ingredient-shopping-context">Sprawdź listę zakupów</small>}
                           </span>
                           <span className="recipe-ingredient-meta"><span className="recipe-ingredient-quantity">{displayQuantity} {ingredient.unitSymbol}</span><small>{recipeMatchStateLabel(matchState)}</small></span>
-                          {matchState === 'missing' && ingredient.presence === 'missing' && (
+                          {shoppingActionProductIdSet.has(ingredient.productId) && (
                             <button
                               className="recipe-ingredient-shopping-action"
                               type="button"
                               disabled={shoppingAction !== null || shoppingRecoveryBlocked}
-                              onClick={() => void addMissingProductsToShopping(
+                              onClick={() => void updateRecipeShoppingTargets(
                                 [ingredient.productId],
                                 { kind: 'product', productId: ingredient.productId },
                               )}
-                              aria-label={`Dodaj ${ingredient.productName} do listy zakupów`}
-                              title="Dodaj do listy zakupów"
+                              aria-label={`${shoppingListedProductIdSet.has(ingredient.productId) ? 'Uzupełnij' : 'Dodaj'} ${ingredient.productName} na liście zakupów`}
+                              title={shoppingListedProductIdSet.has(ingredient.productId) ? 'Uzupełnij listę zakupów' : 'Dodaj do listy zakupów'}
                             >
                               <KitchenIcon
                                 name="shoppingAdd"
