@@ -78,3 +78,9 @@ V5.1 does not:
 - mutate Recipe or Inventory.
 
 Those boundaries are deliberate. V5.2 owns the existing Recipe -> Shopping action upgrade.
+
+## V5.2 integration boundary
+
+V5.2 now consumes V5.1 targets without changing V5.1 itself. Active Shopping coverage is applied in the separate pure `recipeShoppingPlan.ts` layer and only for the same canonical Product + planned purchase unit. Shopping stays procurement context and never becomes physical Inventory availability.
+
+Automatic writes use the Shopping-owned sequential target top-up authority; Recipe UI never writes `shopping_items` directly. Whole `container` / `count-pack` targets remain whole through the V5.2 bridge.
