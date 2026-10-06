@@ -9,6 +9,9 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['icons/kitchen-192.png', 'icons/kitchen-512.png'],
+      workbox: {
+        globIgnores: ['**/*localStt.worker*.js', '**/*local-stt-worker*.js', '**/*.wasm'],
+      },
       manifest: {
         name: 'Kitchen',
         short_name: 'Kitchen',

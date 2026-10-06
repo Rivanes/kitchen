@@ -1697,4 +1697,40 @@ await execFileAsync(process.execPath, ['scripts/test-inventory-create-intent.mjs
 await execFileAsync(process.execPath, ['scripts/test-persistent-resources.mjs'])
 await execFileAsync(process.execPath, ['scripts/test-inventory-quick-quantity.mjs'])
 
+// V6.1A — Local STT spike must stay diagnostic-only and outside Kitchen write authorities.
+const voiceSpikePage = await readFile('src/features/voice/VoiceSttSpikePage.tsx', 'utf8')
+const voiceSttWorker = await readFile('src/features/voice/localStt.worker.ts', 'utf8')
+const voiceSttAdapter = await readFile('src/features/voice/transformersLocalSttAdapter.ts', 'utf8')
+const voiceAudioCapture = await readFile('src/features/voice/audioCapture.ts', 'utf8')
+const voiceSttContract = await readFile('tests/VOICE_LOCAL_STT_SPIKE_CONTRACT.md', 'utf8')
+const voicePackage = JSON.parse(await readFile('package.json', 'utf8'))
+if (voicePackage.dependencies?.['@huggingface/transformers'] !== '4.3.0') {
+  throw new Error('V6.1A must pin the audited Transformers.js runtime exactly to 4.3.0.')
+}
+for (const marker of ["get('voice-spike') === '1'", 'VoiceSttSpikePage']) {
+  if (!shell.includes(marker)) throw new Error(`V6.1A hidden diagnostic entry marker missing: ${marker}`)
+}
+for (const marker of ['LocalSpeechToTextAdapter', 'dedicated Worker', 'zero Kitchen business mutations']) {
+  if (!voiceSttContract.includes(marker)) throw new Error(`V6.1A STT contract marker missing: ${marker}`)
+}
+for (const marker of ['POLISH_VOICE_SPIKE_PHRASES', 'Nagraj do 10 s', 'Kopiuj JSON']) {
+  if (!voiceSpikePage.includes(marker)) throw new Error(`V6.1A diagnostic UI marker missing: ${marker}`)
+}
+for (const marker of ['onnx-community/whisper-tiny', 'ff4177021cc41f7db950912b73ea4fdf7d01d8e7', "language: 'polish'", "device: 'wasm'", "dtype: 'q8'", "device: 'webgpu'", 'env.useBrowserCache = true', 'env.useWasmCache = true']) {
+  if (!voiceSttWorker.includes(marker)) throw new Error(`V6.1A worker marker missing: ${marker}`)
+}
+for (const marker of ["new Worker(new URL('./localStt.worker.ts'", 'LocalSpeechToTextAdapter']) {
+  if (!voiceSttAdapter.includes(marker)) throw new Error(`V6.1A adapter marker missing: ${marker}`)
+}
+for (const marker of ['getUserMedia', 'AudioWorkletNode', 'WHISPER_SAMPLE_RATE = 16_000', 'VOICE_SPIKE_MAX_DURATION_MS = 10_000']) {
+  if (!voiceAudioCapture.includes(marker)) throw new Error(`V6.1A capture marker missing: ${marker}`)
+}
+if (/supabase\/client|inventoryMutations|shoppingMutations|recipeMutations|productCatalogMutations/.test(voiceSpikePage + voiceSttWorker + voiceSttAdapter + voiceAudioCapture)) {
+  throw new Error('V6.1A Voice spike must not import Kitchen business mutation authorities.')
+}
+for (const marker of ['localStt.worker', '**/*.wasm']) {
+  if (!viteConfig.includes(marker)) throw new Error(`V6.1A PWA precache exclusion missing: ${marker}`)
+}
+await execFileAsync(process.execPath, ['scripts/test-voice-stt-spike.mjs'])
+
 console.log('Kitchen project contract verification: PASS')

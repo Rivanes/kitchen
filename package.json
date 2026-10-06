@@ -1,7 +1,7 @@
 {
   "name": "kitchen",
   "private": true,
-  "version": "5.3.1",
+  "version": "6.1.0-alpha.1",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -9,9 +9,11 @@
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "verify:project": "node scripts/verify-project.mjs",
-    "check": "npm run verify:project && npm run typecheck && npm run build"
+    "check": "npm run verify:project && npm run typecheck && npm run build",
+    "test:voice-stt-spike": "node scripts/test-voice-stt-spike.mjs"
   },
   "dependencies": {
+    "@huggingface/transformers": "4.3.0",
     "@supabase/supabase-js": "latest",
     "react": "latest",
     "react-dom": "latest"

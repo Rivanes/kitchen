@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { lazy, Suspense, useState } from 'react'
 import type { User } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase/client'
 import { HomePage } from '../features/home/HomePage'
@@ -8,6 +8,8 @@ import { ShoppingPage } from '../features/shopping/ShoppingPage'
 import { RecipesPage } from '../features/recipes/RecipesPage'
 import { KitchenIcon } from './KitchenIcon'
 
+const VoiceSttSpikePage = lazy(() => import('../features/voice/VoiceSttSpikePage').then((module) => ({ default: module.VoiceSttSpikePage })))
+
 type AppShellProps = {
   user: User
 }
@@ -15,6 +17,7 @@ type AppShellProps = {
 type AppView = 'home' | 'inventory' | 'expiry' | 'shopping' | 'recipes'
 
 export function AppShell({ user }: AppShellProps) {
+  const voiceSpikeMode = new URLSearchParams(window.location.search).get('voice-spike') === '1'
   const [view, setView] = useState<AppView>('home')
   const [inventoryCreateRequest, setInventoryCreateRequest] = useState(0)
   const [inventoryOverviewRequest, setInventoryOverviewRequest] = useState(0)
@@ -56,6 +59,28 @@ export function AppShell({ user }: AppShellProps) {
   }
 
   const startSectionActive = view === 'home' || view === 'expiry'
+
+  if (voiceSpikeMode) {
+    return (
+      <main className="app-layout voice-spike-shell">
+        <header className="app-header">
+          <div className="app-brand">
+            <div className="brand-mark brand-mark-small" aria-hidden="true">K</div>
+            <div>
+              <p className="brand-kicker">Kitchen</p>
+              <p className="app-greeting">Diagnostyka Voice · bez zapisów biznesowych</p>
+            </div>
+          </div>
+          <button className="icon-button" type="button" onClick={handleLogout} aria-label="Wyloguj z Kitchen" title="Wyloguj">
+            <KitchenIcon name="logout" />
+          </button>
+        </header>
+        <Suspense fallback={<div className="voice-spike-loading" aria-live="polite">Ładowanie diagnostyki STT…</div>}>
+          <VoiceSttSpikePage onExit={() => { window.location.href = import.meta.env.BASE_URL }} />
+        </Suspense>
+      </main>
+    )
+  }
 
   return (
     <main className="app-layout">

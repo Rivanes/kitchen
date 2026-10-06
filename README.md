@@ -2,7 +2,7 @@
 
 Private, single-user mobile-first PWA for household inventory, shopping and recipes.
 
-Closed milestones: **V1 Inventory — PASS/CLOSED**, **V2 Shopping — PASS/CLOSED**, **V3 Recipes + Resource Semantics — PASS/CLOSED through V3.8.4**, **V4.1 Recipe Package Snapshot + Measurement Conversion — PASS/CLOSED**, **V4.2 Recipe Categories + Home Discovery + Time-aware Suggestions — PASS/CLOSED**, and **V4.3 What Can I Cook? + V4.3.1 Cookable Meal Section UX — PASS/CLOSED**. **V4.4 Final V4 Polish and the whole V4 line are PASS/CLOSED. V5.1 Purchase Planning Authority and V5.2 Recipe → Shopping Upgrade are PASS/CLOSED. V5.3 closeout is temporarily superseded by V5.3.1 Inventory Quick Quantity + Shared Compact Stepper corrective.** V5.3.1 adds one narrow Inventory quick-adjust RPC; Shopping remains the sole Shopping write authority.
+Closed milestones: **V1 Inventory — PASS/CLOSED**, **V2 Shopping — PASS/CLOSED**, **V3 Recipes + Resource Semantics — PASS/CLOSED through V3.8.4**, **V4 — PASS/CLOSED through V4.4**, and **V5 — PASS/CLOSED through V5.3.1**. The active milestone is **V6 Voice**. **V6.1A Local STT Spike** is implemented as a hidden diagnostic candidate and is READY FOR GITHUB QA + REAL-PHONE SPIKE; it does not mutate Kitchen data.
 
 Active Inventory capabilities:
 - owner-scoped stock read model
@@ -65,7 +65,7 @@ V5.1 adds one pure bridge from the V4.3 physical matcher result to a realistic f
 - Spice remains outside quantitative purchase planning; Household remains outside Recipe planning;
 - V5.1 performs no Supabase query and no `shopping_items` mutation.
 
-Historical PRE-V5.1 data audit found `Mleko` with incomplete Product purchase semantics. The final V5.3 read-only production gate is now the authority for current data and must prove all Recipe purchase groups plannable before V5 closure. The `Melko` typo cleanup remains deferred maintenance.
+Historical PRE-V5.1 data audit found incomplete purchase semantics during rollout; final V5 production verification was completed before closeout. Orphan/typo Product cleanup remains deferred maintenance.
 
 
 ## V5.2 — Recipe → Shopping Upgrade [PASS / CLOSED]
@@ -82,10 +82,10 @@ V5.2 connects the existing Recipe Shopping actions to the V5.1 purchase targets 
 - `Na liście zakupów` is secondary procurement context and never changes physical cookability;
 - actual writes remain in `shoppingMutations.ts` and reuse `createShoppingItem(...)`; Recipe UI never writes `shopping_items` directly.
 
-No SQL/schema/RLS/Auth/RPC change is required. Current Product purchase semantics are verified by the final V5.3 read-only production gate rather than assumed from the earlier PRE-V5.1 snapshot.
+No SQL/schema/RLS/Auth/RPC change was required for V5.2. Final Product purchase semantics were verified during V5 closeout.
 
 
-## V5.3 — QA + Closeout [READY FOR FINAL QA]
+## V5.3 — QA + Closeout [PASS / CLOSED]
 
 V5.3 introduces no new Kitchen feature and no persistence change. It is the final verification/consolidation stage for the complete Recipe purchase-planning chain.
 
@@ -95,10 +95,10 @@ V5.3 introduces no new Kitchen feature and no persistence change. It is the fina
 - requires no SQL/schema/RLS/Auth/RPC migration;
 - deferred orphan/typo Product cleanup remains outside V5.
 
-Final V5 closure requires the read-only production data gate and final smoke checklist to PASS.
+Final production verification passed and V5 is closed. V6 Voice is the next milestone.
 
 
-## V5.3.1 — Inventory Quick Quantity + Shared Compact Stepper [READY FOR SQL + QA]
+## V5.3.1 — Inventory Quick Quantity + Shared Compact Stepper [PASS / CLOSED]
 
 V5.3.1 is a corrective discovered during final V5 smoke. It simplifies everyday stock changes without reusing the consumption/opening lifecycle.
 
@@ -111,7 +111,24 @@ V5.3.1 is a corrective discovered during final V5 smoke. It simplifies everyday 
 - legacy resolved container lots may explicitly seed a missing Product package default only when the Product default purchase unit matches the lot unit;
 - existing Recipe/V4/V5 matching and Shopping planning remain unchanged.
 
-SQL must be deployed before the V5.3.1 runtime because the new UI calls the new exact-lot RPC.
+Production SQL postcheck and phone smoke were user-confirmed PASS. V5.3.1 is closed together with the complete V5 milestone.
+
+
+## V6.1A — Local STT Spike [READY FOR GITHUB QA + PHONE SPIKE]
+
+V6.1A is a diagnostic-only technical spike for zero-recurring-cost local Polish speech-to-text. It is intentionally isolated from Product, Inventory, Shopping and Supabase mutations.
+
+- hidden entry only through `?voice-spike=1`; normal Kitchen navigation is unchanged;
+- `@huggingface/transformers` is pinned to `4.3.0`;
+- model candidate is pinned to `onnx-community/whisper-tiny` revision `ff4177021cc41f7db950912b73ea4fdf7d01d8e7`;
+- default benchmark is CPU/WASM with q8; WebGPU/fp16 is optional comparison only;
+- inference runs in a dedicated Web Worker; microphone capture uses AudioWorklet and resamples mono PCM to 16 kHz;
+- recordings are capped at 10 seconds and raw audio is never persisted;
+- model files are downloaded on demand and browser-cached, not included in the normal PWA precache;
+- no SQL/schema/RLS/Auth/Storage/Edge Function change;
+- no Voice business parser or Kitchen write action yet.
+
+Acceptance requires GitHub QA/Pages first and then a real-phone cold/warm-cache benchmark with the frozen Polish phrase corpus. V6.1A must not be marked PASS from static/local checks alone.
 
 
 ## V1.6.1 — Mobile editor layout corrective
