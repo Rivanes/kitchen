@@ -59,6 +59,7 @@ const requiredFiles = [
   'src/features/products/productIdentity.ts',
   'src/features/products/productCatalogMutations.ts',
   'src/features/measurements/measurementUnits.ts',
+  'src/features/measurements/measurementConversion.ts',
   'src/features/measurements/packageSemantics.ts',
   'src/features/quantity/quantity.ts',
   'src/features/quantity/QuantityStepperInput.tsx',
@@ -74,6 +75,8 @@ const requiredFiles = [
   'tests/SHOPPING_PARTIAL_PURCHASE_CONTRACT.md',
   'tests/SHOPPING_TO_INVENTORY_CONTRACT.md',
   'tests/PACKAGE_SEMANTICS_CONTRACT.md',
+  'tests/MEASUREMENT_CONVERSION_CONTRACT.md',
+  'tests/RECIPE_PACKAGE_SNAPSHOT_CONTRACT.md',
   'tests/RESOURCE_SEMANTICS_CONTRACT.md',
   'tests/SPECIAL_RESOURCE_CREATE_CONTRACT.md',
   'tests/PERSISTENT_RESOURCES_CONTRACT.md',
@@ -87,6 +90,8 @@ const requiredFiles = [
   'src/features/recipes/recipeIngredientDraft.ts',
   'scripts/test-recipe-ingredient-draft.mjs',
   'scripts/test-package-semantics.mjs',
+  'scripts/test-measurement-conversion.mjs',
+  'scripts/test-recipe-package-snapshot.mjs',
   'scripts/test-resource-semantics.mjs',
   'scripts/test-inventory-create-intent.mjs',
   'scripts/test-persistent-resources.mjs',
@@ -101,7 +106,20 @@ const requiredFiles = [
   'src/features/recipes/recipeCoverStorage.ts',
   'src/features/recipes/recipeImageProcessor.ts',
   'src/features/recipes/recipesReadModel.ts',
+  'src/features/recipes/recipeCategories.ts',
+  'src/features/recipes/recipeDiscovery.ts',
+  'src/features/recipes/recipeDiscoveryReadModel.ts',
+  'src/features/recipes/recipeMatching.ts',
+  'src/features/recipes/recipePurchasePlanning.ts',
   'src/features/recipes/types.ts',
+  'scripts/test-recipe-discovery.mjs',
+  'scripts/test-recipe-matching.mjs',
+  'scripts/test-recipe-purchase-planning.mjs',
+  'scripts/test-recipe-shopping-upgrade.mjs',
+  'tests/RECIPE_MATCHING_CONTRACT.md',
+  'tests/RECIPE_PURCHASE_PLANNING_CONTRACT.md',
+  'tests/RECIPE_CATEGORY_CONTRACT.md',
+  'tests/RECIPE_DISCOVERY_CONTRACT.md',
   'tests/RECIPES_UI_CONTRACT.md',
   'tests/RECIPE_AUTHORING_CONTRACT.md',
   'tests/RECIPE_SHARED_CORE_CONTRACT.md',
@@ -369,7 +387,7 @@ if (!sharedProductCatalog.includes('.update({') || !sharedProductCatalog.include
 }
 
 const sharedQuantity = await readFile('src/features/quantity/quantity.ts', 'utf8')
-for (const marker of ['parseQuantityInput', 'assertValidQuantity', 'readStoredQuantity', 'addQuantities', 'formatQuantity', 'MAX_QUANTITY', 'QUANTITY_DECIMAL_PLACES', 'DEFAULT_QUANTITY_STEP', 'stepQuantityInput', 'canStepQuantityInput', 'formatQuantityInput']) {
+for (const marker of ['parseQuantityInput', 'assertValidQuantity', 'readStoredQuantity', 'addQuantities', 'sumQuantities', 'formatQuantity', 'MAX_QUANTITY', 'QUANTITY_DECIMAL_PLACES', 'DEFAULT_QUANTITY_STEP', 'stepQuantityInput', 'canStepQuantityInput', 'formatQuantityInput']) {
   if (!sharedQuantity.includes(marker)) {
     throw new Error(`V2.3.3 shared quantity authority marker missing: ${marker}`)
   }
@@ -461,8 +479,8 @@ if (consumeSheet.includes('onSaved')) {
 }
 
 const homePage = await readFile('src/features/home/HomePage.tsx', 'utf8')
-if (!homePage.includes('Kitchen podpowie więcej') || !homePage.includes('Terminy ważności') || !homePage.includes('Co ugotować')) {
-  throw new Error('V1.6.2 Start must keep SMART future previews and provide quick access to the Expiry Center.')
+if (!homePage.includes('Terminy ważności') || !homePage.includes('Inspiracje i planowanie') || !homePage.includes('Mogę ugotować')) {
+  throw new Error('V4.3 Start must keep expiry access plus active Recipe discovery/cookability surfaces.')
 }
 if (!homePage.includes('getInventoryExpiryMeta') || !homePage.includes('bez terminu') || !homePage.includes('onOpenExpiry')) {
   throw new Error('V1.6.2 Start must summarize urgent/missing expiry data and open the Expiry Center.')
@@ -840,8 +858,7 @@ for (const marker of [
   ".from('recipe_sections')",
   ".from('recipe_ingredients')",
   ".eq('owner_id', ownerId)",
-  'loadOwnerProductCatalog(ownerId)',
-  'loadMeasurementUnits()',
+  'loadInventoryReadModel(ownerId)',
   'readStoredQuantity',
 ]) {
   if (!recipesReadModel.includes(marker)) throw new Error(`Recipes read-model marker missing: ${marker}`)
@@ -854,7 +871,7 @@ for (const marker of [
   'prep_time_minutes',
   'cook_time_minutes',
   'readStoredRecipeDuration',
-  ".from('inventory_items')",
+  'inventoryModel.groups',
   ".from('shopping_items')",
   ".eq('is_purchased', false)",
   'resolveIngredientPresence',
@@ -864,8 +881,8 @@ for (const marker of [
 ]) {
   if (!recipesReadModel.includes(marker)) throw new Error(`V3.5.2 Recipes presence/timing read marker missing: ${marker}`)
 }
-if ((recipesReadModel.match(/\.eq\('owner_id', ownerId\)/g) ?? []).length < 5) {
-  throw new Error('V3.6A Recipe, section, ingredient, Inventory presence and Shopping presence reads must all be explicitly owner-scoped.')
+if ((recipesReadModel.match(/\.eq\('owner_id', ownerId\)/g) ?? []).length < 4 || !recipesReadModel.includes('loadInventoryReadModel(ownerId)')) {
+  throw new Error('V4.3 Recipe, section, ingredient and Shopping reads must be owner-scoped, with physical stock delegated to InventoryReadModel.')
 }
 if (/custom_name|productName.*presence|name.*presence/i.test(recipesReadModel)) {
   throw new Error('V3.5.2 Recipe presence must resolve by canonical product_id only, never display/custom name.')
@@ -909,13 +926,10 @@ if (recipesPage.includes('recipe-detail-ingredient-count')) {
 for (const marker of [
   'formatRecipeDuration',
   'recipe-detail-timing',
-  'recipe-ingredient-index is-${ingredient.presence}',
-  'ingredientPresenceLabel',
+  'recipe-ingredient-index is-match-${matchState}',
+  'recipeMatchStateLabel',
 ]) {
   if (!recipesPage.includes(marker)) throw new Error(`V3.5.2 Recipe detail polish marker missing: ${marker}`)
-}
-if (/wystarczy|brakuje\s+\d|możesz ugotować/i.test(recipesPage)) {
-  throw new Error('V3.5.2 Product presence UI must not claim quantity sufficiency or Recipe matching.')
 }
 
 const recipeServings = await readFile('src/features/recipes/recipeServings.ts', 'utf8')
@@ -950,20 +964,26 @@ if (/supabase|\.from\(|\.rpc\(/i.test(recipeDuration)) {
 
 const recipeShoppingPlan = await readFile('src/features/recipes/recipeShoppingPlan.ts', 'utf8')
 for (const marker of [
-  'scaleRecipeIngredientQuantity',
-  "ingredient.presence !== 'missing'",
-  'productId',
-  'unitCode',
-  'exactQuantity',
-  'normalizeQuantityPrecision',
-  'MIN_POSITIVE_SHOPPING_QUANTITY = 0.001',
-  'getMissingRecipeProductIds',
+  'buildRecipeShoppingPlan',
+  'purchasePlan',
+  'activeShoppingItems',
+  'targetQuantity',
+  'activeQuantity',
+  'topUpQuantity',
+  "'needs-top-up'",
+  "'covered'",
+  "'blocked'",
+  'unresolvedProductIds',
+  'getRecipeShoppingActionProductIds',
 ]) {
-  if (!recipeShoppingPlan.includes(marker)) throw new Error(`V3.5.3 Recipe Shopping-plan marker missing: ${marker}`)
+  if (!recipeShoppingPlan.includes(marker)) throw new Error(`V5.2 Recipe Shopping-plan marker missing: ${marker}`)
 }
 if (/supabase|\.rpc\(/i.test(recipeShoppingPlan) || /\.from\(\s*['"]/i.test(recipeShoppingPlan)) {
-  throw new Error('V3.5.3 Recipe Shopping plan must remain pure and must not own persistence.')
+  throw new Error('V5.2 Recipe Shopping plan must remain pure and must not own persistence.')
 }
+await execFileAsync(process.execPath, ['--experimental-strip-types', 'scripts/test-recipe-shopping-upgrade.mjs'], {
+  env: { ...process.env, NODE_NO_WARNINGS: '1' },
+})
 
 const recipeServingsControl = await readFile('src/features/recipes/RecipeServingsControl.tsx', 'utf8')
 for (const marker of [
@@ -1081,6 +1101,25 @@ await execFileAsync(process.execPath, ['--experimental-strip-types', 'scripts/te
   env: { ...process.env, NODE_NO_WARNINGS: '1' },
 })
 
+const measurementUnits = await readFile('src/features/measurements/measurementUnits.ts', 'utf8')
+for (const marker of ['toBaseFactor', 'to_base_factor', "select('code, label_pl, symbol, family, sort_order, to_base_factor')"]) {
+  if (!measurementUnits.includes(marker)) throw new Error(`V4.1 Measurement Unit authority marker missing: ${marker}`)
+}
+
+const measurementConversion = await readFile('src/features/measurements/measurementConversion.ts', 'utf8')
+for (const marker of ['convertMeasurementQuantity', 'toBaseMeasurementQuantity', 'fromBaseMeasurementQuantity', 'toBaseFactor', 'incompatible-family', 'non-direct-unit']) {
+  if (!measurementConversion.includes(marker)) throw new Error(`V4.1 measurement-conversion marker missing: ${marker}`)
+}
+if (/supabase|\.from\(|\.rpc\(/i.test(measurementConversion)) {
+  throw new Error('V4.1 Measurement conversion authority must remain pure.')
+}
+await execFileAsync(process.execPath, ['--experimental-strip-types', 'scripts/test-measurement-conversion.mjs'], {
+  env: { ...process.env, NODE_NO_WARNINGS: '1' },
+})
+await execFileAsync(process.execPath, ['--experimental-strip-types', 'scripts/test-recipe-package-snapshot.mjs'], {
+  env: { ...process.env, NODE_NO_WARNINGS: '1' },
+})
+
 const packageSemanticsContract = await readFile('tests/PACKAGE_SEMANTICS_CONTRACT.md', 'utf8')
 for (const marker of [
   'Product default',
@@ -1138,24 +1177,45 @@ for (const marker of [
 if (/createCanonicalShoppingItemsSequentially[\s\S]{0,1200}Promise\.all/.test(shoppingMutations)) {
   throw new Error('V3.5.3 canonical Shopping batch must remain deterministic/sequential.')
 }
+for (const marker of [
+  'ensureCanonicalShoppingTargetsSequentially',
+  'targetQuantity',
+  'loadActiveShoppingItems',
+  'normalizeQuantityPrecision',
+  'await createShoppingItem({',
+  'wholeUnits',
+]) {
+  if (!shoppingMutations.includes(marker)) throw new Error(`V5.2 Shopping target-top-up marker missing: ${marker}`)
+}
+if (/ensureCanonicalShoppingTargetsSequentially[\s\S]{0,3500}Promise\.all/.test(shoppingMutations)) {
+  throw new Error('V5.2 Shopping target top-up must remain deterministic/sequential.')
+}
 
 for (const marker of [
+  'buildRecipePurchasePlan',
   'buildRecipeShoppingPlan',
-  'getMissingRecipeProductIds',
-  'createCanonicalShoppingItemsSequentially',
-  'Dodaj wszystkie brakujące',
-  'Dodaj ${ingredient.productName} do listy zakupów',
+  'getRecipeShoppingActionProductIds',
+  'ensureCanonicalShoppingTargetsSequentially',
+  'shoppingActionProductIds',
+  'Ustaw sposób zakupu',
+  'Na liście zakupów',
+  'Dodaj brakujące',
   'targetServings',
-  'markRecipeProductsAsShopping',
   'refreshRecipesSilently',
 ]) {
-  if (!recipesPage.includes(marker)) throw new Error(`V3.5.3 Recipe -> Shopping UI marker missing: ${marker}`)
+  if (!recipesPage.includes(marker)) throw new Error(`V5.2 Recipe -> Shopping UI marker missing: ${marker}`)
+}
+if (recipesPage.includes('markRecipeProductsAsShopping')) {
+  throw new Error('V5.2 Recipe -> Shopping must refresh canonical Shopping state instead of painting a local presence-only result.')
 }
 if (/\.from\(\s*['"]shopping_items['"]\s*\)|\.insert\(|\.update\(/.test(recipesPage)) {
-  throw new Error('V3.5.3 RecipesPage must not write Shopping rows directly.')
+  throw new Error('V5.2 RecipesPage must not write Shopping rows directly.')
 }
-if (recipesPage.includes('Promise.all') && recipesPage.includes('createCanonicalShoppingItemsSequentially')) {
-  throw new Error('V3.5.3 RecipesPage must not parallelize Shopping writes.')
+if (recipesPage.includes('Promise.all') && recipesPage.includes('ensureCanonicalShoppingTargetsSequentially')) {
+  throw new Error('V5.2 RecipesPage must not parallelize Shopping writes.')
+}
+for (const marker of ["select('product_id, quantity, unit_code')", 'activeShoppingItems', 'RecipeActiveShoppingItem']) {
+  if (!recipesReadModel.includes(marker)) throw new Error(`V5.2 Recipe active-Shopping projection marker missing: ${marker}`)
 }
 
 const productAutocomplete = await readFile('src/features/products/ProductAutocomplete.tsx', 'utf8')
@@ -1197,6 +1257,140 @@ if (recipeMutations.includes('section_label')) {
   throw new Error('V3.6A runtime mutation payload must not use legacy section_label as section authority.')
 }
 
+for (const marker of ['packageContentValue', 'packageContentUnitCode']) {
+  if (!recipeMutations.includes(marker)) throw new Error(`V4.1 Recipe mutation package-snapshot marker missing: ${marker}`)
+  if (!recipesReadModel.includes(marker)) throw new Error(`V4.1 Recipe read package-snapshot marker missing: ${marker}`)
+  if (!recipeIngredientEditor.includes(marker)) throw new Error(`V4.1 Recipe ingredient editor package-snapshot marker missing: ${marker}`)
+}
+for (const marker of ['resolveRecipePackageContent', 'package_content_value', 'package_content_unit', 'productDefaultUnitCode']) {
+  if (!recipeMutations.includes(marker)) throw new Error(`V4.1 Recipe package persistence marker missing: ${marker}`)
+}
+for (const marker of ['Zawartość 1', 'zostanie zapamiętana dla tego przepisu', 'getPackageContentUnits', 'isContainerMeasurementUnit', 'reselectsOriginalProduct', 'detachesProductIdentity', 'returnsToOriginalProduct', 'restoresOriginalSnapshot']) {
+  if (!recipeIngredientEditor.includes(marker)) throw new Error(`V4.1 Recipe package editor marker missing: ${marker}`)
+}
+
+const measurementConversionContract = await readFile('tests/MEASUREMENT_CONVERSION_CONTRACT.md', 'utf8')
+for (const marker of ['to_base_factor', 'same direct family', 'container units', 'pure']) {
+  if (!measurementConversionContract.includes(marker)) throw new Error(`V4.1 Measurement conversion contract marker missing: ${marker}`)
+}
+const recipePackageSnapshotContract = await readFile('tests/RECIPE_PACKAGE_SNAPSHOT_CONTRACT.md', 'utf8')
+for (const marker of ['immutable Recipe meaning', 'Product default', 'package_content_value', 'package_content_unit', 'servings']) {
+  if (!recipePackageSnapshotContract.includes(marker)) throw new Error(`V4.1 Recipe package snapshot contract marker missing: ${marker}`)
+}
+
+const recipeCategories = await readFile('src/features/recipes/recipeCategories.ts', 'utf8')
+const recipeDiscovery = await readFile('src/features/recipes/recipeDiscovery.ts', 'utf8')
+const recipeDiscoveryReadModel = await readFile('src/features/recipes/recipeDiscoveryReadModel.ts', 'utf8')
+for (const marker of ["'breakfast'", "'lunch'", "'dinner'", "'snack'", "'cake'", 'assertRecipeCategoryCode']) {
+  if (!recipeCategories.includes(marker)) throw new Error(`V4.2 Recipe category authority marker missing: ${marker}`)
+}
+for (const marker of ['resolveCurrentMealCategory', 'localHour >= 6', 'localHour < 12', 'localHour < 18', 'localHour < 23', 'buildHomeRecipeSuggestions']) {
+  if (!recipeDiscovery.includes(marker)) throw new Error(`V4.2 Recipe discovery authority marker missing: ${marker}`)
+}
+if (/supabase|\.from\(|\.rpc\(/i.test(recipeDiscovery)) {
+  throw new Error('V4.2 Recipe discovery filtering/time authority must remain pure.')
+}
+for (const marker of [".from('recipes')", 'category_code', 'createRecipeCoverSignedUrl']) {
+  if (!recipeDiscoveryReadModel.includes(marker)) throw new Error(`V4.2 lightweight Recipe discovery read marker missing: ${marker}`)
+}
+if (recipeDiscoveryReadModel.includes('inventory_items') || recipeDiscoveryReadModel.includes('shopping_items') || recipeDiscoveryReadModel.includes('recipe_sections') || recipeDiscoveryReadModel.includes('instructions')) {
+  throw new Error('V4.3 Home Recipe discovery must stay compact: matching requirements are allowed, but Inventory/Shopping/sections/instructions are not.')
+}
+if (!recipeDiscoveryReadModel.includes('recipe_ingredients') || !recipeDiscoveryReadModel.includes('matchingIngredients')) {
+  throw new Error('V4.3 Home discovery must expose the compact Recipe requirement projection for the shared matcher.')
+}
+for (const marker of ['categoryCode', 'p_category_code', 'assertRecipeCategoryCode']) {
+  if (!recipeMutations.includes(marker)) throw new Error(`V4.2 Recipe category persistence marker missing: ${marker}`)
+}
+if (recipeMutations.includes(".from('recipes')")) {
+  throw new Error('V4.2 category persistence must remain inside save_recipe_snapshot and never use a second direct Recipe update.')
+}
+for (const marker of ['RECIPE_CATEGORIES', 'Wybierz jedną kategorię', 'recipe-category-choice']) {
+  if (!recipeEditor.includes(marker)) throw new Error(`V4.2 Recipe editor category marker missing: ${marker}`)
+}
+for (const marker of ['recipe-category-filters', 'filterRecipesByCategory', 'openRecipeRequestToken', 'recipeCategoryLabel']) {
+  if (!recipesPage.includes(marker)) throw new Error(`V4.2 RecipesPage category/navigation marker missing: ${marker}`)
+}
+for (const marker of ['loadRecipeDiscoveryReadModel', 'Na teraz', 'Inspiracje i planowanie', 'visibilitychange', 'recipeCategoryFilter']) {
+  if (!homePage.includes(marker)) throw new Error(`V4.2 Home Recipe discovery marker missing: ${marker}`)
+}
+if (homePage.includes('loadRecipesReadModel')) {
+  throw new Error('V4.2 Home must not load the heavy full Recipe read model for discovery cards.')
+}
+for (const marker of ['openRecipeFromHome', 'openRecipeId={recipeOpenRequest.recipeId}', 'onOpenRecipes']) {
+  if (!shell.includes(marker)) throw new Error(`V4.2 Home -> Recipe detail navigation marker missing: ${marker}`)
+}
+for (const marker of ['.recipe-category-filter', '.home-recipe-grid', '.home-recipe-card', '.recipe-category-choice']) {
+  if (!globalCss.includes(marker)) throw new Error(`V4.2 Recipe discovery/category CSS marker missing: ${marker}`)
+}
+const recipeCategoryContract = await readFile('tests/RECIPE_CATEGORY_CONTRACT.md', 'utf8')
+for (const marker of ['breakfast', 'Kawa z mlekiem', 'Lasagne', 'sole Recipe write authority']) {
+  if (!recipeCategoryContract.includes(marker)) throw new Error(`V4.2 Recipe category contract marker missing: ${marker}`)
+}
+const recipeDiscoveryContract = await readFile('tests/RECIPE_DISCOVERY_CONTRACT.md', 'utf8')
+for (const marker of ['06:00–11:59', '12:00–17:59', '18:00–22:59', '23:00–05:59', 'lightweight owner-scoped Recipe projection']) {
+  if (!recipeDiscoveryContract.includes(marker)) throw new Error(`V4.2 Recipe discovery contract marker missing: ${marker}`)
+}
+await execFileAsync(process.execPath, ['--experimental-strip-types', 'scripts/test-recipe-discovery.mjs'], {
+  env: { ...process.env, NODE_NO_WARNINGS: '1' },
+})
+
+const recipeMatching = await readFile('src/features/recipes/recipeMatching.ts', 'utf8')
+for (const marker of ['matchRecipe', 'buildRecipeMatchMap', 'sufficient', 'partial', 'missing', 'unresolved', 'scaleRecipeIngredientQuantity', 'toBaseMeasurementQuantity']) {
+  if (!recipeMatching.includes(marker)) throw new Error(`V4.3 Recipe matching authority marker missing: ${marker}`)
+}
+if (/supabase|\.from\(['"]|\.rpc\(|shopping_items/i.test(recipeMatching)) {
+  throw new Error('V4.3 Recipe matching authority must remain pure and independent from Shopping/Supabase.')
+}
+for (const marker of ['recipeMatches', 'selectedRecipeMatch', 'recipeMatchStateLabel']) {
+  if (!recipesPage.includes(marker)) throw new Error(`V4.3 RecipesPage matching marker missing: ${marker}`)
+}
+for (const marker of ['recipeMatches', 'home-recipes-cookable', 'recipe-match-badge', 'buildRecipeMatchMap', 'cookableNow']) {
+  if (!homePage.includes(marker)) throw new Error(`V4.3 Home matching marker missing: ${marker}`)
+}
+for (const marker of ['.recipe-match-badge', '.home-recipes-cookable', '.recipe-ingredient-index.is-match-sufficient', '.recipe-ingredient-index.is-match-unresolved']) {
+  if (!globalCss.includes(marker)) throw new Error(`V4.3 Recipe matching CSS marker missing: ${marker}`)
+}
+if (recipesPage.includes('recipe-cookable-filter') || recipesPage.includes('cookabilityFilter')) {
+  throw new Error('V4.3.1 Mogę ugotować must not remain a RecipesPage filter; it is a dedicated time-aware Home section.')
+}
+if (homePage.includes('recipeCookabilityFilter') || homePage.includes('generalCookabilityFilter')) {
+  throw new Error('V4.3.1 Home general Recipe discovery must not be filtered by Mogę ugotować.')
+}
+if (homePage.includes("recipe.match?.state ?? 'unresolved'") || homePage.includes('recipe.match?.state ?? \"unresolved\"')) {
+  throw new Error('V4.4 Home must not synthesize Nieustalone before Inventory matching data is ready.')
+}
+if (!homePage.includes("homeStatus.status === 'ready' && recipe.match")) {
+  throw new Error('V4.4 Home matching badges must be gated by ready Inventory data.')
+}
+if (!homePage.includes('Brak przepisu z kompletem potwierdzonych składników na tę porę dnia.')) {
+  throw new Error('V4.4 cookable empty state must stay neutral across missing/partial/unresolved cases.')
+}
+if (homePage.includes('nie masz wszystkich składników do żadnego przepisu')) {
+  throw new Error('V4.4 Home must not collapse unresolved/partial states into a definite ingredient-shortage message.')
+}
+const recipeMatchingContract = await readFile('tests/RECIPE_MATCHING_CONTRACT.md', 'utf8')
+for (const marker of ['Wystarczy', 'Częściowo', 'Brak', 'Nieustalone', 'Mogę ugotować', 'Product + effective direct family', 'never promotes']) {
+  if (!recipeMatchingContract.includes(marker)) throw new Error(`V4.3 Recipe matching contract marker missing: ${marker}`)
+}
+await execFileAsync(process.execPath, ['--experimental-strip-types', 'scripts/test-recipe-matching.mjs'], {
+  env: { ...process.env, NODE_NO_WARNINGS: '1' },
+})
+
+const recipePurchasePlanning = await readFile('src/features/recipes/recipePurchasePlanning.ts', 'utf8')
+for (const marker of ['buildRecipePurchasePlan', 'count-pack', 'ceilWholeUnits', 'ceilShoppingPrecision', 'ProductIdentityOption', 'RecipeMatchResult']) {
+  if (!recipePurchasePlanning.includes(marker)) throw new Error(`V5.1 Recipe purchase planning authority marker missing: ${marker}`)
+}
+if (/supabase|\.from\(['"]|\.rpc\(|shopping_items/i.test(recipePurchasePlanning)) {
+  throw new Error('V5.1 Purchase Planning Authority must remain pure and independent from Shopping/Supabase writes.')
+}
+const recipePurchasePlanningContract = await readFile('tests/RECIPE_PURCHASE_PLANNING_CONTRACT.md', 'utf8')
+for (const marker of ['physical shortage', 'Product `defaultUnitCode`', 'Count-pack', 'ceil(shortageBase / contentBasePerPiece)', 'Automatic planning never produces fractional containers', 'No Shopping write in V5.1']) {
+  if (!recipePurchasePlanningContract.includes(marker)) throw new Error(`V5.1 purchase-planning contract marker missing: ${marker}`)
+}
+await execFileAsync(process.execPath, ['--experimental-strip-types', 'scripts/test-recipe-purchase-planning.mjs'], {
+  env: { ...process.env, NODE_NO_WARNINGS: '1' },
+})
 for (const [sourceName, source] of [['Recipe mutations', recipeMutations], ['Recipe read model', recipesReadModel], ['Recipe editor', recipeEditor], ['Recipes page', recipesPage]]) {
   if (source.includes('section_label')) throw new Error(`V3.7 Recipe runtime must not reference legacy section_label: ${sourceName}.`)
 }
@@ -1313,12 +1507,12 @@ const recipeSectionsContract = await readFile('tests/RECIPE_SECTIONS_CONTRACT.md
 const v3CloseoutContract = await readFile('tests/V3_CLOSEOUT_CONTRACT.md', 'utf8')
 for (const [contract, markers] of [
   [v3CloseoutContract, ['No runtime or database compatibility authority remains', 'structured 14-argument', 'does not add', 'Recipe cookability matching']],
-  [recipesUiContract, ['read surfaces', 'exactly one Recipe edit entry point', 'compact horizontal summary row', 'Ingredient count is not repeated', 'Product-presence indicator only', 'Inventory has priority', 'mandatory primary section', 'fast buttons/chips', 'no `Bez sekcji`', 'same dedicated bottom sheet/modal', 'nested forms are forbidden', 'Global Recipe Save is not disabled by Product Catalog loading', 'Escape from Ingredient Editor closes only Ingredient Editor']],
+  [recipesUiContract, ['read surfaces', 'exactly one Recipe edit entry point', 'compact horizontal summary row', 'Ingredient count is not repeated', 'canonical Recipe matching state', 'Active Shopping is secondary procurement context', 'mandatory primary section', 'fast buttons/chips', 'no `Bez sekcji`', 'same dedicated bottom sheet/modal', 'nested forms are forbidden', 'Global Recipe Save is not disabled by Product Catalog loading', 'Escape from Ingredient Editor closes only Ingredient Editor']],
   [recipeAuthoringContract, ['One Recipe authoring draft', 'save_recipe_snapshot', 'Canceling the whole Recipe editor discards', 'optional preparation time', 'optional cooking/baking time', 'structured Recipe-local sections', 'primary `Główne`', 'RecipeIngredientEditorSheet', 'transactional with ingredient Apply', 'Final Recipe Save must not depend on Product Catalog loading']],
   [recipeSectionsContract, ['exactly one mandatory primary section', 'section_id', 'only Recipe section authority', 'legacy `recipe_ingredients.section_label` compatibility column no longer exists', 'fast button/chip choices', '`Bez sekcji` no longer exists', 'no independent `Dodaj sekcję` authority', 'Pending section creation and ingredient Apply commit together', 'does not perform Recipe matching']],
-  [recipeSharedContract, ['canonical Product resolver/create authority', 'shared Quantity', 'must not globally rename', 'canonical Product UUID only', 'must not claim quantity sufficiency']],
+  [recipeSharedContract, ['canonical Product resolver/create authority', 'shared Quantity', 'must not globally rename', 'canonical Product UUID only', 'single pure cookability authority']],
   [recipeImageContract, ['full source image', 'pure crop geometry authority', 'RECIPE_COVER_HERO_ASPECT', 'must therefore match', 'Cleanup retries never block Recipe reading']],
-  [recipeToShoppingContract, ["presence === 'missing'", 'current target-servings requirement', 'grouped by canonical Product + unit', 'createShoppingItem()', 'sequential', 'no unit conversion', 'V3.6']],
+  [recipeToShoppingContract, ['V5.2', 'same canonical Product + planned purchase unit', 'at-least purchase quantity', 'never with `Promise.all`', 'Ustaw sposób zakupu', 'Shopping never feeds back into Recipe cookability']],
 ]) {
   for (const marker of markers) {
     if (!contract.includes(marker)) throw new Error(`Current Recipe contract marker missing: ${marker}`)
@@ -1443,7 +1637,7 @@ for (const marker of ["rpc('set_spice_presence'", "rpc('adjust_household_stock'"
 if (!shoppingMutations.includes("rpc('ensure_active_shopping_product'")) {
   throw new Error('V3.8.4 automatic replenishment must use the shared idempotent Shopping ensure authority.')
 }
-for (const marker of ['spiceResources', 'householdResources', 'resourceProducts']) {
+for (const marker of ['spiceResources', 'householdResources', 'sumQuantities', 'resourceProducts']) {
   if (!inventoryReadModel.includes(marker)) throw new Error(`V3.8.4 persistent read-model marker missing: ${marker}`)
 }
 for (const marker of ["resource.present ? 'Mam' : 'Brak'", 'onAdjustHousehold(resource, -1)', 'onAdjustHousehold(resource, 1)', 'HouseholdMinimumSheet', 'isHouseholdLowStock']) {

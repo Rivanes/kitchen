@@ -2,7 +2,7 @@
 
 Private, single-user mobile-first PWA for household inventory, shopping and recipes.
 
-Closed milestones: **V1 Inventory — PASS/CLOSED**, **V2 Shopping — PASS/CLOSED**, **V3 Recipes + Resource Semantics — PASS/CLOSED through V3.8.4**, **V4.1 Recipe Package Snapshot + Measurement Conversion — PASS/CLOSED**, **V4.2 Recipe Categories + Home Discovery + Time-aware Suggestions — PASS/CLOSED**, and **V4.3 What Can I Cook? + V4.3.1 Cookable Meal Section UX — PASS/CLOSED**. **V4.4 Final V4 Polish is incorporated in this baseline and still awaits its final production acceptance gate. V5.1 Purchase Planning Authority is IMPLEMENTED / READY FOR GITHUB QA.** V5.1 is pure/read-only and adds no SQL or Shopping write behavior.
+Closed milestones: **V1 Inventory — PASS/CLOSED**, **V2 Shopping — PASS/CLOSED**, **V3 Recipes + Resource Semantics — PASS/CLOSED through V3.8.4**, **V4.1 Recipe Package Snapshot + Measurement Conversion — PASS/CLOSED**, **V4.2 Recipe Categories + Home Discovery + Time-aware Suggestions — PASS/CLOSED**, and **V4.3 What Can I Cook? + V4.3.1 Cookable Meal Section UX — PASS/CLOSED**. **V4.4 Final V4 Polish and the whole V4 line are PASS/CLOSED through the user-confirmed V5.1 baseline. V5.1 Purchase Planning Authority is PASS/CLOSED. V5.2 Recipe → Shopping Upgrade is IMPLEMENTED / READY FOR GITHUB QA.** V5.2 adds no SQL migration and preserves Shopping as the sole write authority.
 
 Active Inventory capabilities:
 - owner-scoped stock read model
@@ -40,7 +40,7 @@ V4.3 is the closed deterministic/read-only matching baseline; V4.3.1 finalized c
 No SQL/schema/RLS/Auth migration is required for V4.3.
 
 
-## V4.4 — Final V4 Polish + Closeout [READY FOR QA]
+## V4.4 — Final V4 Polish + Closeout [PASS / CLOSED]
 
 V4.4 is intentionally small and runtime-only. It does not change Recipe matching arithmetic, persistence, Supabase schema or write authorities.
 
@@ -49,10 +49,10 @@ V4.4 is intentionally small and runtime-only. It does not change Recipe matching
 - A failed/slow Inventory read leaves Recipe planning/navigation usable without claiming a domain availability state.
 - Empty `Mogę ugotować` uses neutral wording because recipes may be partial, missing or unresolved; only `Wystarczy` is promoted into the section.
 - V4.1 package snapshots, V4.2 categories/discovery and V4.3 matching semantics remain unchanged.
-- No SQL migration. Final release gate is GitHub QA + Pages + phone-first smoke, then V4 may be marked PASS/CLOSED.
+- No SQL migration. The cumulative V5.1 baseline containing V4.4 was user-confirmed PASS, so V4 is closed.
 
 
-## V5.1 — Purchase Planning Authority [READY FOR QA]
+## V5.1 — Purchase Planning Authority [PASS / CLOSED]
 
 V5.1 adds one pure bridge from the V4.3 physical matcher result to a realistic future purchase target. It does **not** change the existing Recipe UI or write to Shopping yet.
 
@@ -66,6 +66,23 @@ V5.1 adds one pure bridge from the V4.3 physical matcher result to a realistic f
 - V5.1 performs no Supabase query and no `shopping_items` mutation.
 
 Known production-data prerequisite for later V5.2: current Product `Mleko` still needs its Product purchase default completed as `1 opakowanie = 1 l` before automatic Recipe -> Shopping planning for that Product can be enabled. The `Melko` typo cleanup is explicitly deferred to later Product maintenance.
+
+
+## V5.2 — Recipe → Shopping Upgrade [READY FOR QA]
+
+V5.2 connects the existing Recipe Shopping actions to the V5.1 purchase targets instead of the old presence-only Recipe quantities.
+
+- definite `Częściowo` and `Brak` quantitative requirements can now request a realistic Shopping target;
+- active Shopping is counted only for the same canonical Product + planned purchase unit;
+- if active Shopping already covers the target, nothing is added again;
+- if it covers only part of the target, Shopping is topped up only to the required total;
+- container/count-pack procurement stays whole-unit; fractional automatic container top-ups fail closed;
+- any unresolved purchase requirement blocks automatic procurement for that whole Product;
+- Recipe detail refreshes authoritative Shopping state after the action instead of painting a local presence-only result;
+- `Na liście zakupów` is secondary procurement context and never changes physical cookability;
+- actual writes remain in `shoppingMutations.ts` and reuse `createShoppingItem(...)`; Recipe UI never writes `shopping_items` directly.
+
+No SQL/schema/RLS/Auth/RPC change is required. `Mleko` still needs Product purchase semantics `1 opakowanie = 1 l` before its automatic V5.2 path can be production-accepted.
 
 
 ## V1.6.1 — Mobile editor layout corrective
