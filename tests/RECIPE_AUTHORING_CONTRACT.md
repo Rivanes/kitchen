@@ -36,3 +36,8 @@ The section manager does not own a separate `Dodaj sekcję` action. It owns rena
 Final Recipe Save must not depend on Product Catalog loading. Product/Unit readiness gates ingredient authoring only. If a section rename subdraft is open, the UI must show that it has to be completed or canceled before final Recipe Save.
 
 Ingredient validation errors belong inside the ingredient sheet. Section rename errors belong beside section rename. Final Recipe/snapshot errors belong to the parent Recipe editor.
+
+## V4.1 container ingredient snapshot
+Container Recipe units expose one compact `Zawartość 1 …` block inside the existing Ingredient child sheet. The value/unit is part of the child draft and is committed to the parent only by `Dodaj/Zastosuj`.
+
+Direct units clear package-content draft metadata. Container units require it. A valid Product default may prefill a new snapshot, but editing an existing ingredient starts from its stored Recipe snapshot and never reinterprets it from Product defaults.

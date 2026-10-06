@@ -14,6 +14,8 @@ export type RecipeIngredientRead = {
   quantity: number
   unitCode: string
   unitSymbol: string
+  packageContentValue: number | null
+  packageContentUnitCode: string | null
   sortOrder: number
   sectionId: string
   note: string | null

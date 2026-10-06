@@ -6,6 +6,7 @@ export type MeasurementUnit = {
   symbol: string
   family: string
   sortOrder: number
+  toBaseFactor: number
 }
 
 type RawMeasurementUnit = {
@@ -14,16 +15,25 @@ type RawMeasurementUnit = {
   symbol: string
   family: string
   sort_order: number
+  to_base_factor: number | string
 }
 
 export const DEFAULT_UNIT_CODE = 'pcs'
+
+function readToBaseFactor(value: number | string, unitCode: string) {
+  const factor = typeof value === 'number' ? value : Number(value)
+  if (!Number.isFinite(factor) || factor <= 0) {
+    throw new Error(`Jednostka ${unitCode} ma nieprawidłowy współczynnik konwersji.`)
+  }
+  return factor
+}
 
 export async function loadMeasurementUnits(): Promise<MeasurementUnit[]> {
   if (!supabase) throw new Error('Supabase is not configured.')
 
   const result = await supabase
     .from('measurement_units')
-    .select('code, label_pl, symbol, family, sort_order')
+    .select('code, label_pl, symbol, family, sort_order, to_base_factor')
     .order('sort_order', { ascending: true })
 
   if (result.error) {
@@ -36,6 +46,7 @@ export async function loadMeasurementUnits(): Promise<MeasurementUnit[]> {
     symbol: row.symbol,
     family: row.family,
     sortOrder: row.sort_order,
+    toBaseFactor: readToBaseFactor(row.to_base_factor, row.code),
   }))
 }
 

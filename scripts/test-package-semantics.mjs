@@ -7,13 +7,13 @@ import {
 } from '../src/features/measurements/packageSemantics.ts'
 
 const units = [
-  { code: 'pcs', labelPl: 'sztuka', symbol: 'szt.', family: 'count', sortOrder: 10 },
-  { code: 'g', labelPl: 'gram', symbol: 'g', family: 'mass', sortOrder: 20 },
-  { code: 'kg', labelPl: 'kilogram', symbol: 'kg', family: 'mass', sortOrder: 30 },
-  { code: 'ml', labelPl: 'mililitr', symbol: 'ml', family: 'volume', sortOrder: 40 },
-  { code: 'l', labelPl: 'litr', symbol: 'l', family: 'volume', sortOrder: 50 },
-  { code: 'package', labelPl: 'opakowanie', symbol: 'opak.', family: 'package', sortOrder: 60 },
-  { code: 'jar', labelPl: 'słoik', symbol: 'słoik', family: 'jar', sortOrder: 70 },
+  { code: 'pcs', labelPl: 'sztuka', symbol: 'szt.', family: 'count', sortOrder: 10, toBaseFactor: 1 },
+  { code: 'g', labelPl: 'gram', symbol: 'g', family: 'mass', sortOrder: 20, toBaseFactor: 1 },
+  { code: 'kg', labelPl: 'kilogram', symbol: 'kg', family: 'mass', sortOrder: 30, toBaseFactor: 1000 },
+  { code: 'ml', labelPl: 'mililitr', symbol: 'ml', family: 'volume', sortOrder: 40, toBaseFactor: 1 },
+  { code: 'l', labelPl: 'litr', symbol: 'l', family: 'volume', sortOrder: 50, toBaseFactor: 1000 },
+  { code: 'package', labelPl: 'opakowanie', symbol: 'opak.', family: 'package', sortOrder: 60, toBaseFactor: 1 },
+  { code: 'jar', labelPl: 'słoik', symbol: 'słoik', family: 'jar', sortOrder: 70, toBaseFactor: 1 },
 ]
 
 assert.equal(isDirectMeasurementUnit(units[0]), true)

@@ -22,3 +22,8 @@ Recipe UI must not expose terms such as `canonical Product` or internal catalog 
 ## V3.5.3 missing-Product Shopping bridge
 
 Recipe may build a pure Product+unit requirement plan from the current servings preview, but final Shopping writes must remain in the shared Shopping mutation authority. The bridge must use canonical Product UUIDs, shared Quantity precision and shared Measurement Units. Duplicate Product+unit Recipe requirements are grouped before mutation; different units are never converted by V3.5.3. Serving +/- alone remains read-only and never mutates Shopping.
+
+## V4.1 Measurement + Package shared core
+Recipe container semantics reuse `src/features/measurements/packageSemantics.ts`. Compatible direct-unit arithmetic reuses the pure `measurementConversion.ts` authority backed by `measurement_units.to_base_factor`.
+
+V4.1 still does not claim Recipe quantity sufficiency or cookability; the conversion authority is only foundation for later V4 matching.

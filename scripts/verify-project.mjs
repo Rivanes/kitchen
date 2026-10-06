@@ -59,6 +59,7 @@ const requiredFiles = [
   'src/features/products/productIdentity.ts',
   'src/features/products/productCatalogMutations.ts',
   'src/features/measurements/measurementUnits.ts',
+  'src/features/measurements/measurementConversion.ts',
   'src/features/measurements/packageSemantics.ts',
   'src/features/quantity/quantity.ts',
   'src/features/quantity/QuantityStepperInput.tsx',
@@ -74,6 +75,8 @@ const requiredFiles = [
   'tests/SHOPPING_PARTIAL_PURCHASE_CONTRACT.md',
   'tests/SHOPPING_TO_INVENTORY_CONTRACT.md',
   'tests/PACKAGE_SEMANTICS_CONTRACT.md',
+  'tests/MEASUREMENT_CONVERSION_CONTRACT.md',
+  'tests/RECIPE_PACKAGE_SNAPSHOT_CONTRACT.md',
   'tests/RESOURCE_SEMANTICS_CONTRACT.md',
   'tests/SPECIAL_RESOURCE_CREATE_CONTRACT.md',
   'tests/PERSISTENT_RESOURCES_CONTRACT.md',
@@ -87,6 +90,8 @@ const requiredFiles = [
   'src/features/recipes/recipeIngredientDraft.ts',
   'scripts/test-recipe-ingredient-draft.mjs',
   'scripts/test-package-semantics.mjs',
+  'scripts/test-measurement-conversion.mjs',
+  'scripts/test-recipe-package-snapshot.mjs',
   'scripts/test-resource-semantics.mjs',
   'scripts/test-inventory-create-intent.mjs',
   'scripts/test-persistent-resources.mjs',
@@ -1081,6 +1086,25 @@ await execFileAsync(process.execPath, ['--experimental-strip-types', 'scripts/te
   env: { ...process.env, NODE_NO_WARNINGS: '1' },
 })
 
+const measurementUnits = await readFile('src/features/measurements/measurementUnits.ts', 'utf8')
+for (const marker of ['toBaseFactor', 'to_base_factor', "select('code, label_pl, symbol, family, sort_order, to_base_factor')"]) {
+  if (!measurementUnits.includes(marker)) throw new Error(`V4.1 Measurement Unit authority marker missing: ${marker}`)
+}
+
+const measurementConversion = await readFile('src/features/measurements/measurementConversion.ts', 'utf8')
+for (const marker of ['convertMeasurementQuantity', 'toBaseMeasurementQuantity', 'toBaseFactor', 'incompatible-family', 'non-direct-unit']) {
+  if (!measurementConversion.includes(marker)) throw new Error(`V4.1 measurement-conversion marker missing: ${marker}`)
+}
+if (/supabase|\.from\(|\.rpc\(/i.test(measurementConversion)) {
+  throw new Error('V4.1 Measurement conversion authority must remain pure.')
+}
+await execFileAsync(process.execPath, ['--experimental-strip-types', 'scripts/test-measurement-conversion.mjs'], {
+  env: { ...process.env, NODE_NO_WARNINGS: '1' },
+})
+await execFileAsync(process.execPath, ['--experimental-strip-types', 'scripts/test-recipe-package-snapshot.mjs'], {
+  env: { ...process.env, NODE_NO_WARNINGS: '1' },
+})
+
 const packageSemanticsContract = await readFile('tests/PACKAGE_SEMANTICS_CONTRACT.md', 'utf8')
 for (const marker of [
   'Product default',
@@ -1195,6 +1219,27 @@ for (const marker of ['validateRecipeSections(input.sections)', 'sectionIds.has(
 }
 if (recipeMutations.includes('section_label')) {
   throw new Error('V3.6A runtime mutation payload must not use legacy section_label as section authority.')
+}
+
+for (const marker of ['packageContentValue', 'packageContentUnitCode']) {
+  if (!recipeMutations.includes(marker)) throw new Error(`V4.1 Recipe mutation package-snapshot marker missing: ${marker}`)
+  if (!recipesReadModel.includes(marker)) throw new Error(`V4.1 Recipe read package-snapshot marker missing: ${marker}`)
+  if (!recipeIngredientEditor.includes(marker)) throw new Error(`V4.1 Recipe ingredient editor package-snapshot marker missing: ${marker}`)
+}
+for (const marker of ['resolveRecipePackageContent', 'package_content_value', 'package_content_unit', 'productDefaultUnitCode']) {
+  if (!recipeMutations.includes(marker)) throw new Error(`V4.1 Recipe package persistence marker missing: ${marker}`)
+}
+for (const marker of ['Zawartość 1', 'zostanie zapamiętana dla tego przepisu', 'getPackageContentUnits', 'isContainerMeasurementUnit', 'reselectsOriginalProduct', 'detachesProductIdentity', 'returnsToOriginalProduct', 'restoresOriginalSnapshot']) {
+  if (!recipeIngredientEditor.includes(marker)) throw new Error(`V4.1 Recipe package editor marker missing: ${marker}`)
+}
+
+const measurementConversionContract = await readFile('tests/MEASUREMENT_CONVERSION_CONTRACT.md', 'utf8')
+for (const marker of ['to_base_factor', 'same direct family', 'container units', 'pure']) {
+  if (!measurementConversionContract.includes(marker)) throw new Error(`V4.1 Measurement conversion contract marker missing: ${marker}`)
+}
+const recipePackageSnapshotContract = await readFile('tests/RECIPE_PACKAGE_SNAPSHOT_CONTRACT.md', 'utf8')
+for (const marker of ['immutable Recipe meaning', 'Product default', 'package_content_value', 'package_content_unit', 'servings']) {
+  if (!recipePackageSnapshotContract.includes(marker)) throw new Error(`V4.1 Recipe package snapshot contract marker missing: ${marker}`)
 }
 
 for (const [sourceName, source] of [['Recipe mutations', recipeMutations], ['Recipe read model', recipesReadModel], ['Recipe editor', recipeEditor], ['Recipes page', recipesPage]]) {

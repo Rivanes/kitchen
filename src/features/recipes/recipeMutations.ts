@@ -3,6 +3,8 @@ import {
   cleanupCreatedCanonicalProduct,
   resolveOrCreateCanonicalProduct,
 } from '../products/productCatalogMutations'
+import { loadMeasurementUnits } from '../measurements/measurementUnits'
+import { resolveRecipePackageContent } from '../measurements/packageSemantics'
 import { assertValidQuantity } from '../quantity/quantity'
 import {
   cleanupUnreferencedRecipeCover,
@@ -30,6 +32,8 @@ export type RecipeIngredientDraftInput = {
   productName: string
   quantity: number
   unitCode: string
+  packageContentValue: number | null
+  packageContentUnitCode: string | null
   sectionId: string
   note: string
 }
@@ -110,11 +114,14 @@ export async function saveRecipeSnapshot(input: SaveRecipeSnapshotInput) {
   let uploadedCoverPath: string | null = null
 
   try {
+    const units = await loadMeasurementUnits()
     const resolvedIngredients = [] as Array<{
       id: string
       product_id: string
       quantity: number
       unit_code: string
+      package_content_value: number | null
+      package_content_unit: string | null
       section_id: string
       note: string | null
     }>
@@ -147,11 +154,29 @@ export async function saveRecipeSnapshot(input: SaveRecipeSnapshotInput) {
 
       if (product.created) createdProductIds.push(product.id)
 
+      const hasPackageContentValue = ingredient.packageContentValue !== null
+      const hasPackageContentUnit = Boolean(ingredient.packageContentUnitCode)
+      if (hasPackageContentValue !== hasPackageContentUnit) {
+        throw new Error('Uzupełnij wartość i jednostkę zawartości opakowania albo wyczyść oba pola.')
+      }
+
+      const packageContent = resolveRecipePackageContent({
+        rowUnitCode: ingredient.unitCode,
+        units,
+        explicitContent: hasPackageContentValue && ingredient.packageContentUnitCode
+          ? { value: ingredient.packageContentValue!, unitCode: ingredient.packageContentUnitCode }
+          : null,
+        productDefault: product,
+        productDefaultUnitCode: product.defaultUnitCode,
+      })
+
       resolvedIngredients.push({
         id: ingredient.id,
         product_id: product.id,
         quantity,
         unit_code: ingredient.unitCode,
+        package_content_value: packageContent?.value ?? null,
+        package_content_unit: packageContent?.unitCode ?? null,
         section_id: ingredient.sectionId,
         note: cleanOptional(ingredient.note, 240, 'Notatka'),
       })

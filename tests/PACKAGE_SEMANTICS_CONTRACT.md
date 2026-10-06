@@ -33,3 +33,10 @@
 - V3.6B does not compute Recipe sufficiency, shortage, or cookability.
 - V3.5 Recipe presence colors/actions remain presence-only.
 - V4 is the first quantity-aware Recipe matching stage.
+
+## V4.1 Recipe snapshot extension
+- Package semantics remain shared; Recipes do not introduce a second container-family dictionary.
+- Recipe container ingredients snapshot their own package-content value/unit pair.
+- Product default may seed a new Recipe snapshot, but a stored Recipe snapshot is authoritative over later Product-default changes.
+- Direct Recipe units never carry package-content metadata.
+- V4.1 adds conversion/snapshot foundations only; V3.6B does not compute Recipe sufficiency and V4.1 still does not expose cookability UI.

@@ -1,5 +1,6 @@
 import { supabase } from '../../lib/supabase/client'
 import { loadMeasurementUnits } from '../measurements/measurementUnits'
+import { isContainerMeasurementUnit, isDirectMeasurementUnit } from '../measurements/packageSemantics'
 import { loadOwnerProductCatalog } from '../products/productCatalogMutations'
 import { readStoredQuantity } from '../quantity/quantity'
 import { createRecipeCoverSignedUrl } from './recipeCoverStorage'
@@ -40,6 +41,8 @@ type RawRecipeIngredient = {
   product_id: string
   quantity: number | string
   unit_code: string
+  package_content_value: number | string | null
+  package_content_unit: string | null
   sort_order: number
   section_id: string
   note: string | null
@@ -109,7 +112,7 @@ export async function loadRecipesReadModel(ownerId: string): Promise<RecipesRead
       .eq('owner_id', ownerId),
     supabase
       .from('recipe_ingredients')
-      .select('id, recipe_id, product_id, quantity, unit_code, sort_order, section_id, note, created_at')
+      .select('id, recipe_id, product_id, quantity, unit_code, package_content_value, package_content_unit, sort_order, section_id, note, created_at')
       .eq('owner_id', ownerId),
     loadOwnerProductCatalog(ownerId),
     loadMeasurementUnits(),
@@ -199,6 +202,30 @@ export async function loadRecipesReadModel(ownerId: string): Promise<RecipesRead
       throw new Error('Recipes read returned an ingredient with an unresolved Measurement Unit.')
     }
 
+    const packageContentValue = row.package_content_value === null
+      ? null
+      : readStoredQuantity(row.package_content_value, 'Recipes read returned an invalid package-content snapshot.')
+
+    if ((packageContentValue === null) !== (row.package_content_unit === null)) {
+      throw new Error('Recipes read returned an inconsistent package-content snapshot.')
+    }
+
+    if (isDirectMeasurementUnit(unit)) {
+      if (packageContentValue !== null) {
+        throw new Error('Recipes read returned package content for a direct ingredient unit.')
+      }
+    } else if (isContainerMeasurementUnit(unit)) {
+      if (packageContentValue === null || !row.package_content_unit) {
+        throw new Error('Recipes read returned an unresolved container ingredient.')
+      }
+      const contentUnit = unitByCode.get(row.package_content_unit)
+      if (!isDirectMeasurementUnit(contentUnit)) {
+        throw new Error('Recipes read returned an invalid package-content unit.')
+      }
+    } else {
+      throw new Error('Recipes read returned an unsupported Measurement Unit family.')
+    }
+
     const ingredient: RecipeIngredientRead & { createdAt: string } = {
       id: row.id,
       productId: row.product_id,
@@ -206,6 +233,8 @@ export async function loadRecipesReadModel(ownerId: string): Promise<RecipesRead
       quantity: readStoredQuantity(row.quantity, 'Recipes read returned an invalid ingredient quantity.'),
       unitCode: unit.code,
       unitSymbol: unit.symbol,
+      packageContentValue,
+      packageContentUnitCode: row.package_content_unit,
       sortOrder: row.sort_order,
       sectionId: row.section_id,
       note: row.note?.trim() || null,

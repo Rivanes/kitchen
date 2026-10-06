@@ -4,6 +4,13 @@ import { toUserErrorMessage } from '../../lib/userError'
 import type { MeasurementUnit } from '../measurements/measurementUnits'
 import { getDefaultUnitCode } from '../measurements/measurementUnits'
 import {
+  getPackageContentFromDefaults,
+  getPackageContentUnits,
+  isContainerMeasurementUnit,
+  isDirectMeasurementUnit,
+  resolveRecipePackageContent,
+} from '../measurements/packageSemantics'
+import {
   ProductAutocompleteField,
   useProductAutocomplete,
 } from '../products/ProductAutocomplete'
@@ -11,6 +18,7 @@ import {
   cleanCanonicalProductName,
   type CanonicalProductIdentity,
 } from '../products/productCatalogMutations'
+import { normalizeProductName } from '../products/productIdentity'
 import { formatQuantityInput, parseQuantityInput } from '../quantity/quantity'
 import { QuantityStepperInput } from '../quantity/QuantityStepperInput'
 import {
@@ -31,6 +39,8 @@ export type RecipeIngredientEditorRow = {
   quantity: number
   unitCode: string
   unitSymbol: string
+  packageContentValue: number | null
+  packageContentUnitCode: string | null
   sectionId: string
   note: string
 }
@@ -58,6 +68,8 @@ type Draft = {
   productName: string
   quantity: string
   unitCode: string
+  packageContentValue: string
+  packageContentUnitCode: string
   sectionId: string
   note: string
 }
@@ -74,6 +86,8 @@ function createDraft(
       productName: ingredient.productName,
       quantity: formatQuantityInput(ingredient.quantity),
       unitCode: ingredient.unitCode,
+      packageContentValue: ingredient.packageContentValue === null ? '' : formatQuantityInput(ingredient.packageContentValue),
+      packageContentUnitCode: ingredient.packageContentUnitCode ?? getPackageContentUnits(units)[0]?.code ?? '',
       sectionId: ingredient.sectionId,
       note: ingredient.note,
     }
@@ -85,8 +99,26 @@ function createDraft(
     productName: '',
     quantity: '1',
     unitCode: getDefaultUnitCode(units),
+    packageContentValue: '',
+    packageContentUnitCode: getPackageContentUnits(units)[0]?.code ?? '',
     sectionId: sections[0]?.id ?? '',
     note: '',
+  }
+}
+
+function getProductDefaultPackageDraft(
+  product: CanonicalProductIdentity,
+  units: readonly MeasurementUnit[],
+  rowUnitCode: string,
+) {
+  if (product.defaultUnitCode !== rowUnitCode) return null
+  const content = getPackageContentFromDefaults(product)
+  if (!content) return null
+  const contentUnit = units.find((unit) => unit.code === content.unitCode)
+  if (!isDirectMeasurementUnit(contentUnit)) return null
+  return {
+    value: formatQuantityInput(content.value),
+    unitCode: content.unitCode,
   }
 }
 
@@ -107,7 +139,11 @@ export function RecipeIngredientEditorSheet({
   const productInputRef = useRef<HTMLInputElement>(null)
 
   const autocomplete = useProductAutocomplete(products, draft.productName)
+  const packageContentUnits = useMemo(() => getPackageContentUnits(units), [units])
   const ingredientUnit = units.find((unit) => unit.code === draft.unitCode) ?? null
+  const packageContentUnit = units.find((unit) => unit.code === draft.packageContentUnitCode) ?? null
+  const isContainerIngredientUnit = isContainerMeasurementUnit(ingredientUnit)
+  const selectedProduct = products.find((product) => product.id === draft.productId) ?? autocomplete.exactProduct ?? null
   const originalSectionId = ingredient?.sectionId ?? null
   const originalSectionRows = useMemo(() => (
     ingredient
@@ -146,12 +182,50 @@ export function RecipeIngredientEditorSheet({
   }, [onCancel])
 
   function chooseProduct(product: CanonicalProductIdentity) {
-    setDraft((current) => ({
-      ...current,
-      productId: product.id,
-      productName: product.name,
-      unitCode: getDefaultUnitCode(units, product.defaultUnitCode),
-    }))
+    setDraft((current) => {
+      if (current.productId === product.id) {
+        return { ...current, productName: product.name }
+      }
+
+      const reselectsOriginalProduct = ingredient?.productId === product.id
+      if (reselectsOriginalProduct && ingredient) {
+        const currentUnit = units.find((unit) => unit.code === current.unitCode) ?? null
+        const canRestoreOriginalSnapshot = (
+          isContainerMeasurementUnit(currentUnit)
+          && current.unitCode === ingredient.unitCode
+          && !current.packageContentValue
+          && ingredient.packageContentValue !== null
+          && ingredient.packageContentUnitCode
+        )
+
+        return {
+          ...current,
+          productId: product.id,
+          productName: product.name,
+          packageContentValue: canRestoreOriginalSnapshot
+            ? formatQuantityInput(ingredient.packageContentValue)
+            : current.packageContentValue,
+          packageContentUnitCode: canRestoreOriginalSnapshot
+            ? ingredient.packageContentUnitCode
+            : current.packageContentUnitCode,
+        }
+      }
+
+      const unitCode = getDefaultUnitCode(units, product.defaultUnitCode)
+      const rowUnit = units.find((unit) => unit.code === unitCode) ?? null
+      const defaultContent = isContainerMeasurementUnit(rowUnit)
+        ? getProductDefaultPackageDraft(product, units, unitCode)
+        : null
+
+      return {
+        ...current,
+        productId: product.id,
+        productName: product.name,
+        unitCode,
+        packageContentValue: defaultContent?.value ?? '',
+        packageContentUnitCode: defaultContent?.unitCode ?? packageContentUnits[0]?.code ?? '',
+      }
+    })
     setErrorMessage('')
   }
 
@@ -179,6 +253,30 @@ export function RecipeIngredientEditorSheet({
       const unit = units.find((item) => item.code === draft.unitCode)
       if (!unit) throw new Error('Wybierz jednostkę.')
 
+      const exactProductId = autocomplete.exactProduct?.id ?? draft.productId
+      const exactProduct = exactProductId
+        ? products.find((product) => product.id === exactProductId) ?? null
+        : null
+      const parsedPackageContentValue = draft.packageContentValue
+        ? parseQuantityInput(draft.packageContentValue)
+        : null
+      if (draft.packageContentValue && !parsedPackageContentValue) {
+        throw new Error('Podaj prawidłową zawartość jednego opakowania.')
+      }
+      if (isContainerMeasurementUnit(unit) && Boolean(draft.packageContentValue) !== Boolean(draft.packageContentUnitCode)) {
+        throw new Error('Uzupełnij wartość i jednostkę zawartości opakowania.')
+      }
+      const explicitPackageContent = parsedPackageContentValue && draft.packageContentUnitCode
+        ? { value: parsedPackageContentValue, unitCode: draft.packageContentUnitCode }
+        : null
+      const packageContent = resolveRecipePackageContent({
+        rowUnitCode: unit.code,
+        units,
+        explicitContent: explicitPackageContent,
+        productDefault: exactProduct,
+        productDefaultUnitCode: exactProduct?.defaultUnitCode ?? null,
+      })
+
       let sectionId = draft.sectionId
       let newSection: RecipeIngredientEditorSection | null = null
 
@@ -200,7 +298,6 @@ export function RecipeIngredientEditorSheet({
         throw new Error('Wybierz sekcję składnika.')
       }
 
-      const exactProductId = autocomplete.exactProduct?.id ?? draft.productId
       onApply({
         ingredient: {
           id: draft.id,
@@ -209,6 +306,8 @@ export function RecipeIngredientEditorSheet({
           quantity,
           unitCode: unit.code,
           unitSymbol: unit.symbol,
+          packageContentValue: packageContent?.value ?? null,
+          packageContentUnitCode: packageContent?.unitCode ?? null,
           sectionId,
           note: draft.note.trim().replace(/\s+/g, ' '),
         },
@@ -257,7 +356,36 @@ export function RecipeIngredientEditorSheet({
             placeholder="np. Mleko"
             inputRef={productInputRef}
             onChange={(value) => {
-              setDraft((current) => ({ ...current, productName: value, productId: null }))
+              setDraft((current) => {
+                const currentProduct = current.productId
+                  ? products.find((product) => product.id === current.productId) ?? null
+                  : null
+                const detachesProductIdentity = Boolean(
+                  currentProduct
+                  && normalizeProductName(value) !== normalizeProductName(currentProduct.name),
+                )
+                const returnsToOriginalProduct = Boolean(
+                  ingredient
+                  && normalizeProductName(value) === normalizeProductName(ingredient.productName)
+                  && current.unitCode === ingredient.unitCode
+                  && ingredient.packageContentValue !== null
+                  && ingredient.packageContentUnitCode,
+                )
+
+                return {
+                  ...current,
+                  productName: value,
+                  productId: null,
+                  packageContentValue: returnsToOriginalProduct
+                    ? formatQuantityInput(ingredient!.packageContentValue!)
+                    : detachesProductIdentity ? '' : current.packageContentValue,
+                  packageContentUnitCode: returnsToOriginalProduct
+                    ? ingredient!.packageContentUnitCode!
+                    : detachesProductIdentity
+                      ? packageContentUnits[0]?.code ?? ''
+                      : current.packageContentUnitCode,
+                }
+              })
               setErrorMessage('')
             }}
             onChoose={chooseProduct}
@@ -284,7 +412,55 @@ export function RecipeIngredientEditorSheet({
                 id="recipe-ingredient-unit"
                 value={draft.unitCode}
                 onChange={(event) => {
-                  setDraft((current) => ({ ...current, unitCode: event.target.value }))
+                  const nextUnitCode = event.target.value
+                  const nextUnit = units.find((unit) => unit.code === nextUnitCode) ?? null
+                  const fallback = selectedProduct && isContainerMeasurementUnit(nextUnit)
+                    ? getProductDefaultPackageDraft(selectedProduct, units, nextUnitCode)
+                    : null
+
+                  setDraft((current) => {
+                    if (isDirectMeasurementUnit(nextUnit)) {
+                      return {
+                        ...current,
+                        unitCode: nextUnitCode,
+                        packageContentValue: '',
+                        packageContentUnitCode: packageContentUnits[0]?.code ?? '',
+                      }
+                    }
+
+                    if (isContainerMeasurementUnit(nextUnit)) {
+                      const sameContainerUnit = current.unitCode === nextUnitCode
+                      const restoresOriginalSnapshot = Boolean(
+                        ingredient
+                        && selectedProduct?.id === ingredient.productId
+                        && nextUnitCode === ingredient.unitCode
+                        && ingredient.packageContentValue !== null
+                        && ingredient.packageContentUnitCode,
+                      )
+
+                      return {
+                        ...current,
+                        unitCode: nextUnitCode,
+                        packageContentValue: sameContainerUnit
+                          ? current.packageContentValue
+                          : restoresOriginalSnapshot
+                            ? formatQuantityInput(ingredient!.packageContentValue!)
+                            : fallback?.value ?? '',
+                        packageContentUnitCode: sameContainerUnit
+                          ? current.packageContentUnitCode
+                          : restoresOriginalSnapshot
+                            ? ingredient!.packageContentUnitCode!
+                            : fallback?.unitCode ?? packageContentUnits[0]?.code ?? '',
+                      }
+                    }
+
+                    return {
+                      ...current,
+                      unitCode: nextUnitCode,
+                      packageContentValue: '',
+                      packageContentUnitCode: packageContentUnits[0]?.code ?? '',
+                    }
+                  })
                   setErrorMessage('')
                 }}
               >
@@ -292,6 +468,45 @@ export function RecipeIngredientEditorSheet({
               </select>
             </label>
           </div>
+
+          {isContainerIngredientUnit && (
+            <div className="package-content-card recipe-package-content-card">
+              <div className="package-content-heading">
+                <strong>Zawartość 1 {ingredientUnit?.labelPl ?? 'opakowania'}</strong>
+                <span>Ta zawartość zostanie zapamiętana dla tego przepisu.</span>
+              </div>
+              <div className="package-content-fields">
+                <div className="form-field">
+                  <label htmlFor="recipe-package-content-value">Ilość</label>
+                  <QuantityStepperInput
+                    inputId="recipe-package-content-value"
+                    value={draft.packageContentValue}
+                    onChange={(value) => {
+                      setDraft((current) => ({ ...current, packageContentValue: value }))
+                      setErrorMessage('')
+                    }}
+                    suffix={packageContentUnit?.symbol}
+                    ariaLabel="Zawartość jednego opakowania składnika"
+                  />
+                </div>
+                <label className="form-field" htmlFor="recipe-package-content-unit">
+                  <span>Jednostka</span>
+                  <select
+                    id="recipe-package-content-unit"
+                    value={draft.packageContentUnitCode}
+                    onChange={(event) => {
+                      setDraft((current) => ({ ...current, packageContentUnitCode: event.target.value }))
+                      setErrorMessage('')
+                    }}
+                  >
+                    {packageContentUnits.map((unit) => (
+                      <option key={unit.code} value={unit.code}>{unit.labelPl} ({unit.symbol})</option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+            </div>
+          )}
 
           <div className="form-field recipe-ingredient-section-field">
             <span>Sekcja</span>

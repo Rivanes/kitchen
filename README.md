@@ -2,7 +2,7 @@
 
 Private, single-user mobile-first PWA for household inventory, shopping and recipes.
 
-Closed milestones: **V1 Inventory — PASS/CLOSED**, **V2 Shopping — PASS/CLOSED**, **V3.1–V3.8 — PASS/CLOSED**. Current candidate: **V3.8.4 — Persistent Resources + Auto-Replenishment**, including the V3.8.1–V3.8.3 runtime corrections. V4 Recipe Matching remains blocked until V3.8.4 passes SQL gates, GitHub QA / Pages and phone-first smoke.
+Closed milestones: **V1 Inventory — PASS/CLOSED**, **V2 Shopping — PASS/CLOSED**, **V3 Recipes + Resource Semantics — PASS/CLOSED through V3.8.4**. **V4.1 is the current SQL-first stage**: Recipe container requirements gain immutable package-content snapshots and Measurement Units expose one shared factor-based conversion authority. Cookability matching and Home discovery are intentionally deferred to later V4 stages.
 
 Active Inventory capabilities:
 - owner-scoped stock read model
@@ -526,3 +526,30 @@ V3.8.4 completes the special-resource behavior before V4.
 
 Production upgrade requires `OUTSIDE_REPO/SQL/V3_8_4_PRECHECK.sql` -> migration -> `V3_8_4_POSTCHECK.sql` before runtime deploy.
 
+
+
+## V4.1 — Recipe Package Snapshot + Measurement Conversion Authority [READY FOR SQL / QA]
+
+V4.1 creates the deterministic quantity foundation required before `Co mogę ugotować?`.
+
+- container Recipe ingredients (`opak. / słoik / but. / puszka / sasz.`) store their own immutable content-per-container snapshot;
+- direct Recipe units (`szt. / g / kg / ml / l`) never carry package-content metadata;
+- the existing `save_recipe_snapshot(...)` RPC remains the only Recipe write authority and persists the snapshot atomically;
+- the explicitly audited historical `Kawa z mlekiem -> 1 opakowanie Mleka` requirement is backfilled to `1 l` without changing the Product default;
+- `measurement_units.to_base_factor` is exposed through the shared frontend Measurement Unit authority;
+- one pure conversion module handles compatible direct-unit conversion such as `kg <-> g` and `l <-> ml`;
+- Product package defaults may seed a **new** Recipe snapshot, but never reinterpret an already-saved Recipe;
+- serving previews scale the ingredient requirement only; package content remains the fixed content of one container.
+
+V4.1 does **not** implement cookability matching, category filtering, Home Recipe discovery or Shopping writes. Production rollout is SQL-first: V4.1 precheck -> migration -> postcheck -> GitHub QA/Pages -> phone smoke.
+
+Planned next V4 stages are documented outside the runtime package: V4.2 adds mandatory Recipe categories plus general Home discovery and time-aware `Na teraz`; V4.3 adds `Co mogę ugotować?` matching; V4.4 closes/polishes V4.
+
+
+## Planned V4.2 — Recipe Categories + Home Discovery
+
+After V4.1 is production PASS, every Recipe will require exactly one category: **Śniadanie / Obiad / Kolacja / Przekąska / Ciasto**. `Ogólne` is a filterable all-Recipes view, not a stored category.
+
+Home will keep a general Recipe discovery section visible at all times for planning/inspiration. A separate `Na teraz` section will be time-aware: Śniadanie 06:00–11:59, Obiad 12:00–17:59, Kolacja 18:00–22:59; from 23:00–05:59 the time-aware section is hidden. Przekąski and Ciasta are available in general discovery but are not automatically time-promoted. Where alternatives exist, the same Recipe should not be duplicated between `Na teraz` and the general Home section.
+
+The later V4.3 `Mogę ugotować` filter remains independent from category filters so both dimensions can be combined.

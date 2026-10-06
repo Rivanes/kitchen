@@ -65,6 +65,8 @@ function rowFromRead(ingredient: RecipeIngredientRead): IngredientDraftRow {
     quantity: ingredient.quantity,
     unitCode: ingredient.unitCode,
     unitSymbol: ingredient.unitSymbol,
+    packageContentValue: ingredient.packageContentValue,
+    packageContentUnitCode: ingredient.packageContentUnitCode,
     sectionId: ingredient.sectionId,
     note: ingredient.note ?? '',
   }
@@ -324,6 +326,8 @@ export function RecipeEditor({ ownerId, mode, onClose, onSaved }: RecipeEditorPr
         productName: ingredient.productName,
         quantity: ingredient.quantity,
         unitCode: ingredient.unitCode,
+        packageContentValue: ingredient.packageContentValue,
+        packageContentUnitCode: ingredient.packageContentUnitCode,
         sectionId: ingredient.sectionId,
         note: ingredient.note,
       }))
