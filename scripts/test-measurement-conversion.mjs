@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import {
   MeasurementConversionError,
   convertMeasurementQuantity,
+  fromBaseMeasurementQuantity,
   toBaseMeasurementQuantity,
 } from '../src/features/measurements/measurementConversion.ts'
 
@@ -21,6 +22,8 @@ assert.equal(convertMeasurementQuantity(1000, 'ml', 'l', units), 1)
 assert.equal(convertMeasurementQuantity(3, 'pcs', 'pcs', units), 3)
 assert.equal(toBaseMeasurementQuantity(1.25, 'kg', units), 1250)
 assert.equal(toBaseMeasurementQuantity(0, 'ml', units), 0)
+assert.equal(fromBaseMeasurementQuantity(500, 'kg', units), 0.5)
+assert.equal(fromBaseMeasurementQuantity(1000, 'l', units), 1)
 
 assert.throws(
   () => convertMeasurementQuantity(1, 'kg', 'l', units),

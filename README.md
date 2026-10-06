@@ -2,7 +2,7 @@
 
 Private, single-user mobile-first PWA for household inventory, shopping and recipes.
 
-Closed milestones: **V1 Inventory — PASS/CLOSED**, **V2 Shopping — PASS/CLOSED**, **V3 Recipes + Resource Semantics — PASS/CLOSED through V3.8.4**, **V4.1 Recipe Package Snapshot + Measurement Conversion — PASS/CLOSED**, **V4.2 Recipe Categories + Home Discovery + Time-aware Suggestions — PASS/CLOSED**, and **V4.3 What Can I Cook? + V4.3.1 Cookable Meal Section UX — PASS/CLOSED**. **V4.4 Final V4 Polish + Closeout is IMPLEMENTED / READY FOR GITHUB QA + FINAL PRODUCTION SMOKE**. V4.4 adds no SQL/schema/RPC change; it prevents Home from presenting infrastructure-loading state as domain `Nieustalone` and makes the empty `Mogę ugotować` message semantically neutral.
+Closed milestones: **V1 Inventory — PASS/CLOSED**, **V2 Shopping — PASS/CLOSED**, **V3 Recipes + Resource Semantics — PASS/CLOSED through V3.8.4**, **V4.1 Recipe Package Snapshot + Measurement Conversion — PASS/CLOSED**, **V4.2 Recipe Categories + Home Discovery + Time-aware Suggestions — PASS/CLOSED**, and **V4.3 What Can I Cook? + V4.3.1 Cookable Meal Section UX — PASS/CLOSED**. **V4.4 Final V4 Polish is incorporated in this baseline and still awaits its final production acceptance gate. V5.1 Purchase Planning Authority is IMPLEMENTED / READY FOR GITHUB QA.** V5.1 is pure/read-only and adds no SQL or Shopping write behavior.
 
 Active Inventory capabilities:
 - owner-scoped stock read model
@@ -50,6 +50,22 @@ V4.4 is intentionally small and runtime-only. It does not change Recipe matching
 - Empty `Mogę ugotować` uses neutral wording because recipes may be partial, missing or unresolved; only `Wystarczy` is promoted into the section.
 - V4.1 package snapshots, V4.2 categories/discovery and V4.3 matching semantics remain unchanged.
 - No SQL migration. Final release gate is GitHub QA + Pages + phone-first smoke, then V4 may be marked PASS/CLOSED.
+
+
+## V5.1 — Purchase Planning Authority [READY FOR QA]
+
+V5.1 adds one pure bridge from the V4.3 physical matcher result to a realistic future purchase target. It does **not** change the existing Recipe UI or write to Shopping yet.
+
+- physical shortage is reused from canonical matcher `requiredBaseQuantity - availableBaseQuantity`;
+- direct Product purchase units convert through the shared Measurement authority and round upward to Shopping's 3-decimal precision;
+- container defaults (`package/jar/bottle/can/sachet`) always plan whole containers with `ceil(shortage / Product package content)`;
+- `pcs + package content` is a supported discrete sellable-unit pattern, e.g. Passata `1 szt. = 700 g`;
+- Product purchase defaults describe future buying; Recipe/Inventory snapshots remain historical/physical facts and never define today's purchase packaging;
+- unresolved matcher state or incomplete/incompatible Product purchase semantics fail closed with a typed reason;
+- Spice remains outside quantitative purchase planning; Household remains outside Recipe planning;
+- V5.1 performs no Supabase query and no `shopping_items` mutation.
+
+Known production-data prerequisite for later V5.2: current Product `Mleko` still needs its Product purchase default completed as `1 opakowanie = 1 l` before automatic Recipe -> Shopping planning for that Product can be enabled. The `Melko` typo cleanup is explicitly deferred to later Product maintenance.
 
 
 ## V1.6.1 — Mobile editor layout corrective

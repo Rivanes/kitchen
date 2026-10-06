@@ -37,7 +37,7 @@ Non-comparable physical stock is not treated as zero. Example: Recipe Passata in
 List and Home use stored Recipe servings. Detail recomputes matching from the selected servings preview using the existing servings authority. Package content per one package never scales; only the number of Recipe packages scales.
 
 ## Shopping boundary
-Active Shopping is secondary procurement context only. It never promotes `missing`, `partial` or `unresolved` physical stock to `sufficient`. Existing explicit Recipe → Shopping actions remain allowed, but V4.3 does not calculate or write partial shortages; that remains V5.
+Active Shopping is secondary procurement context only. It never promotes `missing`, `partial` or `unresolved` physical stock to `sufficient`. Existing explicit Recipe → Shopping actions remain allowed. V5.1 may consume matcher `requiredBaseQuantity/availableBaseQuantity` in a separate pure purchase-planning authority, but V4.3 itself still does not calculate purchase packaging or write Shopping. V5.2 owns the future write-side upgrade.
 
 ## Discovery/UI
 `Mogę ugotować` is presented as its own time-aware Home discovery section, not as a general filter. It uses the current meal window and includes only Recipe-level `sufficient` items for Śniadanie / Obiad / Kolacja. `Na teraz` remains a separate complete time-aware suggestion layer and may contain Recipes that are not cookable. General Home `Przepisy` and RecipesPage keep category/search discovery without a cookability toggle. Recipe list, detail and Home display the same canonical match state for the same physical context.

@@ -110,10 +110,13 @@ const requiredFiles = [
   'src/features/recipes/recipeDiscovery.ts',
   'src/features/recipes/recipeDiscoveryReadModel.ts',
   'src/features/recipes/recipeMatching.ts',
+  'src/features/recipes/recipePurchasePlanning.ts',
   'src/features/recipes/types.ts',
   'scripts/test-recipe-discovery.mjs',
   'scripts/test-recipe-matching.mjs',
+  'scripts/test-recipe-purchase-planning.mjs',
   'tests/RECIPE_MATCHING_CONTRACT.md',
+  'tests/RECIPE_PURCHASE_PLANNING_CONTRACT.md',
   'tests/RECIPE_CATEGORY_CONTRACT.md',
   'tests/RECIPE_DISCOVERY_CONTRACT.md',
   'tests/RECIPES_UI_CONTRACT.md',
@@ -1097,7 +1100,7 @@ for (const marker of ['toBaseFactor', 'to_base_factor', "select('code, label_pl,
 }
 
 const measurementConversion = await readFile('src/features/measurements/measurementConversion.ts', 'utf8')
-for (const marker of ['convertMeasurementQuantity', 'toBaseMeasurementQuantity', 'toBaseFactor', 'incompatible-family', 'non-direct-unit']) {
+for (const marker of ['convertMeasurementQuantity', 'toBaseMeasurementQuantity', 'fromBaseMeasurementQuantity', 'toBaseFactor', 'incompatible-family', 'non-direct-unit']) {
   if (!measurementConversion.includes(marker)) throw new Error(`V4.1 measurement-conversion marker missing: ${marker}`)
 }
 if (/supabase|\.from\(|\.rpc\(/i.test(measurementConversion)) {
@@ -1343,6 +1346,21 @@ for (const marker of ['Wystarczy', 'Częściowo', 'Brak', 'Nieustalone', 'Mogę 
   if (!recipeMatchingContract.includes(marker)) throw new Error(`V4.3 Recipe matching contract marker missing: ${marker}`)
 }
 await execFileAsync(process.execPath, ['--experimental-strip-types', 'scripts/test-recipe-matching.mjs'], {
+  env: { ...process.env, NODE_NO_WARNINGS: '1' },
+})
+
+const recipePurchasePlanning = await readFile('src/features/recipes/recipePurchasePlanning.ts', 'utf8')
+for (const marker of ['buildRecipePurchasePlan', 'count-pack', 'ceilWholeUnits', 'ceilShoppingPrecision', 'ProductIdentityOption', 'RecipeMatchResult']) {
+  if (!recipePurchasePlanning.includes(marker)) throw new Error(`V5.1 Recipe purchase planning authority marker missing: ${marker}`)
+}
+if (/supabase|\.from\(['"]|\.rpc\(|shopping_items/i.test(recipePurchasePlanning)) {
+  throw new Error('V5.1 Purchase Planning Authority must remain pure and independent from Shopping/Supabase writes.')
+}
+const recipePurchasePlanningContract = await readFile('tests/RECIPE_PURCHASE_PLANNING_CONTRACT.md', 'utf8')
+for (const marker of ['physical shortage', 'Product `defaultUnitCode`', 'Count-pack', 'ceil(shortageBase / contentBasePerPiece)', 'Automatic planning never produces fractional containers', 'No Shopping write in V5.1']) {
+  if (!recipePurchasePlanningContract.includes(marker)) throw new Error(`V5.1 purchase-planning contract marker missing: ${marker}`)
+}
+await execFileAsync(process.execPath, ['--experimental-strip-types', 'scripts/test-recipe-purchase-planning.mjs'], {
   env: { ...process.env, NODE_NO_WARNINGS: '1' },
 })
 

@@ -56,6 +56,16 @@ export function toBaseMeasurementQuantity(
   return normalizeConversionResult(safeValue * unit.toBaseFactor)
 }
 
+export function fromBaseMeasurementQuantity(
+  value: number,
+  unitCode: string,
+  units: readonly MeasurementUnit[],
+) {
+  const safeValue = readConversionValue(value)
+  const unit = findDirectUnit(unitCode, units)
+  return normalizeConversionResult(safeValue / unit.toBaseFactor)
+}
+
 export function convertMeasurementQuantity(
   value: number,
   fromUnitCode: string,
