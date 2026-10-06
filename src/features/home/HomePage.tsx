@@ -368,7 +368,9 @@ export function HomePage({ ownerId, onAddProduct, onOpenExpiry, onOpenShopping, 
                 <span className="home-recipe-copy">
                   <strong>{recipe.name}</strong>
                   <small>{servingsLabel(recipe.servings)}</small>
-                  <span className={`recipe-match-badge is-${recipe.match?.state ?? 'unresolved'}`}>{recipeMatchStateLabel(recipe.match?.state ?? 'unresolved')}</span>
+                  {homeStatus.status === 'ready' && recipe.match && (
+                    <span className={`recipe-match-badge is-${recipe.match.state}`}>{recipeMatchStateLabel(recipe.match.state)}</span>
+                  )}
                 </span>
               </button>
             ))}
@@ -386,7 +388,7 @@ export function HomePage({ ownerId, onAddProduct, onOpenExpiry, onOpenShopping, 
             <button className="home-recipes-link" type="button" onClick={onOpenRecipes}>Wszystkie przepisy</button>
           </div>
           {recipeSuggestions.cookableNow.length === 0 ? (
-            <div className="home-recipe-state">Na ten moment nie masz wszystkich składników do żadnego przepisu z tej pory dnia.</div>
+            <div className="home-recipe-state">Brak przepisu z kompletem potwierdzonych składników na tę porę dnia.</div>
           ) : (
             <div className="home-recipe-grid">
               {recipeSuggestions.cookableNow.map((recipe) => (
@@ -477,7 +479,9 @@ export function HomePage({ ownerId, onAddProduct, onOpenExpiry, onOpenShopping, 
                     <span className="home-recipe-copy">
                       <strong>{recipe.name}</strong>
                       <small>{recipeCategoryLabel(recipe.categoryCode)} · {servingsLabel(recipe.servings)}</small>
-                      <span className={`recipe-match-badge is-${recipe.match?.state ?? 'unresolved'}`}>{recipeMatchStateLabel(recipe.match?.state ?? 'unresolved')}</span>
+                      {homeStatus.status === 'ready' && recipe.match && (
+                    <span className={`recipe-match-badge is-${recipe.match.state}`}>{recipeMatchStateLabel(recipe.match.state)}</span>
+                  )}
                     </span>
                   </button>
                 ))}

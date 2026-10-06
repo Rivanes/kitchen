@@ -1326,6 +1326,18 @@ if (recipesPage.includes('recipe-cookable-filter') || recipesPage.includes('cook
 if (homePage.includes('recipeCookabilityFilter') || homePage.includes('generalCookabilityFilter')) {
   throw new Error('V4.3.1 Home general Recipe discovery must not be filtered by Mogę ugotować.')
 }
+if (homePage.includes("recipe.match?.state ?? 'unresolved'") || homePage.includes('recipe.match?.state ?? \"unresolved\"')) {
+  throw new Error('V4.4 Home must not synthesize Nieustalone before Inventory matching data is ready.')
+}
+if (!homePage.includes("homeStatus.status === 'ready' && recipe.match")) {
+  throw new Error('V4.4 Home matching badges must be gated by ready Inventory data.')
+}
+if (!homePage.includes('Brak przepisu z kompletem potwierdzonych składników na tę porę dnia.')) {
+  throw new Error('V4.4 cookable empty state must stay neutral across missing/partial/unresolved cases.')
+}
+if (homePage.includes('nie masz wszystkich składników do żadnego przepisu')) {
+  throw new Error('V4.4 Home must not collapse unresolved/partial states into a definite ingredient-shortage message.')
+}
 const recipeMatchingContract = await readFile('tests/RECIPE_MATCHING_CONTRACT.md', 'utf8')
 for (const marker of ['Wystarczy', 'Częściowo', 'Brak', 'Nieustalone', 'Mogę ugotować', 'Product + effective direct family', 'never promotes']) {
   if (!recipeMatchingContract.includes(marker)) throw new Error(`V4.3 Recipe matching contract marker missing: ${marker}`)

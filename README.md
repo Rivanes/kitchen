@@ -2,7 +2,7 @@
 
 Private, single-user mobile-first PWA for household inventory, shopping and recipes.
 
-Closed milestones: **V1 Inventory — PASS/CLOSED**, **V2 Shopping — PASS/CLOSED**, **V3 Recipes + Resource Semantics — PASS/CLOSED through V3.8.4**, **V4.1 Recipe Package Snapshot + Measurement Conversion — PASS/CLOSED**, and **V4.2 Recipe Categories + Home Discovery + Time-aware Suggestions — PASS/CLOSED**. **V4.3.1 Cookable Meal Section UX Corrective is IMPLEMENTED / READY FOR GITHUB QA + PRODUCTION SMOKE**: one pure physical-stock matcher, `Wystarczy / Częściowo / Brak / Nieustalone`, dedicated time-aware `Mogę ugotować` Home section, Home/list/detail status and servings-aware detail recomputation. No V4.3 SQL migration is required.
+Closed milestones: **V1 Inventory — PASS/CLOSED**, **V2 Shopping — PASS/CLOSED**, **V3 Recipes + Resource Semantics — PASS/CLOSED through V3.8.4**, **V4.1 Recipe Package Snapshot + Measurement Conversion — PASS/CLOSED**, **V4.2 Recipe Categories + Home Discovery + Time-aware Suggestions — PASS/CLOSED**, and **V4.3 What Can I Cook? + V4.3.1 Cookable Meal Section UX — PASS/CLOSED**. **V4.4 Final V4 Polish + Closeout is IMPLEMENTED / READY FOR GITHUB QA + FINAL PRODUCTION SMOKE**. V4.4 adds no SQL/schema/RPC change; it prevents Home from presenting infrastructure-loading state as domain `Nieustalone` and makes the empty `Mogę ugotować` message semantically neutral.
 
 Active Inventory capabilities:
 - owner-scoped stock read model
@@ -22,9 +22,9 @@ Security remains Supabase Auth + owner authority + RLS. Public sign-up and anony
 No SQL/schema change is required for V1.6 because `inventory_items.expiry_date` already exists in the closed V1.1 schema.
 
 
-## V4.3.1 — Cookable Meal Section UX Corrective
+## V4.3 — What Can I Cook? + V4.3.1 UX [PASS / CLOSED]
 
-V4.3 matcher remains deterministic and read-only. V4.3.1 corrects only how cookability is discovered in the UI.
+V4.3 is the closed deterministic/read-only matching baseline; V4.3.1 finalized cookability discovery as a dedicated time-aware Home section.
 
 - one pure `recipeMatching.ts` authority is shared by Home and RecipesPage;
 - Recipe and Inventory package snapshots remain immutable authorities for container meaning;
@@ -38,6 +38,18 @@ V4.3 matcher remains deterministic and read-only. V4.3.1 corrects only how cooka
 - V4.3 performs no automatic Shopping top-up and introduces no database write/matching cache.
 
 No SQL/schema/RLS/Auth migration is required for V4.3.
+
+
+## V4.4 — Final V4 Polish + Closeout [READY FOR QA]
+
+V4.4 is intentionally small and runtime-only. It does not change Recipe matching arithmetic, persistence, Supabase schema or write authorities.
+
+- Home no longer fabricates `Nieustalone` when Recipe discovery is ready before Inventory matching data.
+- Matching badges appear only after Inventory is ready and the shared matcher produced a canonical result.
+- A failed/slow Inventory read leaves Recipe planning/navigation usable without claiming a domain availability state.
+- Empty `Mogę ugotować` uses neutral wording because recipes may be partial, missing or unresolved; only `Wystarczy` is promoted into the section.
+- V4.1 package snapshots, V4.2 categories/discovery and V4.3 matching semantics remain unchanged.
+- No SQL migration. Final release gate is GitHub QA + Pages + phone-first smoke, then V4 may be marked PASS/CLOSED.
 
 
 ## V1.6.1 — Mobile editor layout corrective
@@ -561,10 +573,10 @@ V4.1 creates the deterministic quantity foundation required before `Co mogę ugo
 
 V4.1 does **not** implement cookability matching, category filtering, Home Recipe discovery or Shopping writes. Production V4.1 migration is already applied (PRECHECK/POSTCHECK PASS), GitHub Pages build/deploy PASS and phone smoke 11/11 PASS after the TypeScript narrowing corrective. Do **not** rerun the migration. The separate Kitchen QA workflow result was not independently supplied; Pages performed its own verifier, TypeScript check and production build.
 
-Planned next V4 stages are documented outside the runtime package: V4.2 adds mandatory Recipe categories plus general Home discovery and time-aware `Na teraz`; V4.3 adds `Co mogę ugotować?` matching; V4.4 closes/polishes V4.
+V4.1–V4.3 are closed. V4.4 is the final no-SQL polish/closeout candidate; V5 owns any future quantity-aware Recipe -> Shopping top-up.
 
 
-## V4.2 — Recipe Categories + Home Discovery [IMPLEMENTED / READY FOR SQL + QA]
+## V4.2 — Recipe Categories + Home Discovery [PASS / CLOSED]
 
 Every Recipe requires exactly one category: **Śniadanie / Obiad / Kolacja / Przekąska / Ciasto**. `Ogólne` / `Wszystkie` is a filterable all-Recipes view, never a stored category. Create requires an explicit selection; edit preloads the saved category; persistence remains atomic through `save_recipe_snapshot(...)`.
 
