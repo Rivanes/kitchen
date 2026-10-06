@@ -115,6 +115,8 @@ const requiredFiles = [
   'scripts/test-recipe-discovery.mjs',
   'scripts/test-recipe-matching.mjs',
   'scripts/test-recipe-purchase-planning.mjs',
+  'scripts/test-recipe-shopping-upgrade.mjs',
+  'scripts/test-v5-closeout.mjs',
   'tests/RECIPE_MATCHING_CONTRACT.md',
   'tests/RECIPE_PURCHASE_PLANNING_CONTRACT.md',
   'tests/RECIPE_CATEGORY_CONTRACT.md',
@@ -124,6 +126,7 @@ const requiredFiles = [
   'tests/RECIPE_SHARED_CORE_CONTRACT.md',
   'tests/RECIPE_IMAGE_CONTRACT.md',
   'tests/RECIPE_TO_SHOPPING_CONTRACT.md',
+  'tests/V5_CLOSEOUT_CONTRACT.md',
   'vite.config.ts',
 ]
 
@@ -963,20 +966,40 @@ if (/supabase|\.from\(|\.rpc\(/i.test(recipeDuration)) {
 
 const recipeShoppingPlan = await readFile('src/features/recipes/recipeShoppingPlan.ts', 'utf8')
 for (const marker of [
-  'scaleRecipeIngredientQuantity',
-  "ingredient.presence !== 'missing'",
-  'productId',
-  'unitCode',
-  'exactQuantity',
-  'normalizeQuantityPrecision',
-  'MIN_POSITIVE_SHOPPING_QUANTITY = 0.001',
-  'getMissingRecipeProductIds',
+  'buildRecipeShoppingPlan',
+  'purchasePlan',
+  'activeShoppingItems',
+  'targetQuantity',
+  'activeQuantity',
+  'topUpQuantity',
+  "'needs-top-up'",
+  "'covered'",
+  "'blocked'",
+  'unresolvedProductIds',
+  'getRecipeShoppingActionProductIds',
 ]) {
-  if (!recipeShoppingPlan.includes(marker)) throw new Error(`V3.5.3 Recipe Shopping-plan marker missing: ${marker}`)
+  if (!recipeShoppingPlan.includes(marker)) throw new Error(`V5.2 Recipe Shopping-plan marker missing: ${marker}`)
 }
 if (/supabase|\.rpc\(/i.test(recipeShoppingPlan) || /\.from\(\s*['"]/i.test(recipeShoppingPlan)) {
-  throw new Error('V3.5.3 Recipe Shopping plan must remain pure and must not own persistence.')
+  throw new Error('V5.2 Recipe Shopping plan must remain pure and must not own persistence.')
 }
+await execFileAsync(process.execPath, ['--experimental-strip-types', 'scripts/test-recipe-shopping-upgrade.mjs'], {
+  env: { ...process.env, NODE_NO_WARNINGS: '1' },
+})
+
+const v5CloseoutContract = await readFile('tests/V5_CLOSEOUT_CONTRACT.md', 'utf8')
+for (const marker of [
+  'Canonical chain',
+  'active Shopping never changes',
+  'Retail-unit rule',
+  'at-least total active Shopping quantity',
+  'V5.3 closeout',
+]) {
+  if (!v5CloseoutContract.includes(marker)) throw new Error(`V5 closeout contract marker missing: ${marker}`)
+}
+await execFileAsync(process.execPath, ['--experimental-strip-types', 'scripts/test-v5-closeout.mjs'], {
+  env: { ...process.env, NODE_NO_WARNINGS: '1' },
+})
 
 const recipeServingsControl = await readFile('src/features/recipes/RecipeServingsControl.tsx', 'utf8')
 for (const marker of [
@@ -1170,24 +1193,45 @@ for (const marker of [
 if (/createCanonicalShoppingItemsSequentially[\s\S]{0,1200}Promise\.all/.test(shoppingMutations)) {
   throw new Error('V3.5.3 canonical Shopping batch must remain deterministic/sequential.')
 }
+for (const marker of [
+  'ensureCanonicalShoppingTargetsSequentially',
+  'targetQuantity',
+  'loadActiveShoppingItems',
+  'normalizeQuantityPrecision',
+  'await createShoppingItem({',
+  'wholeUnits',
+]) {
+  if (!shoppingMutations.includes(marker)) throw new Error(`V5.2 Shopping target-top-up marker missing: ${marker}`)
+}
+if (/ensureCanonicalShoppingTargetsSequentially[\s\S]{0,3500}Promise\.all/.test(shoppingMutations)) {
+  throw new Error('V5.2 Shopping target top-up must remain deterministic/sequential.')
+}
 
 for (const marker of [
+  'buildRecipePurchasePlan',
   'buildRecipeShoppingPlan',
-  'getMissingRecipeProductIds',
-  'createCanonicalShoppingItemsSequentially',
-  'Dodaj wszystkie brakujące',
-  'Dodaj ${ingredient.productName} do listy zakupów',
+  'getRecipeShoppingActionProductIds',
+  'ensureCanonicalShoppingTargetsSequentially',
+  'shoppingActionProductIds',
+  'Ustaw sposób zakupu',
+  'Na liście zakupów',
+  'Dodaj brakujące',
   'targetServings',
-  'markRecipeProductsAsShopping',
   'refreshRecipesSilently',
 ]) {
-  if (!recipesPage.includes(marker)) throw new Error(`V3.5.3 Recipe -> Shopping UI marker missing: ${marker}`)
+  if (!recipesPage.includes(marker)) throw new Error(`V5.2 Recipe -> Shopping UI marker missing: ${marker}`)
+}
+if (recipesPage.includes('markRecipeProductsAsShopping')) {
+  throw new Error('V5.2 Recipe -> Shopping must refresh canonical Shopping state instead of painting a local presence-only result.')
 }
 if (/\.from\(\s*['"]shopping_items['"]\s*\)|\.insert\(|\.update\(/.test(recipesPage)) {
-  throw new Error('V3.5.3 RecipesPage must not write Shopping rows directly.')
+  throw new Error('V5.2 RecipesPage must not write Shopping rows directly.')
 }
-if (recipesPage.includes('Promise.all') && recipesPage.includes('createCanonicalShoppingItemsSequentially')) {
-  throw new Error('V3.5.3 RecipesPage must not parallelize Shopping writes.')
+if (recipesPage.includes('Promise.all') && recipesPage.includes('ensureCanonicalShoppingTargetsSequentially')) {
+  throw new Error('V5.2 RecipesPage must not parallelize Shopping writes.')
+}
+for (const marker of ["select('product_id, quantity, unit_code')", 'activeShoppingItems', 'RecipeActiveShoppingItem']) {
+  if (!recipesReadModel.includes(marker)) throw new Error(`V5.2 Recipe active-Shopping projection marker missing: ${marker}`)
 }
 
 const productAutocomplete = await readFile('src/features/products/ProductAutocomplete.tsx', 'utf8')
@@ -1363,7 +1407,6 @@ for (const marker of ['physical shortage', 'Product `defaultUnitCode`', 'Count-p
 await execFileAsync(process.execPath, ['--experimental-strip-types', 'scripts/test-recipe-purchase-planning.mjs'], {
   env: { ...process.env, NODE_NO_WARNINGS: '1' },
 })
-
 for (const [sourceName, source] of [['Recipe mutations', recipeMutations], ['Recipe read model', recipesReadModel], ['Recipe editor', recipeEditor], ['Recipes page', recipesPage]]) {
   if (source.includes('section_label')) throw new Error(`V3.7 Recipe runtime must not reference legacy section_label: ${sourceName}.`)
 }
@@ -1485,7 +1528,7 @@ for (const [contract, markers] of [
   [recipeSectionsContract, ['exactly one mandatory primary section', 'section_id', 'only Recipe section authority', 'legacy `recipe_ingredients.section_label` compatibility column no longer exists', 'fast button/chip choices', '`Bez sekcji` no longer exists', 'no independent `Dodaj sekcję` authority', 'Pending section creation and ingredient Apply commit together', 'does not perform Recipe matching']],
   [recipeSharedContract, ['canonical Product resolver/create authority', 'shared Quantity', 'must not globally rename', 'canonical Product UUID only', 'single pure cookability authority']],
   [recipeImageContract, ['full source image', 'pure crop geometry authority', 'RECIPE_COVER_HERO_ASPECT', 'must therefore match', 'Cleanup retries never block Recipe reading']],
-  [recipeToShoppingContract, ["presence === 'missing'", 'current target-servings requirement', 'grouped by canonical Product + unit', 'createShoppingItem()', 'sequential', 'no unit conversion', 'V3.6']],
+  [recipeToShoppingContract, ['V5.2', 'same canonical Product + planned purchase unit', 'at-least purchase quantity', 'never with `Promise.all`', 'Ustaw sposób zakupu', 'Shopping never feeds back into Recipe cookability']],
 ]) {
   for (const marker of markers) {
     if (!contract.includes(marker)) throw new Error(`Current Recipe contract marker missing: ${marker}`)
