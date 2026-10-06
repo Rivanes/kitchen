@@ -190,23 +190,25 @@ export function RecipeIngredientEditorSheet({
       const reselectsOriginalProduct = ingredient?.productId === product.id
       if (reselectsOriginalProduct && ingredient) {
         const currentUnit = units.find((unit) => unit.code === current.unitCode) ?? null
-        const canRestoreOriginalSnapshot = (
+        const originalPackageContentValue = ingredient.packageContentValue
+        const originalPackageContentUnitCode = ingredient.packageContentUnitCode
+        const canRestoreOriginalSnapshot = Boolean(
           isContainerMeasurementUnit(currentUnit)
           && current.unitCode === ingredient.unitCode
           && !current.packageContentValue
-          && ingredient.packageContentValue !== null
-          && ingredient.packageContentUnitCode
+          && originalPackageContentValue !== null
+          && originalPackageContentUnitCode,
         )
 
         return {
           ...current,
           productId: product.id,
           productName: product.name,
-          packageContentValue: canRestoreOriginalSnapshot
-            ? formatQuantityInput(ingredient.packageContentValue)
+          packageContentValue: canRestoreOriginalSnapshot && originalPackageContentValue !== null
+            ? formatQuantityInput(originalPackageContentValue)
             : current.packageContentValue,
-          packageContentUnitCode: canRestoreOriginalSnapshot
-            ? ingredient.packageContentUnitCode
+          packageContentUnitCode: canRestoreOriginalSnapshot && originalPackageContentUnitCode
+            ? originalPackageContentUnitCode
             : current.packageContentUnitCode,
         }
       }
