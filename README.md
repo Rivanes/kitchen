@@ -2,7 +2,7 @@
 
 Private, single-user mobile-first PWA for household inventory, shopping and recipes.
 
-Closed milestones: **V1 Inventory — PASS/CLOSED**, **V2 Shopping — PASS/CLOSED**, **V3 Recipes + Resource Semantics — PASS/CLOSED through V3.8.4**, **V4 — PASS/CLOSED through V4.4**, and **V5 — PASS/CLOSED through V5.3.1**. The active milestone is **V6 Voice**. **V6.1A Local STT Spike** remains open while the final local STT runtime is selected from real-phone evidence. In parallel, **V6.1B-RO Read-Only Voice Foundation** is implemented as a production-shaped bottom-sheet assistant that can inspect Kitchen state without mutating data.
+Closed milestones: **V1 Inventory — PASS/CLOSED**, **V2 Shopping — PASS/CLOSED**, **V3 Recipes + Resource Semantics — PASS/CLOSED through V3.8.4**, **V4 — PASS/CLOSED through V4.4**, and **V5 — PASS/CLOSED through V5.3.1**. The active milestone is **V6 Voice**. **V6.1A Local STT Spike** remains open while the final local STT runtime is selected from real-phone evidence. In parallel, **V6.1B-RO Read-Only Voice Foundation** is implemented as a production-shaped assistant that can inspect Kitchen state without mutating data; **V6.1B-RO.1** switches that normal Voice surface to push-to-talk and a stable mobile sheet/footer with shared bottom-navigation geometry.
 
 Active Inventory capabilities:
 - owner-scoped stock read model

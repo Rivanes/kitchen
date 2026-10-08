@@ -137,8 +137,11 @@ const requiredFiles = [
   'src/features/voice/voiceTextMatch.ts',
   'src/features/voice/browserSpeechOutput.ts',
   'src/features/voice/voiceSttProvider.ts',
+  'src/features/voice/voiceProductionCapturePolicy.ts',
   'scripts/test-voice-readonly-foundation.mjs',
+  'scripts/test-voice-push-to-talk-ui.mjs',
   'tests/VOICE_READ_ONLY_FOUNDATION_CONTRACT.md',
+  'tests/VOICE_PUSH_TO_TALK_UI_CONTRACT.md',
   'vite.config.ts',
 ]
 
@@ -1771,5 +1774,28 @@ for (const marker of ['.voice-launch-button', '.voice-assistant-sheet', '.voice-
   if (!globalCss.includes(marker)) throw new Error(`V6.1B-RO CSS marker missing: ${marker}`)
 }
 await execFileAsync(process.execPath, ['scripts/test-voice-readonly-foundation.mjs'])
+
+// V6.1B-RO.1 — push-to-talk interaction and one shared bottom-layout geometry authority.
+const voiceProductionCapturePolicy = await readFile('src/features/voice/voiceProductionCapturePolicy.ts', 'utf8')
+const voicePushToTalkContract = await readFile('tests/VOICE_PUSH_TO_TALK_UI_CONTRACT.md', 'utf8')
+for (const marker of ['onPointerDown={handlePointerDown}', 'onPointerUp={handlePointerUp}', 'onPointerCancel={handlePointerCancel}', 'onLostPointerCapture={handleLostPointerCapture}', 'voice-assistant-scroll', 'voice-assistant-footer']) {
+  if (!voiceAssistantSheet.includes(marker)) throw new Error(`V6.1B-RO.1 push-to-talk marker missing: ${marker}`)
+}
+if (voiceAssistantSheet.includes('VOICE_SPIKE_MAX_DURATION_MS')) {
+  throw new Error('V6.1B-RO.1 product Voice must not reuse the frozen V6.1A spike duration constant.')
+}
+for (const marker of ['VOICE_PRODUCT_MAX_DURATION_MS = 30_000', 'VOICE_PRODUCT_MIN_UTTERANCE_MS = 300']) {
+  if (!voiceProductionCapturePolicy.includes(marker)) throw new Error(`V6.1B-RO.1 production capture policy marker missing: ${marker}`)
+}
+for (const marker of ['--app-bottom-safe', '--app-bottom-nav-shell-height', '--app-bottom-floating-gap', '--voice-launch-bottom', '--app-bottom-content-clearance', 'bottom: var(--voice-launch-bottom)', 'touch-action: none']) {
+  if (!globalCss.includes(marker)) throw new Error(`V6.1B-RO.1 shared bottom-layout marker missing: ${marker}`)
+}
+if (/\.voice-launch-button\s*\{[\s\S]*?bottom:\s*calc\(86px\s*\+/.test(globalCss)) {
+  throw new Error('V6.1B-RO.1 must not restore the independent 86px Voice launcher offset.')
+}
+for (const marker of ['stable-sheet authority', 'Push-to-talk interaction', 'Capture policy boundary', 'Shared bottom geometry authority']) {
+  if (!new RegExp(marker, 'i').test(voicePushToTalkContract)) throw new Error(`V6.1B-RO.1 contract marker missing: ${marker}`)
+}
+await execFileAsync(process.execPath, ['scripts/test-voice-push-to-talk-ui.mjs'])
 
 console.log('Kitchen project contract verification: PASS')

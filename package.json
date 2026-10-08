@@ -1,7 +1,7 @@
 {
   "name": "kitchen",
   "private": true,
-  "version": "6.1.0-alpha.2",
+  "version": "6.1.0-alpha.3",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -11,7 +11,8 @@
     "verify:project": "node scripts/verify-project.mjs",
     "check": "npm run verify:project && npm run typecheck && npm run build",
     "test:voice-stt-spike": "node scripts/test-voice-stt-spike.mjs",
-    "test:voice-readonly": "node scripts/test-voice-readonly-foundation.mjs"
+    "test:voice-readonly": "node scripts/test-voice-readonly-foundation.mjs",
+    "test:voice-ui": "node scripts/test-voice-push-to-talk-ui.mjs"
   },
   "dependencies": {
     "@huggingface/transformers": "4.3.0",
