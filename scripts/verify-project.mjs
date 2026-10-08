@@ -131,6 +131,14 @@ const requiredFiles = [
   'tests/RECIPE_IMAGE_CONTRACT.md',
   'tests/RECIPE_TO_SHOPPING_CONTRACT.md',
   'tests/V5_CLOSEOUT_CONTRACT.md',
+  'src/features/voice/VoiceAssistantSheet.tsx',
+  'src/features/voice/voiceKitchenContext.ts',
+  'src/features/voice/voiceReadOnlyAssistant.ts',
+  'src/features/voice/voiceTextMatch.ts',
+  'src/features/voice/browserSpeechOutput.ts',
+  'src/features/voice/voiceSttProvider.ts',
+  'scripts/test-voice-readonly-foundation.mjs',
+  'tests/VOICE_READ_ONLY_FOUNDATION_CONTRACT.md',
   'vite.config.ts',
 ]
 
@@ -1732,5 +1740,36 @@ for (const marker of ['localStt.worker', '**/*.wasm']) {
   if (!viteConfig.includes(marker)) throw new Error(`V6.1A PWA precache exclusion missing: ${marker}`)
 }
 await execFileAsync(process.execPath, ['scripts/test-voice-stt-spike.mjs'])
+
+// V6.1B-RO — production-shaped, read-only Kitchen Voice foundation.
+const voiceAssistantSheet = await readFile('src/features/voice/VoiceAssistantSheet.tsx', 'utf8')
+const voiceKitchenContext = await readFile('src/features/voice/voiceKitchenContext.ts', 'utf8')
+const voiceReadOnlyAssistant = await readFile('src/features/voice/voiceReadOnlyAssistant.ts', 'utf8')
+const voiceReadOnlyContract = await readFile('tests/VOICE_READ_ONLY_FOUNDATION_CONTRACT.md', 'utf8')
+for (const marker of ['voice-launch-button', 'VoiceAssistantSheet', 'onOpenRecipe={openRecipeFromVoice}']) {
+  if (!shell.includes(marker)) throw new Error(`V6.1B-RO AppShell marker missing: ${marker}`)
+}
+for (const marker of ['Ta wersja niczego nie zmienia', 'loadVoiceKitchenContext', 'answerReadOnlyKitchenQuery', 'Możesz też wpisać pytanie']) {
+  if (!voiceAssistantSheet.includes(marker)) throw new Error(`V6.1B-RO Voice sheet marker missing: ${marker}`)
+}
+for (const marker of ['loadRecipesReadModel', 'loadShoppingReadModel']) {
+  if (!voiceKitchenContext.includes(marker)) throw new Error(`V6.1B-RO read-context marker missing: ${marker}`)
+}
+if (/supabase\/client|\.from\(\s*['"]|\.rpc\(\s*['"]/.test(voiceKitchenContext)) {
+  throw new Error('V6.1B-RO Voice context must reuse existing read models rather than query Supabase directly.')
+}
+if (/inventoryMutations|shoppingMutations|recipeMutations|resourceMutations|productCatalogMutations|supabase\/client|\.from\(\s*['"]|\.rpc\(\s*['"]/.test(voiceReadOnlyAssistant + voiceAssistantSheet)) {
+  throw new Error('V6.1B-RO read-only Voice must not import or call Kitchen business mutation authorities.')
+}
+for (const marker of ['matchRecipe', 'sumQuantities', 'recipe-availability', 'shopping-list', 'inventory-product']) {
+  if (!voiceReadOnlyAssistant.includes(marker)) throw new Error(`V6.1B-RO query authority marker missing: ${marker}`)
+}
+for (const marker of ['read-only', 'no business mutation', 'existing read models', 'STT provider boundary']) {
+  if (!new RegExp(marker, 'i').test(voiceReadOnlyContract)) throw new Error(`V6.1B-RO contract marker missing: ${marker}`)
+}
+for (const marker of ['.voice-launch-button', '.voice-assistant-sheet', '.voice-microphone-button']) {
+  if (!globalCss.includes(marker)) throw new Error(`V6.1B-RO CSS marker missing: ${marker}`)
+}
+await execFileAsync(process.execPath, ['scripts/test-voice-readonly-foundation.mjs'])
 
 console.log('Kitchen project contract verification: PASS')

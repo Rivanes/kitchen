@@ -9,6 +9,7 @@ import { RecipesPage } from '../features/recipes/RecipesPage'
 import { KitchenIcon } from './KitchenIcon'
 
 const VoiceSttSpikePage = lazy(() => import('../features/voice/VoiceSttSpikePage').then((module) => ({ default: module.VoiceSttSpikePage })))
+const VoiceAssistantSheet = lazy(() => import('../features/voice/VoiceAssistantSheet').then((module) => ({ default: module.VoiceAssistantSheet })))
 
 type AppShellProps = {
   user: User
@@ -23,6 +24,7 @@ export function AppShell({ user }: AppShellProps) {
   const [inventoryOverviewRequest, setInventoryOverviewRequest] = useState(0)
   const [recipesOverviewRequest, setRecipesOverviewRequest] = useState(0)
   const [recipeOpenRequest, setRecipeOpenRequest] = useState<{ recipeId: string | null; token: number }>({ recipeId: null, token: 0 })
+  const [voiceOpen, setVoiceOpen] = useState(false)
 
   async function handleLogout() {
     await supabase?.auth.signOut()
@@ -49,6 +51,12 @@ export function AppShell({ user }: AppShellProps) {
   }
 
   function openRecipeFromHome(recipeId: string) {
+    setRecipeOpenRequest((current) => ({ recipeId, token: current.token + 1 }))
+    setView('recipes')
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  function openRecipeFromVoice(recipeId: string) {
     setRecipeOpenRequest((current) => ({ recipeId, token: current.token + 1 }))
     setView('recipes')
     window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -130,6 +138,26 @@ export function AppShell({ user }: AppShellProps) {
           openRecipeId={recipeOpenRequest.recipeId}
           openRecipeRequestToken={recipeOpenRequest.token}
         />
+      )}
+
+      <button
+        className="voice-launch-button"
+        type="button"
+        onClick={() => setVoiceOpen(true)}
+        aria-label="Otwórz Kitchen Voice"
+        aria-expanded={voiceOpen}
+      >
+        <KitchenIcon name="microphone" size={25} strokeWidth={2} />
+      </button>
+
+      {voiceOpen && (
+        <Suspense fallback={<div className="voice-sheet-loading" aria-live="polite">Uruchamiam Kitchen Voice…</div>}>
+          <VoiceAssistantSheet
+            ownerId={user.id}
+            onClose={() => setVoiceOpen(false)}
+            onOpenRecipe={openRecipeFromVoice}
+          />
+        </Suspense>
       )}
 
       <nav className="bottom-nav" aria-label="Główna nawigacja Kitchen">

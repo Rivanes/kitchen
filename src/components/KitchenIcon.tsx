@@ -28,6 +28,9 @@ type KitchenIconName =
   | 'trash'
   | 'camera'
   | 'image'
+  | 'microphone'
+  | 'volume'
+  | 'stop'
 
 type KitchenIconProps = {
   name: KitchenIconName
@@ -107,5 +110,11 @@ export function KitchenIcon({ name, size = 22, strokeWidth = 1.9 }: KitchenIconP
       return <svg {...common}><path d="M4 7.5h3l1.4-2h7.2l1.4 2h3v11H4z" /><circle cx="12" cy="13" r="3.5" /></svg>
     case 'image':
       return <svg {...common}><rect x="3.5" y="4" width="17" height="16" rx="2.5" /><circle cx="9" cy="9" r="1.5" /><path d="m5.5 17 4.2-4.2 3 3 2.2-2.2 3.6 3.4" /></svg>
+    case 'microphone':
+      return <svg {...common}><rect x="9" y="3" width="6" height="11" rx="3" /><path d="M6.5 10.5a5.5 5.5 0 0 0 11 0" /><path d="M12 16v5" /><path d="M9 21h6" /></svg>
+    case 'volume':
+      return <svg {...common}><path d="M5 10h3l4-3.5v11L8 14H5z" /><path d="M15.5 9a4.5 4.5 0 0 1 0 6" /><path d="M18 6.5a8 8 0 0 1 0 11" /></svg>
+    case 'stop':
+      return <svg {...common}><rect x="6" y="6" width="12" height="12" rx="2" /></svg>
   }
 }
