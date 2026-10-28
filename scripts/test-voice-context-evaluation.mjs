@@ -10,6 +10,7 @@ const phonetics = await readFile('src/features/voice/contextSpike/phoneticEntity
 const engine = await readFile('src/features/voice/contextSpike/contextEnginePrototype.ts', 'utf8')
 const semantic = await readFile('src/features/voice/contextSpike/semanticEmbeddingBenchmark.ts', 'utf8')
 const corpus = await readFile('src/features/voice/contextSpike/contextEvaluationCorpus.ts', 'utf8')
+const runner = await readFile('src/features/voice/contextSpike/contextEvaluationRunner.ts', 'utf8')
 const contract = await readFile('tests/VOICE_CONTEXT_EVALUATION_SPIKE_CONTRACT.md', 'utf8')
 const vite = await readFile('vite.config.ts', 'utf8')
 const packageJson = JSON.parse(await readFile('package.json', 'utf8'))
@@ -36,6 +37,9 @@ assert.match(semantic, /dtype: SEMANTIC_BENCHMARK_DTYPE/)
 assert.match(semantic, /await import\('@huggingface\/transformers'\)/)
 assert.doesNotMatch(vite, /distiluse-base-multilingual-cased-v2|multilingual-e5|MiniLM/)
 assert.match(corpus, /I lebałam rzeczy na liście\./)
+// Regression for GitHub QA #101 TS2339: not every initial evaluation turn has an `entity` property.
+assert.match(runner, /'entity' in sequence\.initial/)
+assert.doesNotMatch(runner, /sequence\.initial\.entity\?\./)
 for (const forbidden of [
   'inventoryMutations',
   'shoppingMutations',

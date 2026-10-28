@@ -35,5 +35,11 @@ The same held-out corpus compares:
 - optional semantic model load size/time/storage and warm-cache rerun on a real phone;
 - exported JSON from the deployed phone spike.
 
+## QA #101 compiler regression (V6.1B-RO.2A corrective)
+- `VOICE_CONTEXT_EVALUATION_SEQUENCES` is a TypeScript union: `shopping-followup` intentionally has no `initial.entity`, while Product/Recipe sequences do.
+- The runner must narrow using `'entity' in sequence.initial` before reading the entity kind/ID. Optional chaining by itself does not make a missing union property legal.
+- `scripts/test-voice-context-evaluation.mjs` guards the source contract. The authoritative typecheck is `npm run typecheck` in GitHub Actions.
+- Keep every original fixture unchanged; do not turn a missing entity into a fabricated placeholder.
+
 ## PASS gate
 Static/local tests can establish deterministic corpus behavior only. Real phone evidence is mandatory before selecting a production Context Engine candidate. No production integration is authorized by this contract.

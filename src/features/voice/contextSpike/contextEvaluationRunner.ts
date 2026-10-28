@@ -102,12 +102,15 @@ function syntheticContextCandidates(): VoiceContextCandidateSet {
 
 function stateForSequence(sequence: (typeof VOICE_CONTEXT_EVALUATION_SEQUENCES)[number]): VoiceConversationState {
   const state = { ...EMPTY_VOICE_CONVERSATION_STATE }
-  if (sequence.initial.entity?.kind === 'recipe') {
+  // The evaluation corpus contains both entity-bearing and entity-free initial turns.
+  // Narrow the discriminated union before accessing its optional-in-practice `entity` field.
+  const initialEntity = 'entity' in sequence.initial ? sequence.initial.entity : undefined
+  if (initialEntity?.kind === 'recipe') {
     state.activeTopic = 'recipe'
-    state.activeRecipeId = sequence.initial.entity.id
-  } else if (sequence.initial.entity?.kind === 'product') {
+    state.activeRecipeId = initialEntity.id
+  } else if (initialEntity?.kind === 'product') {
     state.activeTopic = 'inventory'
-    state.activeProductId = sequence.initial.entity.id
+    state.activeProductId = initialEntity.id
   } else if (sequence.initial.expectedIntent === 'shopping-list') {
     state.activeTopic = 'shopping'
   }
