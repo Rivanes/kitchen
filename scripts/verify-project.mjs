@@ -143,13 +143,11 @@ const requiredFiles = [
   'tests/VOICE_READ_ONLY_FOUNDATION_CONTRACT.md',
   'tests/VOICE_PUSH_TO_TALK_UI_CONTRACT.md',
   'src/features/voice/contextSpike/contextEvaluationCorpus.ts',
-  'src/features/voice/contextSpike/hashedCharIntentClassifier.ts',
-  'src/features/voice/contextSpike/phoneticEntityEvidence.ts',
-  'src/features/voice/contextSpike/contextEnginePrototype.ts',
   'src/features/voice/contextSpike/contextEvaluationRunner.ts',
   'src/features/voice/contextSpike/semanticEmbeddingBenchmark.ts',
   'src/features/voice/contextSpike/VoiceContextEvaluationSpikePage.tsx',
   'scripts/test-voice-context-evaluation.mjs',
+  'scripts/test-voice-suite.mjs',
   'tests/VOICE_CONTEXT_EVALUATION_SPIKE_CONTRACT.md',
   'vite.config.ts',
 ]
@@ -1751,7 +1749,6 @@ if (/supabase\/client|inventoryMutations|shoppingMutations|recipeMutations|produ
 for (const marker of ['localStt.worker', '**/*.wasm']) {
   if (!viteConfig.includes(marker)) throw new Error(`V6.1A PWA precache exclusion missing: ${marker}`)
 }
-await execFileAsync(process.execPath, ['scripts/test-voice-stt-spike.mjs'])
 
 // V6.1B-RO — production-shaped, read-only Kitchen Voice foundation.
 const voiceAssistantSheet = await readFile('src/features/voice/VoiceAssistantSheet.tsx', 'utf8')
@@ -1782,7 +1779,6 @@ for (const marker of ['read-only', 'no business mutation', 'existing read models
 for (const marker of ['.voice-launch-button', '.voice-assistant-sheet', '.voice-microphone-button']) {
   if (!globalCss.includes(marker)) throw new Error(`V6.1B-RO CSS marker missing: ${marker}`)
 }
-await execFileAsync(process.execPath, ['scripts/test-voice-readonly-foundation.mjs'])
 
 // V6.1B-RO.1 — push-to-talk interaction and one shared bottom-layout geometry authority.
 const voiceProductionCapturePolicy = await readFile('src/features/voice/voiceProductionCapturePolicy.ts', 'utf8')
@@ -1805,7 +1801,6 @@ if (/\.voice-launch-button\s*\{[\s\S]*?bottom:\s*calc\(86px\s*\+/.test(globalCss
 for (const marker of ['stable-sheet authority', 'Push-to-talk interaction', 'Capture policy boundary', 'Shared bottom geometry authority']) {
   if (!new RegExp(marker, 'i').test(voicePushToTalkContract)) throw new Error(`V6.1B-RO.1 contract marker missing: ${marker}`)
 }
-await execFileAsync(process.execPath, ['scripts/test-voice-push-to-talk-ui.mjs'])
 
 // V6.1B-RO.2B — Context Engine production read-only integration.
 for (const relative of [
@@ -1819,7 +1814,8 @@ for (const relative of [
 ]) {
   await access(relative)
 }
-await execFileAsync(process.execPath, ['scripts/test-voice-context-evaluation.mjs'])
-await execFileAsync(process.execPath, ['scripts/test-voice-context-production.mjs'])
+
+// The suite is the sole authority for the five Voice regression test entrypoints.
+await execFileAsync(process.execPath, ['scripts/test-voice-suite.mjs'])
 
 console.log('Kitchen project contract verification: PASS')

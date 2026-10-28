@@ -2,7 +2,7 @@
 
 Private, single-user mobile-first PWA for household inventory, shopping and recipes.
 
-Closed milestones: **V1 Inventory — PASS/CLOSED**, **V2 Shopping — PASS/CLOSED**, **V3 Recipes + Resource Semantics — PASS/CLOSED through V3.8.4**, **V4 — PASS/CLOSED through V4.4**, and **V5 — PASS/CLOSED through V5.3.1**. The active milestone is **V6 Voice**. **V6.1A Local STT Spike** remains open while the final local STT runtime is selected from real-phone evidence. In parallel, **V6.1B-RO Read-Only Voice Foundation** is implemented as a production-shaped assistant that can inspect Kitchen state without mutating data; **V6.1B-RO.1** supplies push-to-talk and a stable mobile sheet/footer, while **V6.1B-RO.2A** is a hidden Context Engine evaluation spike for noisy Polish STT and spoken entity names. Normal Voice remains read-only; RO.2B now integrates the shared tiny Context Engine while the heavy semantic benchmark remains diagnostic only. RO.2B GitHub/phone QA is pending.
+Closed milestones: **V1 Inventory — PASS/CLOSED**, **V2 Shopping — PASS/CLOSED**, **V3 Recipes + Resource Semantics — PASS/CLOSED through V3.8.4**, **V4 — PASS/CLOSED through V4.4**, and **V5 — PASS/CLOSED through V5.3.1**. The active milestone is **V6 Voice**. **V6.1A Local STT** is technically demonstrated on iPhone but its final model is not locked. **V6.1B-RO.1** provides push-to-talk, **RO.2A** remains a diagnostic, and **RO.2B** runs a small deterministic Context Engine in normal read-only Voice (not a trained neural model). Real-phone feedback exposed a specific query-scope error for Shopping product presence, so RO.2B is NOT PASS/CLOSED. On 2026-10-28 the project documented a new **research direction**: evaluate/train an own small neural Kitchen Micro AI, compare it fairly against current and pretrained alternatives, then plan stages. FIRST integration must remain READ-ONLY; Kitchen business writes come only in separately authorized later stages. This is documentation only, not implemented neural AI.
 
 Active Inventory capabilities:
 - owner-scoped stock read model
@@ -114,6 +114,21 @@ V5.3.1 is a corrective discovered during final V5 smoke. It simplifies everyday 
 Production SQL postcheck and phone smoke were user-confirmed PASS. V5.3.1 is closed together with the complete V5 milestone.
 
 
+## Pre-Neural AI — Repo Hygiene & Voice CI Consolidation [READY FOR GITHUB QA]
+
+- Removed three obsolete re-export shims in `src/features/voice/contextSpike/`, after
+  switching both diagnostic modules to import the canonical `context/` engine directly.
+  This does **not** remove either `?voice-spike=1` or `?voice-context-spike=1`.
+- The five existing Voice regression tests were already executed transitively by
+  `scripts/verify-project.mjs` in GitHub QA and GitHub Pages (the previous audit
+  incorrectly stated they were missing from CI). They now have one runner,
+  `scripts/test-voice-suite.mjs`, callable separately through `npm run test:voice`.
+- GitHub workflow labels make this coverage explicit; the tests are **not** run twice.
+- No dependency upgrades/lockfile changes are included. `latest` versions without a
+  lockfile remain a separately scoped reproducibility risk requiring controlled remediation.
+- No changed Kitchen business logic, database, PWA routing, STT, TTS, or neural training.
+- Validate GitHub QA, Pages, then normal Kitchen/diagnostic smoke before closing.
+
 ## V6.1A — Local STT Spike [READY FOR GITHUB QA + PHONE SPIKE]
 
 V6.1A is a diagnostic-only technical spike for zero-recurring-cost local Polish speech-to-text. It is intentionally isolated from Product, Inventory, Shopping and Supabase mutations.
@@ -132,7 +147,7 @@ Acceptance requires GitHub QA/Pages first and then a real-phone cold/warm-cache 
 
 
 
-## V6.1B-RO — Read-Only Voice Foundation [READY FOR GITHUB QA + PHONE SMOKE]
+## V6.1B-RO — Read-Only Voice Foundation [IMPLEMENTED / USED ON PHONE]
 
 This is the first production-shaped Kitchen Voice surface, intentionally limited to reads while V6.1A still selects the final STT runtime.
 
@@ -151,7 +166,7 @@ This is the first production-shaped Kitchen Voice surface, intentionally limited
 
 V6.1B-RO is not a replacement for the V6.1A gate. `whisper-tiny` remains a temporary STT candidate until the phone corpus/model comparison is accepted.
 
-## V6.1B-RO.1 — Push-to-Talk + Stable Mobile Sheet [READY FOR GITHUB QA + PHONE SMOKE]
+## V6.1B-RO.1 — Push-to-Talk + Stable Mobile Sheet [IMPLEMENTED / PHONE USED]
 
 - normal Voice uses hold-to-talk: hold captures, release stops + transcribes;
 - microphone stays in a persistent sheet footer outside the conversation scroller;
@@ -159,7 +174,7 @@ V6.1B-RO is not a replacement for the V6.1A gate. `whisper-tiny` remains a tempo
 - bottom navigation, Voice launcher and content clearance share one CSS geometry authority;
 - no mutation authority or database change.
 
-## V6.1B-RO.2A — Context Engine Evaluation Spike [READY FOR GITHUB QA + PHONE EVALUATION]
+## V6.1B-RO.2A — Context Engine Evaluation Spike [IMPLEMENTED / PHONE PROBE RECORDED]
 
 This stage evaluates contextual recovery without changing the normal Voice understanding path yet.
 
@@ -174,12 +189,22 @@ This stage evaluates contextual recovery without changing the normal Voice under
 - real-phone exported evidence is required before any V6.1B-RO.2B production integration decision.
 
 
-## V6.1B-RO.2B — Shared Context Engine in normal read-only Kitchen Voice [READY FOR QA + PHONE]
+## V6.1B-RO.2B — Shared Context Engine in normal read-only Kitchen Voice [PHONE DEFECT OPEN / NOT PASS]
 
 Normal Kitchen Voice now uses the SAME tiny context engine as 2A diagnostics, separated into `src/features/voice/context/`.
 Intent and spoken Product/Recipe/Location names resolve to canonical live IDs, with confidence thresholds and explicit clarification; answers still come only from existing Kitchen read-model authorities.
 Raw STT is preserved; `Zrozumiałem` is shown separately. Multi-turn context is ephemeral and commits only on accepted read answers.
 Unknown/write-shaped queries are refused. No business writes, direct Voice Supabase queries, heavy semantic model in normal Voice, or TTS/STT changes.
+User phone evidence shows that „Czy na liście zakupów mam masło?” is answered with the entire list instead of checking the named Product; this query-scope problem remains open. Full acceptance requires resolving it and collecting GitHub+device evidence.
+
+## V6 Neural Micro AI — documentation decision only (2026-10-28)
+
+The agreed future direction is an **own small trainable neural language-understanding model**, not a growing table of transcript aliases. The current Context Engine is not that model. Neural options (scratch/transfer/distillation, MiniLM comparison), data source/privacy, mobile size and quality gates must be audited before any model is selected, trained or integrated.
+
+Target representation: **domain + operation + live canonical Product/Recipe/Location ID + slots/filters + bounded context + abstention**. In particular, `Shopping LIST` must be distinct from `Shopping EXISTS(Product)` and `Shopping QUANTITY(Product)`. Neural inference may suggest an interpretation but never queries private data outside established read models or executes business writes.
+
+**Next workflow:** documentation -> separate detailed audit -> decide number and sequence of gated stages -> train/evaluate -> first **read-only** integration -> only later authorized, confirmed Kitchen write actions via canonical authorities. The active decision record is distributed in the project documentation bundle under `OUTSIDE_REPO/REFERENCE/VOICE_NEURAL_MICRO_AI_DIRECTION.md` (outside this repository). No runtime behavior changes are part of this documentation alignment.
+
 GitHub QA/Pages and actual-phone confirmation required before PASS.
 
 ## V1.6.1 — Mobile editor layout corrective

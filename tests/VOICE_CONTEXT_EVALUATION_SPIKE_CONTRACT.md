@@ -43,3 +43,12 @@ The same held-out corpus compares:
 
 ## PASS gate
 Static/local tests can establish deterministic corpus behavior only. Real phone evidence is mandatory before selecting a production Context Engine candidate. No production integration is authorized by this contract.
+
+## Repo Hygiene / shared engine (2026-10-28)
+
+Diagnostic `contextSpike/` imports the canonical `context/voiceContextEngine.ts`,
+`context/hashedCharIntentClassifier.ts`, and `context/phoneticEntityEvidence.ts` directly.
+The compatibility re-export files were removed; there must be no second algorithm
+or stale diagnostic-only clone. The single Voice regression suite is invoked from
+`verify-project.mjs` in both GitHub QA and Pages (no duplicate CI execution).
+The diagnostic remains **read-only**, independent of business mutation authorities.

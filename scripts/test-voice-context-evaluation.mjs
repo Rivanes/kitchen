@@ -39,6 +39,13 @@ assert.match(semantic, /await import\('@huggingface\/transformers'\)/)
 assert.doesNotMatch(vite, /distiluse-base-multilingual-cased-v2|multilingual-e5|MiniLM/)
 assert.match(corpus, /I lebałam rzeczy na liście\./)
 // Regression for GitHub QA #101 TS2339: not every initial evaluation turn has an `entity` property.
+// Repo hygiene: spike and production share the exact same engine implementation, without shims.
+assert.match(runner, /from '\.\.\/context\/voiceContextEngine\.ts'/)
+assert.match(runner, /from '\.\.\/context\/hashedCharIntentClassifier\.ts'/)
+assert.match(runner, /from '\.\.\/context\/phoneticEntityEvidence\.ts'/)
+assert.match(contextPage, /from '\.\.\/context\/voiceContextEngine\.ts'/)
+assert.doesNotMatch(`${runner}\n${contextPage}`, /contextEnginePrototype|from '\.\/hashedCharIntentClassifier\.ts'|from '\.\/phoneticEntityEvidence\.ts'/)
+assert.equal(packageJson.scripts['test:voice'], 'node scripts/test-voice-suite.mjs')
 assert.match(runner, /'entity' in sequence\.initial/)
 assert.doesNotMatch(runner, /sequence\.initial\.entity\?\./)
 for (const forbidden of [

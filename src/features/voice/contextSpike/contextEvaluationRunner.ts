@@ -6,9 +6,9 @@ import {
   VOICE_INTENT_TRAINING_EXAMPLES,
   type VoiceIntentEvaluationCategory,
 } from './contextEvaluationCorpus.ts'
-import { VoiceContextEnginePrototype, EMPTY_VOICE_CONVERSATION_STATE, type VoiceContextCandidateSet, type VoiceConversationState } from './contextEnginePrototype.ts'
-import { HashedCharIntentClassifier } from './hashedCharIntentClassifier.ts'
-import { resolveContextEntity } from './phoneticEntityEvidence.ts'
+import { KitchenVoiceContextEngine as VoiceContextEnginePrototype, EMPTY_VOICE_CONVERSATION_STATE, type VoiceContextCandidateSet, type VoiceConversationState } from '../context/voiceContextEngine.ts'
+import { HashedCharIntentClassifier } from '../context/hashedCharIntentClassifier.ts'
+import { resolveContextEntity } from '../context/phoneticEntityEvidence.ts'
 
 export type CandidateEvaluationRow = {
   id: string

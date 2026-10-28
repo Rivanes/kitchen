@@ -14,7 +14,8 @@
     "test:voice-readonly": "node scripts/test-voice-readonly-foundation.mjs",
     "test:voice-ui": "node scripts/test-voice-push-to-talk-ui.mjs",
     "test:voice-context-spike": "node scripts/test-voice-context-evaluation.mjs",
-    "test:voice-context-production": "node scripts/test-voice-context-production.mjs"
+    "test:voice-context-production": "node scripts/test-voice-context-production.mjs",
+    "test:voice": "node scripts/test-voice-suite.mjs"
   },
   "dependencies": {
     "@huggingface/transformers": "4.3.0",

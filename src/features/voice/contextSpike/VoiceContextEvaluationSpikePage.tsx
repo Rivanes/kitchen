@@ -5,11 +5,11 @@ import {
   VOICE_INTENT_HELD_OUT_CASES,
 } from './contextEvaluationCorpus.ts'
 import {
-  VoiceContextEnginePrototype,
+  KitchenVoiceContextEngine as VoiceContextEnginePrototype,
   EMPTY_VOICE_CONVERSATION_STATE,
   type VoiceContextCandidateSet,
   type VoiceContextInterpretation,
-} from './contextEnginePrototype.ts'
+} from '../context/voiceContextEngine.ts'
 import { runLocalContextEvaluation, type VoiceContextLocalEvaluationReport } from './contextEvaluationRunner.ts'
 import {
   DistilUseSemanticBenchmark,
