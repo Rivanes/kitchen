@@ -9,6 +9,7 @@ import { RecipesPage } from '../features/recipes/RecipesPage'
 import { KitchenIcon } from './KitchenIcon'
 
 const VoiceSttSpikePage = lazy(() => import('../features/voice/VoiceSttSpikePage').then((module) => ({ default: module.VoiceSttSpikePage })))
+const VoiceContextEvaluationSpikePage = lazy(() => import('../features/voice/contextSpike/VoiceContextEvaluationSpikePage').then((module) => ({ default: module.VoiceContextEvaluationSpikePage })))
 const VoiceAssistantSheet = lazy(() => import('../features/voice/VoiceAssistantSheet').then((module) => ({ default: module.VoiceAssistantSheet })))
 
 type AppShellProps = {
@@ -18,7 +19,9 @@ type AppShellProps = {
 type AppView = 'home' | 'inventory' | 'expiry' | 'shopping' | 'recipes'
 
 export function AppShell({ user }: AppShellProps) {
-  const voiceSpikeMode = new URLSearchParams(window.location.search).get('voice-spike') === '1'
+  const queryParams = new URLSearchParams(window.location.search)
+  const voiceSpikeMode = queryParams.get('voice-spike') === '1'
+  const voiceContextSpikeMode = queryParams.get('voice-context-spike') === '1'
   const [view, setView] = useState<AppView>('home')
   const [inventoryCreateRequest, setInventoryCreateRequest] = useState(0)
   const [inventoryOverviewRequest, setInventoryOverviewRequest] = useState(0)
@@ -67,6 +70,28 @@ export function AppShell({ user }: AppShellProps) {
   }
 
   const startSectionActive = view === 'home' || view === 'expiry'
+
+  if (voiceContextSpikeMode) {
+    return (
+      <main className="app-layout voice-spike-shell">
+        <header className="app-header">
+          <div className="app-brand">
+            <div className="brand-mark brand-mark-small" aria-hidden="true">K</div>
+            <div>
+              <p className="brand-kicker">Kitchen</p>
+              <p className="app-greeting">Diagnostyka Context Engine · bez integracji produkcyjnej</p>
+            </div>
+          </div>
+          <button className="icon-button" type="button" onClick={handleLogout} aria-label="Wyloguj z Kitchen" title="Wyloguj">
+            <KitchenIcon name="logout" />
+          </button>
+        </header>
+        <Suspense fallback={<div className="voice-spike-loading" aria-live="polite">Ładowanie diagnostyki Context Engine…</div>}>
+          <VoiceContextEvaluationSpikePage ownerId={user.id} onExit={() => { window.location.href = import.meta.env.BASE_URL }} />
+        </Suspense>
+      </main>
+    )
+  }
 
   if (voiceSpikeMode) {
     return (

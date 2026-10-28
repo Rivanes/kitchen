@@ -142,6 +142,15 @@ const requiredFiles = [
   'scripts/test-voice-push-to-talk-ui.mjs',
   'tests/VOICE_READ_ONLY_FOUNDATION_CONTRACT.md',
   'tests/VOICE_PUSH_TO_TALK_UI_CONTRACT.md',
+  'src/features/voice/contextSpike/contextEvaluationCorpus.ts',
+  'src/features/voice/contextSpike/hashedCharIntentClassifier.ts',
+  'src/features/voice/contextSpike/phoneticEntityEvidence.ts',
+  'src/features/voice/contextSpike/contextEnginePrototype.ts',
+  'src/features/voice/contextSpike/contextEvaluationRunner.ts',
+  'src/features/voice/contextSpike/semanticEmbeddingBenchmark.ts',
+  'src/features/voice/contextSpike/VoiceContextEvaluationSpikePage.tsx',
+  'scripts/test-voice-context-evaluation.mjs',
+  'tests/VOICE_CONTEXT_EVALUATION_SPIKE_CONTRACT.md',
   'vite.config.ts',
 ]
 

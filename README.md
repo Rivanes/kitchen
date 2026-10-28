@@ -2,7 +2,7 @@
 
 Private, single-user mobile-first PWA for household inventory, shopping and recipes.
 
-Closed milestones: **V1 Inventory — PASS/CLOSED**, **V2 Shopping — PASS/CLOSED**, **V3 Recipes + Resource Semantics — PASS/CLOSED through V3.8.4**, **V4 — PASS/CLOSED through V4.4**, and **V5 — PASS/CLOSED through V5.3.1**. The active milestone is **V6 Voice**. **V6.1A Local STT Spike** remains open while the final local STT runtime is selected from real-phone evidence. In parallel, **V6.1B-RO Read-Only Voice Foundation** is implemented as a production-shaped assistant that can inspect Kitchen state without mutating data; **V6.1B-RO.1** switches that normal Voice surface to push-to-talk and a stable mobile sheet/footer with shared bottom-navigation geometry.
+Closed milestones: **V1 Inventory — PASS/CLOSED**, **V2 Shopping — PASS/CLOSED**, **V3 Recipes + Resource Semantics — PASS/CLOSED through V3.8.4**, **V4 — PASS/CLOSED through V4.4**, and **V5 — PASS/CLOSED through V5.3.1**. The active milestone is **V6 Voice**. **V6.1A Local STT Spike** remains open while the final local STT runtime is selected from real-phone evidence. In parallel, **V6.1B-RO Read-Only Voice Foundation** is implemented as a production-shaped assistant that can inspect Kitchen state without mutating data; **V6.1B-RO.1** supplies push-to-talk and a stable mobile sheet/footer, while **V6.1B-RO.2A** is a hidden Context Engine evaluation spike for noisy Polish STT and spoken entity names. Normal Voice remains read-only and is not wired to the 2A prototype.
 
 Active Inventory capabilities:
 - owner-scoped stock read model
@@ -150,6 +150,28 @@ This is the first production-shaped Kitchen Voice surface, intentionally limited
 - raw audio remains memory-only and local model loading remains on-demand.
 
 V6.1B-RO is not a replacement for the V6.1A gate. `whisper-tiny` remains a temporary STT candidate until the phone corpus/model comparison is accepted.
+
+## V6.1B-RO.1 — Push-to-Talk + Stable Mobile Sheet [READY FOR GITHUB QA + PHONE SMOKE]
+
+- normal Voice uses hold-to-talk: hold captures, release stops + transcribes;
+- microphone stays in a persistent sheet footer outside the conversation scroller;
+- product Voice has its own 30 s safety ceiling while V6.1A diagnostic remains frozen at 10 s;
+- bottom navigation, Voice launcher and content clearance share one CSS geometry authority;
+- no mutation authority or database change.
+
+## V6.1B-RO.2A — Context Engine Evaluation Spike [READY FOR GITHUB QA + PHONE EVALUATION]
+
+This stage evaluates contextual recovery without changing the normal Voice understanding path yet.
+
+- hidden route `?voice-context-spike=1`;
+- compares the current literal parser against a tiny deterministic local intent classifier on a separate held-out corpus;
+- dynamic Product/Recipe/Location resolution combines lexical, phonetic/pronunciation-like and bounded conversation-context evidence;
+- raw STT transcript is never rewritten; a structured interpretation is produced separately;
+- live entity resolution must return a canonical Kitchen ID, clarification, or missing/no-match;
+- multi-turn context is explicit and ephemeral;
+- optional pinned semantic embedding model is an on-demand benchmark only and is not PWA-precached;
+- no Product/Inventory/Shopping/Recipe mutations, no direct Supabase access and no SQL change;
+- real-phone exported evidence is required before any V6.1B-RO.2B production integration decision.
 
 ## V1.6.1 — Mobile editor layout corrective
 
