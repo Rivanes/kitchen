@@ -31,7 +31,7 @@ jobs:
         with:
           node-version: 22
 
-      - name: Verify project contract
+      - name: Verify project contracts and Voice regressions
         run: node scripts/verify-project.mjs
 
       - name: Install dependencies
