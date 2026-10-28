@@ -22,10 +22,17 @@ export type VoiceReadOnlyIntent =
   | 'help'
   | 'unknown'
 
+export type VoiceResolvedReadTarget = {
+  intent: VoiceReadOnlyIntent
+  entity?: { kind: 'product' | 'recipe' | 'location'; id: string }
+  locationId?: string
+}
+
 export type VoiceAssistantChoice = {
   id: string
   label: string
   query: string
+  confirmedTarget?: VoiceResolvedReadTarget
 }
 
 export type VoiceAssistantAction = {
@@ -125,7 +132,15 @@ function getRecipeMatch(context: VoiceKitchenContext, recipe: RecipeReadItem): R
   })
 }
 
-function resolveRecipe(context: VoiceKitchenContext, query: string, intent: VoiceReadOnlyIntent): VoiceAssistantReply | RecipeReadItem {
+function resolveRecipe(context: VoiceKitchenContext, query: string, intent: VoiceReadOnlyIntent, recipeId?: string): VoiceAssistantReply | RecipeReadItem {
+  if (recipeId !== undefined) {
+    const canonical = context.recipes.recipes.find((entry) => entry.id === recipeId)
+    return canonical ?? {
+      intent, title: 'Przepis niedostępny',
+      text: 'Wybrany przepis nie istnieje już w aktualnych danych Kitchen.',
+      spokenText: 'Nie mogę znaleźć już tego przepisu. Odśwież dane Kitchen i spróbuj ponownie.',
+    }
+  }
   const resolution = resolveVoiceEntity({
     query,
     values: context.recipes.recipes,
@@ -165,7 +180,15 @@ function resolveRecipe(context: VoiceKitchenContext, query: string, intent: Voic
   }
 }
 
-function resolveProduct(context: VoiceKitchenContext, query: string, intent: VoiceReadOnlyIntent): VoiceAssistantReply | VoiceKitchenContext['recipes']['inventory']['products'][number] {
+function resolveProduct(context: VoiceKitchenContext, query: string, intent: VoiceReadOnlyIntent, productId?: string): VoiceAssistantReply | VoiceKitchenContext['recipes']['inventory']['products'][number] {
+  if (productId !== undefined) {
+    const canonical = context.recipes.inventory.products.find((entry) => entry.id === productId)
+    return canonical ?? {
+      intent, title: 'Produkt niedostępny',
+      text: 'Wybrany produkt nie istnieje już w aktualnych danych Kitchen.',
+      spokenText: 'Nie mogę znaleźć już tego produktu. Odśwież dane Kitchen i spróbuj ponownie.',
+    }
+  }
   const resolution = resolveVoiceEntity({
     query,
     values: context.recipes.inventory.products,
@@ -221,12 +244,13 @@ function resolveLocation(context: VoiceKitchenContext, query: string): Inventory
   return scored[0].location
 }
 
-function answerInventoryProduct(context: VoiceKitchenContext, query: string): VoiceAssistantReply {
-  const resolved = resolveProduct(context, query, 'inventory-product')
+function answerInventoryProduct(context: VoiceKitchenContext, query: string, productId?: string, locationId?: string): VoiceAssistantReply {
+  const resolved = resolveProduct(context, query, 'inventory-product', productId)
   if ('intent' in resolved) return resolved
   const product = resolved
 
   const resource = context.recipes.inventory.groups
+    .filter((group) => !locationId || group.location.id === locationId)
     .flatMap((group) => group.resources)
     .find((entry) => entry.product.id === product.id)
 
@@ -255,13 +279,17 @@ function answerInventoryProduct(context: VoiceKitchenContext, query: string): Vo
     }
   }
 
-  const lots = context.recipes.inventory.groups.flatMap((group) => group.lots).filter((lot) => lot.productId === product.id)
+  const lots = context.recipes.inventory.groups.flatMap((group) => group.lots).filter((lot) => (
+    lot.productId === product.id && (!locationId || lot.storageLocationId === locationId)
+  ))
   if (lots.length === 0) {
     return {
       intent: 'inventory-product',
       title: product.name,
-      text: 'Brak w aktualnych zapasach.',
-      spokenText: `Nie masz teraz produktu ${product.name} w zapasach.`,
+      text: locationId ? `Brak w lokalizacji ${locationLabel(context, locationId)}.` : 'Brak w aktualnych zapasach.',
+      spokenText: locationId
+        ? `Nie masz teraz produktu ${product.name} w lokalizacji ${locationLabel(context, locationId)}.`
+        : `Nie masz teraz produktu ${product.name} w zapasach.`,
     }
   }
 
@@ -299,8 +327,10 @@ function answerInventoryProduct(context: VoiceKitchenContext, query: string): Vo
   }
 }
 
-function answerInventoryLocation(context: VoiceKitchenContext, query: string): VoiceAssistantReply {
-  const location = resolveLocation(context, query)
+function answerInventoryLocation(context: VoiceKitchenContext, query: string, locationId?: string): VoiceAssistantReply {
+  const location = locationId !== undefined
+    ? context.recipes.inventory.locations.find((entry) => entry.id === locationId) ?? null
+    : resolveLocation(context, query)
   if (!location) {
     return {
       intent: 'inventory-location',
@@ -421,8 +451,8 @@ function answerShoppingList(context: VoiceKitchenContext): VoiceAssistantReply {
   }
 }
 
-function answerRecipeSummary(context: VoiceKitchenContext, query: string): VoiceAssistantReply {
-  const recipe = resolveRecipe(context, query, 'recipe-summary')
+function answerRecipeSummary(context: VoiceKitchenContext, query: string, recipeId?: string): VoiceAssistantReply {
+  const recipe = resolveRecipe(context, query, 'recipe-summary', recipeId)
   if ('intent' in recipe) return recipe
 
   const timeParts: string[] = []
@@ -448,8 +478,8 @@ function ingredientDescription(context: VoiceKitchenContext, ingredient: RecipeR
   return `${base} po ${formatQuantity(ingredient.packageContentValue)} ${contentUnit.symbol}`
 }
 
-function answerRecipeIngredients(context: VoiceKitchenContext, query: string): VoiceAssistantReply {
-  const recipe = resolveRecipe(context, query, 'recipe-ingredients')
+function answerRecipeIngredients(context: VoiceKitchenContext, query: string, recipeId?: string): VoiceAssistantReply {
+  const recipe = resolveRecipe(context, query, 'recipe-ingredients', recipeId)
   if ('intent' in recipe) return recipe
   const details = recipe.ingredients.map((ingredient) => ingredientDescription(context, ingredient))
   const preview = details.slice(0, 6)
@@ -465,8 +495,8 @@ function answerRecipeIngredients(context: VoiceKitchenContext, query: string): V
   }
 }
 
-function answerRecipeAvailability(context: VoiceKitchenContext, query: string): VoiceAssistantReply {
-  const recipe = resolveRecipe(context, query, 'recipe-availability')
+function answerRecipeAvailability(context: VoiceKitchenContext, query: string, recipeId?: string): VoiceAssistantReply {
+  const recipe = resolveRecipe(context, query, 'recipe-availability', recipeId)
   if ('intent' in recipe) return recipe
   const match = getRecipeMatch(context, recipe)
   const productById = new Map(context.recipes.inventory.products.map((product) => [product.id, product]))
@@ -505,8 +535,8 @@ function answerRecipeAvailability(context: VoiceKitchenContext, query: string): 
   }
 }
 
-function answerRecipeInstructions(context: VoiceKitchenContext, query: string): VoiceAssistantReply {
-  const recipe = resolveRecipe(context, query, 'recipe-instructions')
+function answerRecipeInstructions(context: VoiceKitchenContext, query: string, recipeId?: string): VoiceAssistantReply {
+  const recipe = resolveRecipe(context, query, 'recipe-instructions', recipeId)
   if ('intent' in recipe) return recipe
   const instructions = recipe.instructions?.trim()
   if (!instructions) {
@@ -531,8 +561,8 @@ function answerRecipeInstructions(context: VoiceKitchenContext, query: string): 
   }
 }
 
-function answerRecipeServings(context: VoiceKitchenContext, query: string): VoiceAssistantReply {
-  const recipe = resolveRecipe(context, query, 'recipe-servings')
+function answerRecipeServings(context: VoiceKitchenContext, query: string, recipeId?: string): VoiceAssistantReply {
+  const recipe = resolveRecipe(context, query, 'recipe-servings', recipeId)
   if ('intent' in recipe) return recipe
   return {
     intent: 'recipe-servings',
@@ -567,8 +597,8 @@ function answerCookableRecipes(context: VoiceKitchenContext): VoiceAssistantRepl
   }
 }
 
-function answerCookableWithProduct(context: VoiceKitchenContext, query: string): VoiceAssistantReply {
-  const resolved = resolveProduct(context, query, 'cookable-with-product')
+function answerCookableWithProduct(context: VoiceKitchenContext, query: string, productId?: string): VoiceAssistantReply {
+  const resolved = resolveProduct(context, query, 'cookable-with-product', productId)
   if ('intent' in resolved) return resolved
   const product = resolved
   const matchingRecipes = context.recipes.recipes.filter((recipe) => (
@@ -614,32 +644,45 @@ function answerHelp(): VoiceAssistantReply {
   }
 }
 
-export function answerReadOnlyKitchenQuery(context: VoiceKitchenContext, query: string): VoiceAssistantReply {
-  const intent = classifyReadOnlyVoiceIntent(query)
+// A resolved read target is an already selected *live* entity ID from the shared Context Engine.
+// Answer construction, quantities, Recipe matching and Shopping read data remain owned here.
+export function answerReadOnlyKitchenQuery(context: VoiceKitchenContext, query: string, resolved?: VoiceResolvedReadTarget): VoiceAssistantReply {
+  const intent = resolved?.intent ?? classifyReadOnlyVoiceIntent(query)
+  const recipeId = resolved?.entity?.kind === 'recipe' ? resolved.entity.id : undefined
+  const productId = resolved?.entity?.kind === 'product' ? resolved.entity.id : undefined
+  const locationId = resolved?.entity?.kind === 'location' ? resolved.entity.id : undefined
+  // Fail closed if a contextual target has an incompatible entity type.
+  if (resolved?.entity && ((
+    intent.startsWith('recipe-') && !recipeId
+  ) || ((intent === 'inventory-product' || intent === 'cookable-with-product') && !productId)
+    || (intent === 'inventory-location' && !locationId))) {
+    return { intent: 'unknown', title: 'Niepewne dopasowanie', text: 'Nie udało się potwierdzić rodzaju wskazanego elementu.',
+      spokenText: 'Nie jestem pewien, o który element pytasz. Spróbuj ponownie.' }
+  }
 
   switch (intent) {
     case 'inventory-product':
-      return answerInventoryProduct(context, query)
+      return answerInventoryProduct(context, query, productId, resolved?.locationId)
     case 'inventory-location':
-      return answerInventoryLocation(context, query)
+      return answerInventoryLocation(context, query, locationId)
     case 'inventory-all':
       return answerInventoryAll(context)
     case 'shopping-list':
       return answerShoppingList(context)
     case 'recipe-summary':
-      return answerRecipeSummary(context, query)
+      return answerRecipeSummary(context, query, recipeId)
     case 'recipe-ingredients':
-      return answerRecipeIngredients(context, query)
+      return answerRecipeIngredients(context, query, recipeId)
     case 'recipe-availability':
-      return answerRecipeAvailability(context, query)
+      return answerRecipeAvailability(context, query, recipeId)
     case 'recipe-instructions':
-      return answerRecipeInstructions(context, query)
+      return answerRecipeInstructions(context, query, recipeId)
     case 'recipe-servings':
-      return answerRecipeServings(context, query)
+      return answerRecipeServings(context, query, recipeId)
     case 'cookable-recipes':
       return answerCookableRecipes(context)
     case 'cookable-with-product':
-      return answerCookableWithProduct(context, query)
+      return answerCookableWithProduct(context, query, productId)
     case 'help':
       return answerHelp()
     default:

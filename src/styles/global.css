@@ -4028,6 +4028,16 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
   margin: 8px 0 12px;
 }
 .voice-conversation-turn { display: grid; gap: 7px; }
+.voice-context-interpretation {
+  justify-self: end;
+  max-width: 90%;
+  margin: -1px 3px 2px;
+  color: var(--color-muted);
+  font-size: 10.5px;
+  line-height: 1.4;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
 .voice-user-bubble {
   justify-self: end;
   max-width: 88%;

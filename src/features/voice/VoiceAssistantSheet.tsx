@@ -19,7 +19,9 @@ import {
   VOICE_PRODUCT_MAX_DURATION_MS,
   VOICE_PRODUCT_MIN_PEAK,
 } from './voiceProductionCapturePolicy'
-import { answerReadOnlyKitchenQuery, type VoiceAssistantReply } from './voiceReadOnlyAssistant'
+import { type VoiceAssistantReply, type VoiceResolvedReadTarget } from './voiceReadOnlyAssistant'
+import { createKitchenVoiceContextEngine, interpretAndAnswerReadOnlyKitchen, confirmReadOnlyContextChoice } from './voiceContextReadOnlyBridge'
+import { EMPTY_VOICE_CONVERSATION_STATE, type VoiceConversationState } from './context/voiceContextEngine'
 import { foldPolishText } from './voiceTextMatch'
 import { createVoiceSpeechToTextAdapter, VOICE_READONLY_STT_BACKEND } from './voiceSttProvider'
 
@@ -39,6 +41,7 @@ type ConversationTurn = {
   id: string
   query: string
   reply: VoiceAssistantReply
+  interpretedSummary: string | null
 }
 
 function describeMicrophoneError(error: unknown) {
@@ -74,6 +77,8 @@ export function VoiceAssistantSheet({ ownerId, onClose, onOpenRecipe }: VoiceAss
   const nextHoldTokenRef = useRef(0)
   const stopRecordingAndAskRef = useRef<(quietIfShort?: boolean) => Promise<void>>(async () => undefined)
   const conversationScrollRef = useRef<HTMLDivElement | null>(null)
+  const [contextEngine] = useState(createKitchenVoiceContextEngine)
+  const conversationStateRef = useRef<VoiceConversationState>({ ...EMPTY_VOICE_CONVERSATION_STATE })
 
   const [context, setContext] = useState<VoiceKitchenContext | null>(null)
   const [status, setStatus] = useState<AssistantStatus>('loading-context')
@@ -126,6 +131,7 @@ export function VoiceAssistantSheet({ ownerId, onClose, onOpenRecipe }: VoiceAss
       captureRef.current = null
       speechRef.current = null
       modelReadyRef.current = false
+      conversationStateRef.current = { ...EMPTY_VOICE_CONVERSATION_STATE }
     }
     // One assistant sheet owns one capture/context/model lifecycle.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -149,6 +155,7 @@ export function VoiceAssistantSheet({ ownerId, onClose, onOpenRecipe }: VoiceAss
       const next = await loadVoiceKitchenContext(ownerId)
       if (!mountedRef.current) return
       setContext(next)
+      conversationStateRef.current = { ...EMPTY_VOICE_CONVERSATION_STATE }
       setStatus('idle')
     } catch (nextError) {
       if (!mountedRef.current) return
@@ -233,7 +240,7 @@ export function VoiceAssistantSheet({ ownerId, onClose, onOpenRecipe }: VoiceAss
     }
   }
 
-  async function ask(rawQuery: string) {
+  async function ask(rawQuery: string, origin: 'typed' | 'speech' = 'typed') {
     const clean = rawQuery.trim()
     if (!clean || !context) return
     setError(null)
@@ -254,15 +261,39 @@ export function VoiceAssistantSheet({ ownerId, onClose, onOpenRecipe }: VoiceAss
       return
     }
 
-    const reply = answerReadOnlyKitchenQuery(context, clean)
+    const result = interpretAndAnswerReadOnlyKitchen({
+      context, rawText: clean, origin, conversation: conversationStateRef.current, engine: contextEngine,
+    })
+    conversationStateRef.current = result.nextConversation
+    const reply = result.reply
     const turn: ConversationTurn = {
       id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
       query: clean,
       reply,
+      interpretedSummary: result.interpretation.decision === 'answer' && reply.intent !== 'unknown'
+        ? result.interpretation.interpretedSummary : null,
     }
     setTurns((current) => [...current, turn].slice(-4))
     setLastReply(reply)
     setQuery('')
+    setInteractionHint('Przytrzymaj, aby zadać kolejne pytanie')
+    await speakReply(reply)
+  }
+
+  async function chooseCanonicalRead(queryText: string, target: VoiceResolvedReadTarget) {
+    if (!context) return
+    const outcome = confirmReadOnlyContextChoice({
+      context, target, query: queryText, conversation: conversationStateRef.current,
+    })
+    conversationStateRef.current = outcome.nextConversation
+    const reply = outcome.reply
+    setTurns((current) => [...current, {
+      id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+      query: queryText,
+      reply,
+      interpretedSummary: reply.intent !== 'unknown' ? `Potwierdzono: ${queryText}` : null,
+    }].slice(-4))
+    setLastReply(reply)
     setInteractionHint('Przytrzymaj, aby zadać kolejne pytanie')
     await speakReply(reply)
   }
@@ -347,7 +378,7 @@ export function VoiceAssistantSheet({ ownerId, onClose, onOpenRecipe }: VoiceAss
       if (!transcript) throw new Error('Nie udało się rozpoznać żadnego tekstu.')
       setLastTranscript(transcript)
       setStatus('idle')
-      await ask(transcript)
+      await ask(transcript, 'speech')
     } catch (nextError) {
       setError(describeMicrophoneError(nextError))
       setStatus('idle')
@@ -518,6 +549,9 @@ export function VoiceAssistantSheet({ ownerId, onClose, onOpenRecipe }: VoiceAss
               {turns.map((turn) => (
                 <div className="voice-conversation-turn" key={turn.id}>
                   <div className="voice-user-bubble">{turn.query}</div>
+                  {turn.interpretedSummary && (
+                    <p className="voice-context-interpretation">Zrozumiałem: {turn.interpretedSummary}</p>
+                  )}
                   <div className="voice-kitchen-bubble">
                     <strong>{turn.reply.title}</strong>
                     <p>{turn.reply.text}</p>
@@ -529,7 +563,9 @@ export function VoiceAssistantSheet({ ownerId, onClose, onOpenRecipe }: VoiceAss
                     {turn.reply.choices && turn.reply.choices.length > 0 && (
                       <div className="voice-choice-row">
                         {turn.reply.choices.map((choice) => (
-                          <button key={choice.id} type="button" onClick={() => void ask(choice.query)}>{choice.label}</button>
+                          <button key={choice.id} type="button" onClick={() => choice.confirmedTarget
+                            ? void chooseCanonicalRead(choice.query, choice.confirmedTarget)
+                            : void ask(choice.query)}>{choice.label}</button>
                         ))}
                       </div>
                     )}

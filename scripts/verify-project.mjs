@@ -1761,7 +1761,7 @@ const voiceReadOnlyContract = await readFile('tests/VOICE_READ_ONLY_FOUNDATION_C
 for (const marker of ['voice-launch-button', 'VoiceAssistantSheet', 'onOpenRecipe={openRecipeFromVoice}']) {
   if (!shell.includes(marker)) throw new Error(`V6.1B-RO AppShell marker missing: ${marker}`)
 }
-for (const marker of ['Ta wersja niczego nie zmienia', 'loadVoiceKitchenContext', 'answerReadOnlyKitchenQuery', 'Możesz też wpisać pytanie']) {
+for (const marker of ['Ta wersja niczego nie zmienia', 'loadVoiceKitchenContext', 'interpretAndAnswerReadOnlyKitchen', 'Możesz też wpisać pytanie']) {
   if (!voiceAssistantSheet.includes(marker)) throw new Error(`V6.1B-RO Voice sheet marker missing: ${marker}`)
 }
 for (const marker of ['loadRecipesReadModel', 'loadShoppingReadModel']) {
@@ -1806,5 +1806,20 @@ for (const marker of ['stable-sheet authority', 'Push-to-talk interaction', 'Cap
   if (!new RegExp(marker, 'i').test(voicePushToTalkContract)) throw new Error(`V6.1B-RO.1 contract marker missing: ${marker}`)
 }
 await execFileAsync(process.execPath, ['scripts/test-voice-push-to-talk-ui.mjs'])
+
+// V6.1B-RO.2B — Context Engine production read-only integration.
+for (const relative of [
+  'src/features/voice/context/voiceContextEngine.ts',
+  'src/features/voice/context/hashedCharIntentClassifier.ts',
+  'src/features/voice/context/phoneticEntityEvidence.ts',
+  'src/features/voice/context/voiceIntentTraining.ts',
+  'src/features/voice/voiceContextReadOnlyBridge.ts',
+  'scripts/test-voice-context-production.mjs',
+  'tests/VOICE_CONTEXT_PRODUCTION_CONTRACT.md',
+]) {
+  await access(relative)
+}
+await execFileAsync(process.execPath, ['scripts/test-voice-context-evaluation.mjs'])
+await execFileAsync(process.execPath, ['scripts/test-voice-context-production.mjs'])
 
 console.log('Kitchen project contract verification: PASS')

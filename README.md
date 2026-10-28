@@ -2,7 +2,7 @@
 
 Private, single-user mobile-first PWA for household inventory, shopping and recipes.
 
-Closed milestones: **V1 Inventory — PASS/CLOSED**, **V2 Shopping — PASS/CLOSED**, **V3 Recipes + Resource Semantics — PASS/CLOSED through V3.8.4**, **V4 — PASS/CLOSED through V4.4**, and **V5 — PASS/CLOSED through V5.3.1**. The active milestone is **V6 Voice**. **V6.1A Local STT Spike** remains open while the final local STT runtime is selected from real-phone evidence. In parallel, **V6.1B-RO Read-Only Voice Foundation** is implemented as a production-shaped assistant that can inspect Kitchen state without mutating data; **V6.1B-RO.1** supplies push-to-talk and a stable mobile sheet/footer, while **V6.1B-RO.2A** is a hidden Context Engine evaluation spike for noisy Polish STT and spoken entity names. Normal Voice remains read-only and is not wired to the 2A prototype.
+Closed milestones: **V1 Inventory — PASS/CLOSED**, **V2 Shopping — PASS/CLOSED**, **V3 Recipes + Resource Semantics — PASS/CLOSED through V3.8.4**, **V4 — PASS/CLOSED through V4.4**, and **V5 — PASS/CLOSED through V5.3.1**. The active milestone is **V6 Voice**. **V6.1A Local STT Spike** remains open while the final local STT runtime is selected from real-phone evidence. In parallel, **V6.1B-RO Read-Only Voice Foundation** is implemented as a production-shaped assistant that can inspect Kitchen state without mutating data; **V6.1B-RO.1** supplies push-to-talk and a stable mobile sheet/footer, while **V6.1B-RO.2A** is a hidden Context Engine evaluation spike for noisy Polish STT and spoken entity names. Normal Voice remains read-only; RO.2B now integrates the shared tiny Context Engine while the heavy semantic benchmark remains diagnostic only. RO.2B GitHub/phone QA is pending.
 
 Active Inventory capabilities:
 - owner-scoped stock read model
@@ -172,6 +172,15 @@ This stage evaluates contextual recovery without changing the normal Voice under
 - optional pinned semantic embedding model is an on-demand benchmark only and is not PWA-precached;
 - no Product/Inventory/Shopping/Recipe mutations, no direct Supabase access and no SQL change;
 - real-phone exported evidence is required before any V6.1B-RO.2B production integration decision.
+
+
+## V6.1B-RO.2B — Shared Context Engine in normal read-only Kitchen Voice [READY FOR QA + PHONE]
+
+Normal Kitchen Voice now uses the SAME tiny context engine as 2A diagnostics, separated into `src/features/voice/context/`.
+Intent and spoken Product/Recipe/Location names resolve to canonical live IDs, with confidence thresholds and explicit clarification; answers still come only from existing Kitchen read-model authorities.
+Raw STT is preserved; `Zrozumiałem` is shown separately. Multi-turn context is ephemeral and commits only on accepted read answers.
+Unknown/write-shaped queries are refused. No business writes, direct Voice Supabase queries, heavy semantic model in normal Voice, or TTS/STT changes.
+GitHub QA/Pages and actual-phone confirmation required before PASS.
 
 ## V1.6.1 — Mobile editor layout corrective
 

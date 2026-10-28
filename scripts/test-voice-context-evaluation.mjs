@@ -5,9 +5,9 @@ import { readFile } from 'node:fs/promises'
 const appShell = await readFile('src/components/AppShell.tsx', 'utf8')
 const normalVoice = await readFile('src/features/voice/VoiceAssistantSheet.tsx', 'utf8')
 const contextPage = await readFile('src/features/voice/contextSpike/VoiceContextEvaluationSpikePage.tsx', 'utf8')
-const classifier = await readFile('src/features/voice/contextSpike/hashedCharIntentClassifier.ts', 'utf8')
-const phonetics = await readFile('src/features/voice/contextSpike/phoneticEntityEvidence.ts', 'utf8')
-const engine = await readFile('src/features/voice/contextSpike/contextEnginePrototype.ts', 'utf8')
+const classifier = await readFile('src/features/voice/context/hashedCharIntentClassifier.ts', 'utf8')
+const phonetics = await readFile('src/features/voice/context/phoneticEntityEvidence.ts', 'utf8')
+const engine = await readFile('src/features/voice/context/voiceContextEngine.ts', 'utf8')
 const semantic = await readFile('src/features/voice/contextSpike/semanticEmbeddingBenchmark.ts', 'utf8')
 const corpus = await readFile('src/features/voice/contextSpike/contextEvaluationCorpus.ts', 'utf8')
 const runner = await readFile('src/features/voice/contextSpike/contextEvaluationRunner.ts', 'utf8')
@@ -19,7 +19,8 @@ assert.equal(packageJson.scripts['test:voice-context-spike'], 'node scripts/test
 assert.match(appShell, /voice-context-spike/)
 assert.match(appShell, /VoiceContextEvaluationSpikePage/)
 assert.match(appShell, /ownerId={user\.id}/)
-assert.doesNotMatch(normalVoice, /contextSpike|VoiceContextEnginePrototype|DistilUseSemanticBenchmark/)
+assert.match(normalVoice, /interpretAndAnswerReadOnlyKitchen/)
+assert.doesNotMatch(normalVoice, /DistilUseSemanticBenchmark|semanticEmbeddingBenchmark/)
 assert.match(contextPage, /Ten ekran niczego nie zapisuje/)
 assert.match(contextPage, /Uruchom benchmark ~135 MB/)
 assert.match(contextPage, /Kopiuj JSON/)
@@ -28,7 +29,7 @@ assert.match(classifier, /NGRAM_MIN = 2/)
 assert.match(phonetics, /phoneticPhraseSimilarity/)
 assert.match(phonetics, /resolveContextEntity/)
 assert.doesNotMatch(phonetics, /lasagne\s*[:=]|lazania\s*[:=]|lasania\s*[:=]/i)
-assert.match(engine, /VoiceContextEnginePrototype/)
+assert.match(engine, /KitchenVoiceContextEngine/)
 assert.match(engine, /activeRecipeId/)
 assert.match(engine, /activeProductId/)
 assert.match(semantic, /Xenova\/distiluse-base-multilingual-cased-v2/)
@@ -58,7 +59,7 @@ for (const marker of ['diagnostic only', 'no production integration', 'held-out'
 const executable = String.raw`
 import assert from 'node:assert/strict'
 import { runLocalContextEvaluation } from './src/features/voice/contextSpike/contextEvaluationRunner.ts'
-import { phoneticPhraseSimilarity } from './src/features/voice/contextSpike/phoneticEntityEvidence.ts'
+import { phoneticPhraseSimilarity } from './src/features/voice/context/phoneticEntityEvidence.ts'
 
 const report = runLocalContextEvaluation()
 assert.ok(report.micro.accuracy > report.literal.accuracy + 0.25, 'Micro classifier must materially beat literal baseline.')
