@@ -1,0 +1,52 @@
+name: N0 - Generate locked dependency snapshot
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  generate-lock:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup exact Node for N0 snapshot
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.16.0
+
+      - name: Verify unchanged Kitchen contracts
+        run: node scripts/verify-project.mjs
+
+      - name: Resolve existing dependency ranges once
+        run: npm install --no-audit --no-fund
+
+      - name: Freeze actual installed versions
+        run: node scripts/n0-freeze-dependencies.mjs
+
+      - name: Regenerate npm lock for exact root versions
+        run: npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+
+      - name: Verify clean lock install
+        run: npm ci --no-audit --no-fund
+
+      - name: Verify resolved lock, installed versions and provenance
+        run: node scripts/n0-verify-lock.mjs --write-metadata
+
+      - name: Run all Kitchen QA, including Voice regressions
+        run: npm run check
+
+      - name: Export exact snapshot (no automatic commit)
+        uses: actions/upload-artifact@v4
+        with:
+          name: kitchen-n0-package-lock-candidate
+          path: |
+            package.json
+            package-lock.json
+            n0-snapshot-metadata.json
+          if-no-files-found: error
+          retention-days: 7
