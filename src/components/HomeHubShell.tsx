@@ -22,7 +22,7 @@ export function HomeHubShell({ user }: { user: User }) {
   }
 
   if (module === 'food') return <AppShell user={user} onExit={returnHome} />
-  if (module === 'cleaning') return <CleaningShell onExit={returnHome} />
+  if (module === 'cleaning') return <CleaningShell ownerId={user.id} onExit={returnHome} />
 
   return (
     <main className="app-layout home-hub-layout">

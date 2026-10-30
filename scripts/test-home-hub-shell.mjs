@@ -18,7 +18,7 @@ assert.match(gate, /status === 'allowed'[\s\S]*<HomeHubShell user=\{user\}/)
 assert.doesNotMatch(hub, /from ['"]\.{1,2}\/features\/inventory\/|from ['"]\.{1,2}\/features\/shopping\/|from ['"]\.{1,2}\/features\/recipes\//)
 assert.match(hub, /useState<HomeModule>\('hub'\)/)
 assert.match(hub, /module === 'food'[\s\S]*<AppShell user=\{user\} onExit=\{returnHome\}/)
-assert.match(hub, /module === 'cleaning'[\s\S]*<CleaningShell onExit=\{returnHome\}/)
+assert.match(hub, /module === 'cleaning'[\s\S]*<CleaningShell ownerId=\{user\.id\} onExit=\{returnHome\}/)
 for (const marker of ['Jedzenie', 'Porządki', 'home-hub-food', 'home-hub-cleaning', "setModule('hub')"]) {
   assert.ok(hub.includes(marker), `Missing Hub marker: ${marker}`)
 }
@@ -34,7 +34,7 @@ for (const label of ['Start', 'Zapasy', 'Zakupy', 'Przepisy']) {
 }
 assert.match(food, /className="module-home-button" onClick=\{onExit\}/)
 
-// Cleaning is an honest navigation shell only; no fake tasks and no DB activity in H1.
+// Cleaning H1 shell remains intact; H2 room persistence is encapsulated in a separate data module.
 assert.match(cleaning, /useState<CleaningView>\('start'\)/)
 for (const view of ['start', 'rooms', 'schedule']) {
   assert.match(cleaning, new RegExp(`view === '${view}'`))

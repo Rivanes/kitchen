@@ -4478,3 +4478,48 @@ html:has(.cleaning-shell), body:has(.cleaning-shell) { background: #f5f8fa; }
 .cleaning-header .app-brand > div:last-child { min-width: 0; }
 .cleaning-header .app-greeting { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .cleaning-header .module-header-actions { flex-shrink: 0; }
+
+/* H2 — Cleaning Rooms CRUD. Tokens remain scoped to .cleaning-shell. */
+.cleaning-start-panel { display: flex; flex-wrap: wrap; align-items: center; gap: 13px; padding: 18px; border: 1px solid var(--color-border); background: var(--color-surface); border-radius: 22px; }
+.cleaning-start-panel > div { flex: 1 1 180px; min-width: 0; }
+.cleaning-start-panel strong { display: block; font-size: 15px; letter-spacing: -.02em; }
+.cleaning-start-panel p { margin: 4px 0 0; color: var(--color-muted); font-size: 13px; line-height: 1.5; }
+.cleaning-start-panel .cleaning-action { margin: 0; }
+.cleaning-add-room { margin: 0; width: fit-content; }
+.cleaning-room-list { display: grid; gap: 10px; }
+.cleaning-room-card { display: flex; align-items: center; gap: 13px; min-height: 85px; padding: 14px 17px; width: 100%; border-radius: 21px; border: 1px solid var(--color-border); background: #fff; color: var(--color-text); text-align: left; }
+.cleaning-room-card:active { background: #f0f6fa; }
+.cleaning-room-card > svg:last-child { margin-left: auto; flex: 0 0 auto; color: #8095a2; }
+.cleaning-room-card-icon { width: 51px; height: 51px; flex: 0 0 auto; display: grid; place-items: center; border-radius: 16px; background: var(--color-accent-soft); color: var(--color-accent-strong); }
+.cleaning-room-card-copy { min-width: 0; display: grid; gap: 4px; }
+.cleaning-room-card-copy strong { font-size: 16px; overflow-wrap: anywhere; }
+.cleaning-room-card-copy > span { font-size: 12px; color: var(--color-muted); }
+.cleaning-room-card.is-archived { opacity: .76; }
+.cleaning-room-editor { display: grid; gap: 12px; padding: 20px; background: #fff; border: 1px solid var(--color-border); border-radius: 22px; }
+.cleaning-room-editor h2 { margin: 0 0 2px; font-size: 19px; }
+.cleaning-room-editor label { font-size: 13px; font-weight: 720; }
+.cleaning-room-editor input { width: 100%; min-width: 0; min-height: 50px; padding: 12px 14px; border: 1px solid #c8d7e0; border-radius: 13px; background: #fff; color: var(--color-text); font: inherit; font-size: 16px; }
+.cleaning-room-editor input:focus { outline: 2px solid #a9c8dd; outline-offset: 1px; }
+.cleaning-editor-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 10px; }
+.cleaning-editor-actions .cleaning-action { margin: 0; }
+.cleaning-secondary-button { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 46px; padding: 0 15px; border: 1px solid var(--color-border); border-radius: 13px; background: #fff; color: var(--color-text); font-size: 13px; font-weight: 700; }
+.cleaning-secondary-button:active { background: #edf4f8; }
+.cleaning-status-message { padding: 20px; border: 1px solid var(--color-border); border-radius: 17px; background: #fff; color: var(--color-muted); font-size: 13px; }
+.cleaning-status-error, .cleaning-inline-error { border: 1px solid #e8c3c0; border-radius: 14px; background: #fff6f5; color: #873933; }
+.cleaning-status-error p { margin: 0 0 12px; }
+.cleaning-inline-error { padding: 12px; font-size: 13px; }
+.cleaning-link-button { min-height: 44px; padding: 0 13px; border-radius: 12px; border: 1px solid #dbbdba; background: #fff; color: #873933; font-weight: 700; }
+.cleaning-back-button { display: flex; align-items: center; gap: 4px; width: fit-content; min-height: 44px; border: 0; background: transparent; color: var(--color-accent-strong); font-size: 13px; font-weight: 720; }
+.cleaning-room-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 9px; }
+.cleaning-subtle-danger { min-height: 46px; padding: 0 14px; border: 1px solid #e8c3c0; border-radius: 13px; background: #fff; color: #963a35; font-size: 13px; font-weight: 700; }
+.cleaning-archive-confirm { display: grid; gap: 11px; padding: 17px; border: 1px solid #e8c3c0; border-radius: 17px; background: #fffaf9; }
+.cleaning-archive-confirm p { margin: 0; font-size: 13px; color: #715856; line-height: 1.5; }
+.cleaning-room-tasks-placeholder { min-height: 220px; }
+.cleaning-archived-section { display: grid; gap: 12px; margin-top: 8px; }
+.cleaning-archived-toggle { display: inline-flex; align-items: center; gap: 7px; min-height: 46px; width: fit-content; padding: 0 10px; border: 0; background: transparent; color: var(--color-accent-strong); font-size: 13px; font-weight: 750; }
+.cleaning-shell button:disabled { opacity: .55; cursor: not-allowed; }
+@media (max-width: 359px) {
+  .cleaning-room-card { padding: 12px; gap: 9px; }
+  .cleaning-room-card-icon { width: 44px; height: 44px; }
+  .cleaning-editor-actions .cleaning-action, .cleaning-editor-actions .cleaning-secondary-button { flex: 1 1 auto; }
+}
