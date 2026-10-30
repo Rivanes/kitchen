@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { User } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase/client'
-import { AppShell } from './AppShell'
+import { HomeHubShell } from './HomeHubShell'
 import { KitchenIcon } from './KitchenIcon'
 
 type OwnerGateProps = {
@@ -47,7 +47,7 @@ export function OwnerGate({ user }: OwnerGateProps) {
   }
 
   if (status === 'allowed') {
-    return <AppShell user={user} />
+    return <HomeHubShell user={user} />
   }
 
   if (status === 'checking') {

@@ -1,5 +1,8 @@
 type KitchenIconName =
   | 'home'
+  | 'food'
+  | 'cleaning'
+  | 'room'
   | 'inventory'
   | 'shopping'
   | 'shoppingAdd'
@@ -52,6 +55,12 @@ export function KitchenIcon({ name, size = 22, strokeWidth = 1.9 }: KitchenIconP
   }
 
   switch (name) {
+    case 'food':
+      return <svg {...common}><path d="M4 3v7a3 3 0 0 0 6 0V3" /><path d="M7 3v18" /><path d="M17 21V3c2.8 2.5 3.5 5.1 3.5 8.5V14H17" /></svg>
+    case 'cleaning':
+      return <svg {...common}><path d="m14 4 5.5 5.5" /><path d="m12.5 5.5 6 6" /><path d="M14 7.5 6 15.5" /><path d="m4 15 5 5 8.5-8.5-5-5z" /><path d="m5.5 16.5 3 3" /></svg>
+    case 'room':
+      return <svg {...common}><rect x="4" y="3" width="16" height="18" rx="2.5" /><path d="M9 21V9h7v12" /><path d="M13.5 15h.01" /></svg>
     case 'home':
       return <svg {...common}><path d="M3.5 10.5 12 3.8l8.5 6.7" /><path d="M5.5 9.2V20h13V9.2" /><path d="M9.5 20v-6h5v6" /></svg>
     case 'inventory':

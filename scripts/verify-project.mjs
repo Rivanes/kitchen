@@ -11,6 +11,10 @@ const requiredFiles = [
   '.github/workflows/deploy.yml',
   'src/App.tsx',
   'src/components/AppShell.tsx',
+  'src/components/HomeHubShell.tsx',
+  'src/features/cleaning/CleaningShell.tsx',
+  'tests/HOME_HUB_H1_CONTRACT.md',
+  'scripts/test-home-hub-shell.mjs',
   'src/components/LoginPage.tsx',
   'src/components/OwnerGate.tsx',
   'src/components/KitchenIcon.tsx',
@@ -1820,5 +1824,8 @@ await execFileAsync(process.execPath, ['scripts/test-voice-suite.mjs'])
 
 // V6 freeze remains explicit even though historical Voice regressions are retained.
 await execFileAsync(process.execPath, ['scripts/test-voice-frozen.mjs'])
+
+// H1 modular Home Hub and scoped Cleaning shell contracts.
+await execFileAsync(process.execPath, ['scripts/test-home-hub-shell.mjs'])
 
 console.log('Kitchen project contract verification: PASS')

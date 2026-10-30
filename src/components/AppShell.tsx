@@ -15,11 +15,12 @@ const VoiceAssistantSheet = lazy(() => import('../features/voice/VoiceAssistantS
 
 type AppShellProps = {
   user: User
+  onExit: () => void
 }
 
 type AppView = 'home' | 'inventory' | 'expiry' | 'shopping' | 'recipes'
 
-export function AppShell({ user }: AppShellProps) {
+export function AppShell({ user, onExit }: AppShellProps) {
   const queryParams = new URLSearchParams(window.location.search)
   const voiceSpikeMode = KITCHEN_VOICE_ENABLED && queryParams.get('voice-spike') === '1'
   const voiceContextSpikeMode = KITCHEN_VOICE_ENABLED && queryParams.get('voice-context-spike') === '1'
@@ -126,9 +127,14 @@ export function AppShell({ user }: AppShellProps) {
             <p className="app-greeting">Dzień dobry</p>
           </div>
         </div>
-        <button className="icon-button" type="button" onClick={handleLogout} aria-label="Wyloguj z Kitchen" title="Wyloguj">
-          <KitchenIcon name="logout" />
-        </button>
+        <div className="module-header-actions">
+          <button type="button" className="module-home-button" onClick={onExit} aria-label="Wróć do strony głównej Dom">
+            <KitchenIcon name="home" size={19} /><span>Dom</span>
+          </button>
+          <button className="icon-button" type="button" onClick={handleLogout} aria-label="Wyloguj z Kitchen" title="Wyloguj">
+            <KitchenIcon name="logout" />
+          </button>
+        </div>
       </header>
 
       {view === 'home' && (
