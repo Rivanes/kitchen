@@ -2,7 +2,7 @@
 
 Private, single-user mobile-first PWA for household inventory, shopping and recipes.
 
-Closed milestones: **V1 Inventory — PASS/CLOSED**, **V2 Shopping — PASS/CLOSED**, **V3 Recipes + Resource Semantics — PASS/CLOSED through V3.8.4**, **V4 — PASS/CLOSED through V4.4**, and **V5 — PASS/CLOSED through V5.3.1**. The active milestone is **V6 Voice**. **V6.1A Local STT** is technically demonstrated on iPhone but its final model is not locked. **V6.1B-RO.1** provides push-to-talk, **RO.2A** remains a diagnostic, and **RO.2B** runs a small deterministic Context Engine in normal read-only Voice (not a trained neural model). Real-phone feedback exposed a specific query-scope error for Shopping product presence, so RO.2B is NOT PASS/CLOSED. On 2026-10-28 the project documented a new **research direction**: evaluate/train an own small neural Kitchen Micro AI, compare it fairly against current and pretrained alternatives, then plan stages. FIRST integration must remain READ-ONLY; Kitchen business writes come only in separately authorized later stages. This is documentation only, not implemented neural AI.
+Closed milestones: **V1 Inventory — PASS/CLOSED**, **V2 Shopping — PASS/CLOSED**, **V3 Recipes + Resource Semantics — PASS/CLOSED through V3.8.4**, **V4 — PASS/CLOSED through V4.4**, and **V5 — PASS/CLOSED through V5.3.1**. **V6 Voice is now intentionally FROZEN (2026-10-30).** Production Voice UI and both diagnostic query routes are disabled behind `KITCHEN_VOICE_ENABLED = false` without deleting their code. Regular Home, Inventory, Shopping and Recipes remain active. The following paragraph documents historical V6 research, not an active deployment. V6 was previously the active milestone. **V6.1A Local STT** is technically demonstrated on iPhone but its final model is not locked. **V6.1B-RO.1** provides push-to-talk, **RO.2A** remains a diagnostic, and **RO.2B** runs a small deterministic Context Engine in normal read-only Voice (not a trained neural model). Real-phone feedback exposed a specific query-scope error for Shopping product presence, so RO.2B is NOT PASS/CLOSED. On 2026-10-28 the project documented a new **research direction**: evaluate/train an own small neural Kitchen Micro AI, compare it fairly against current and pretrained alternatives, then plan stages. FIRST integration must remain READ-ONLY; Kitchen business writes come only in separately authorized later stages. This is documentation only, not implemented neural AI.
 
 Active Inventory capabilities:
 - owner-scoped stock read model
@@ -21,6 +21,22 @@ Security remains Supabase Auth + owner authority + RLS. Public sign-up and anony
 
 No SQL/schema change is required for V1.6 because `inventory_items.expiry_date` already exists in the closed V1.1 schema.
 
+
+## V6 Voice / Micro AI freeze — 2026-10-30 [READY FOR GITHUB QA]
+
+- User decision: suspend all Voice / Micro AI / neural research integration to focus on ordinary Kitchen improvements.
+- `src/config/featureFlags.ts` is the one compile-time authority: `KITCHEN_VOICE_ENABLED = false`.
+- Normal floating mic and entire Voice sheet are not mounted or shown; authenticated
+  `?voice-spike=1` and `?voice-context-spike=1` do not open diagnostic pages.
+- Existing Voice/Whisper/context code remains in the repository, with all legacy
+  tests preserved. Neural training artifacts remain outside the production Kitchen.
+- CSS reserves only four-item bottom-navigation clearance while frozen; no dead mic gap.
+- No changes to Supabase schema, RLS, Inventory, Shopping, Recipes, Auth or PWA routes.
+- New `tests/VOICE_FREEZE_CONTRACT.md` and `scripts/test-voice-frozen.mjs` run in
+  the project verifier in addition to the existing five Voice regressions.
+- To reactivate: review tech debt + phone testing; then intentionally change the
+  compile-time flag in a separately approved release (not via URL/localStorage).
+- Status remains **READY FOR GITHUB QA + PHONE SMOKE**, not PASS/CLOSED.
 
 ## V4.3 — What Can I Cook? + V4.3.1 UX [PASS / CLOSED]
 

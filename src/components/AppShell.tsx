@@ -7,6 +7,7 @@ import { InventoryPage } from '../features/inventory/InventoryPage'
 import { ShoppingPage } from '../features/shopping/ShoppingPage'
 import { RecipesPage } from '../features/recipes/RecipesPage'
 import { KitchenIcon } from './KitchenIcon'
+import { KITCHEN_VOICE_ENABLED } from '../config/featureFlags'
 
 const VoiceSttSpikePage = lazy(() => import('../features/voice/VoiceSttSpikePage').then((module) => ({ default: module.VoiceSttSpikePage })))
 const VoiceContextEvaluationSpikePage = lazy(() => import('../features/voice/contextSpike/VoiceContextEvaluationSpikePage').then((module) => ({ default: module.VoiceContextEvaluationSpikePage })))
@@ -20,8 +21,8 @@ type AppView = 'home' | 'inventory' | 'expiry' | 'shopping' | 'recipes'
 
 export function AppShell({ user }: AppShellProps) {
   const queryParams = new URLSearchParams(window.location.search)
-  const voiceSpikeMode = queryParams.get('voice-spike') === '1'
-  const voiceContextSpikeMode = queryParams.get('voice-context-spike') === '1'
+  const voiceSpikeMode = KITCHEN_VOICE_ENABLED && queryParams.get('voice-spike') === '1'
+  const voiceContextSpikeMode = KITCHEN_VOICE_ENABLED && queryParams.get('voice-context-spike') === '1'
   const [view, setView] = useState<AppView>('home')
   const [inventoryCreateRequest, setInventoryCreateRequest] = useState(0)
   const [inventoryOverviewRequest, setInventoryOverviewRequest] = useState(0)
@@ -116,7 +117,7 @@ export function AppShell({ user }: AppShellProps) {
   }
 
   return (
-    <main className="app-layout">
+    <main className={KITCHEN_VOICE_ENABLED ? 'app-layout voice-enabled' : 'app-layout'}>
       <header className="app-header">
         <div className="app-brand">
           <div className="brand-mark brand-mark-small" aria-hidden="true">K</div>
@@ -165,17 +166,19 @@ export function AppShell({ user }: AppShellProps) {
         />
       )}
 
-      <button
-        className="voice-launch-button"
-        type="button"
-        onClick={() => setVoiceOpen(true)}
-        aria-label="Otwórz Kitchen Voice"
-        aria-expanded={voiceOpen}
-      >
-        <KitchenIcon name="microphone" size={25} strokeWidth={2} />
-      </button>
+      {KITCHEN_VOICE_ENABLED && (
+        <button
+          className="voice-launch-button"
+          type="button"
+          onClick={() => setVoiceOpen(true)}
+          aria-label="Otwórz Kitchen Voice"
+          aria-expanded={voiceOpen}
+        >
+          <KitchenIcon name="microphone" size={25} strokeWidth={2} />
+        </button>
+      )}
 
-      {voiceOpen && (
+      {KITCHEN_VOICE_ENABLED && voiceOpen && (
         <Suspense fallback={<div className="voice-sheet-loading" aria-live="polite">Uruchamiam Kitchen Voice…</div>}>
           <VoiceAssistantSheet
             ownerId={user.id}

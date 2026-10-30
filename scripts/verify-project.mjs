@@ -1818,4 +1818,7 @@ for (const relative of [
 // The suite is the sole authority for the five Voice regression test entrypoints.
 await execFileAsync(process.execPath, ['scripts/test-voice-suite.mjs'])
 
+// V6 freeze remains explicit even though historical Voice regressions are retained.
+await execFileAsync(process.execPath, ['scripts/test-voice-frozen.mjs'])
+
 console.log('Kitchen project contract verification: PASS')

@@ -25,7 +25,7 @@
   --app-bottom-floating-gap: 12px;
   --voice-launch-size: 58px;
   --voice-launch-bottom: calc(var(--app-bottom-safe) + var(--app-bottom-nav-shell-height) + var(--app-bottom-floating-gap));
-  --app-bottom-content-clearance: calc(var(--voice-launch-bottom) + var(--voice-launch-size) + 18px);
+  --app-bottom-content-clearance: calc(var(--app-bottom-safe) + var(--app-bottom-nav-shell-height) + 18px);
 }
 
 * { box-sizing: border-box; }
@@ -169,6 +169,11 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
   min-height: 100vh;
   margin: 0 auto;
   padding: max(18px, env(safe-area-inset-top)) 18px var(--app-bottom-content-clearance);
+}
+
+/* Restore the old mic clearance only when the Voice feature gate is reopened. */
+.app-layout.voice-enabled {
+  --app-bottom-content-clearance: calc(var(--voice-launch-bottom) + var(--voice-launch-size) + 18px);
 }
 
 .app-header {
@@ -1956,7 +1961,7 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
 .inventory-shopping-notice {
   position: fixed;
   left: 50%;
-  bottom: calc(var(--voice-launch-bottom) + var(--voice-launch-size) + var(--app-bottom-floating-gap));
+  bottom: calc(var(--app-bottom-safe) + var(--app-bottom-nav-shell-height) + var(--app-bottom-floating-gap));
   z-index: 20;
   width: min(calc(100% - 24px), 560px);
   transform: translateX(-50%);
@@ -1971,6 +1976,11 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
   box-shadow: 0 16px 42px rgba(43, 61, 48, .18);
   backdrop-filter: blur(16px);
 }
+/* No microphone: notifications sit immediately above bottom navigation. */
+.app-layout.voice-enabled .inventory-shopping-notice {
+  bottom: calc(var(--voice-launch-bottom) + var(--voice-launch-size) + var(--app-bottom-floating-gap));
+}
+
 .inventory-shopping-notice.is-success {
   grid-template-columns: minmax(0, 1fr) auto;
   border-color: #cfe1cf;
