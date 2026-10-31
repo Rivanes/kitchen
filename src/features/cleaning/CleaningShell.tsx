@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { KitchenIcon } from '../../components/KitchenIcon'
+import { AppFormSheet } from '../../components/AppFormSheet'
 import { CleaningTaskBoard } from './CleaningTaskBoard'
 import { CleaningStartTasks } from './CleaningStartTasks'
 import { toUserErrorMessage } from '../../lib/userError'
@@ -157,27 +158,37 @@ export function CleaningShell({ ownerId, onExit }: CleaningShellProps) {
     : null
 
   const roomEditor = editor && (
-    <form className="cleaning-room-editor" onSubmit={(event) => { void saveRoom(event) }}>
-      <h2>{editor === 'create' ? 'Nowe pomieszczenie' : 'Zmień nazwę'}</h2>
-      <label htmlFor="cleaning-room-name">Nazwa pomieszczenia</label>
-      <input
-        id="cleaning-room-name"
-        type="text"
-        name="room-name"
-        value={name}
-        onChange={(event) => setName(event.target.value)}
-        placeholder="np. Łazienka"
-        maxLength={80}
-        autoComplete="off"
-        disabled={saving}
-        required
-      />
-      {actionErrorBanner}
-      <div className="cleaning-editor-actions">
-        <button type="button" className="cleaning-secondary-button" onClick={() => { setEditor(null); setActionError('') }} disabled={saving}>Anuluj</button>
-        <button type="submit" className="cleaning-action" disabled={saving || !name.trim()}>{saving ? 'Zapisywanie…' : 'Zapisz'}</button>
-      </div>
-    </form>
+    <AppFormSheet
+      titleId="cleaning-room-editor-title"
+      title={editor === 'create' ? 'Nowe pomieszczenie' : 'Zmień nazwę'}
+      kicker="POMIESZCZENIA"
+      busy={saving}
+      onClose={() => { setEditor(null); setActionError('') }}
+      className="cleaning-editor-sheet"
+    >
+      <form className="cleaning-room-editor inventory-form" onSubmit={(event) => { void saveRoom(event) }}>
+        <div className="form-field">
+          <label htmlFor="cleaning-room-name">Nazwa pomieszczenia</label>
+          <input
+            id="cleaning-room-name"
+            type="text"
+            name="room-name"
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+            placeholder="np. Łazienka"
+            maxLength={80}
+            autoComplete="off"
+            disabled={saving}
+            required
+          />
+        </div>
+        {actionError && <p className="form-error" role="alert">{actionError}</p>}
+        <div className="sheet-actions">
+          <button type="button" className="secondary-button" onClick={() => { setEditor(null); setActionError('') }} disabled={saving}>Anuluj</button>
+          <button type="submit" className="primary-button" disabled={saving || !name.trim()}>{saving ? 'Zapisywanie…' : 'Zapisz'}</button>
+        </div>
+      </form>
+    </AppFormSheet>
   )
 
   return (
@@ -220,8 +231,7 @@ export function CleaningShell({ ownerId, onExit }: CleaningShellProps) {
             <>
               <button type="button" className="cleaning-back-button" onClick={() => { setSelectedRoomId(null); setEditor(null); setConfirmArchive(false); setActionError('') }}><KitchenIcon name="chevronLeft" size={18} /> Wszystkie pomieszczenia</button>
               <div className="cleaning-page-heading"><p className="eyebrow">POMIESZCZENIE</p><h1 id="cleaning-rooms-title">{selectedRoom.name}</h1><p>{selectedRoom.isArchived ? 'To pomieszczenie jest w archiwum.' : 'Dodaj zadania i zaznacz, co udało Ci się zrobić.'}</p></div>
-              {editor === 'rename' ? roomEditor : (
-                <>
+              <>
                   {!selectedRoom.isArchived && (
                     <div className="cleaning-room-actions"><button type="button" className="cleaning-secondary-button" onClick={() => openEditor('rename')} disabled={saving}><KitchenIcon name="edit" size={17} /> Zmień nazwę</button><button type="button" className="cleaning-subtle-danger" onClick={() => { setConfirmArchive(true); setActionError('') }} disabled={saving}>Archiwizuj</button></div>
                   )}
@@ -234,8 +244,7 @@ export function CleaningShell({ ownerId, onExit }: CleaningShellProps) {
                   )}
                   {actionErrorBanner}
                   <CleaningTaskBoard key={selectedRoom.id} ownerId={ownerId} room={selectedRoom} onChanged={() => setTaskRevision((n) => n + 1)} />
-                </>
-              )}
+              </>
             </>
           ) : (
             <>
@@ -243,8 +252,8 @@ export function CleaningShell({ ownerId, onExit }: CleaningShellProps) {
               {renderLoadStatus()}
               {roomsLoad === 'ready' && (
                 <>
-                  {editor === 'create' ? roomEditor : <button className="cleaning-action cleaning-add-room" type="button" onClick={() => openEditor('create')}><KitchenIcon name="plus" size={18} /> Dodaj pomieszczenie</button>}
-                  {editor !== 'create' && actionErrorBanner}
+                  <button className="cleaning-action cleaning-add-room" type="button" onClick={() => openEditor('create')}><KitchenIcon name="plus" size={18} /> Dodaj pomieszczenie</button>
+                  {!editor && actionErrorBanner}
                   {activeRooms.length === 0 ? (
                     <div className="cleaning-empty-state cleaning-empty-spacious"><span className="cleaning-empty-icon" aria-hidden="true"><KitchenIcon name="room" size={28} /></span><h2>Jeszcze nie ma pomieszczeń</h2><p>Dodaj łazienkę, kuchnię, salon lub dowolne miejsce w domu. Pomieszczenia zostaną zapisane na Twoim koncie.</p></div>
                   ) : (
@@ -276,6 +285,7 @@ export function CleaningShell({ ownerId, onExit }: CleaningShellProps) {
         </section>
       )}
 
+      {roomEditor}
       <nav className="bottom-nav cleaning-bottom-nav" aria-label="Nawigacja Porządki">
         <button className={`nav-item${view === 'start' ? ' is-active' : ''}`} type="button" onClick={() => changeView('start')} aria-current={view === 'start' ? 'page' : undefined}><KitchenIcon name="home" /><span>Start</span></button>
         <button className={`nav-item${view === 'rooms' ? ' is-active' : ''}`} type="button" onClick={() => changeView('rooms')} aria-current={view === 'rooms' ? 'page' : undefined}><KitchenIcon name="room" /><span>Pomieszczenia</span></button>

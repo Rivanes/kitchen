@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { KitchenIcon } from '../../components/KitchenIcon'
+import { AppFormSheet } from '../../components/AppFormSheet'
 import { toUserErrorMessage } from '../../lib/userError'
 import type { CleaningRoom } from './cleaningRooms'
 import {
@@ -141,21 +142,42 @@ export function CleaningTaskBoard({ ownerId, room, onChanged }: Props) {
   return <section className="cleaning-tasks" aria-label={`Zadania — ${room.name}`}>
     <div className="cleaning-section-title"><h2>Zadania</h2><span className="cleaning-section-note">{activeTasks.filter((t) => !t.isCompleted).length} do zrobienia</span></div>
     {!room.isArchived && !editor && <button type="button" className="cleaning-action cleaning-add-room" onClick={openNew}><KitchenIcon name="plus" size={17}/> Dodaj zadanie</button>}
-    {editor && <form className="cleaning-room-editor" onSubmit={(event) => { void submitTask(event) }}>
-      <h2>{editor.mode === 'new' ? 'Nowe zadanie' : 'Edytuj zadanie'}</h2>
-      <label htmlFor="cleaning-task-title">Nazwa zadania</label>
-      <input id="cleaning-task-title" type="text" maxLength={120} value={title} required disabled={busy}
-        onChange={(event) => setTitle(event.target.value)} placeholder="np. Wypierz ręczniki" />
-      <label htmlFor="cleaning-task-notes">Notatka (opcjonalnie)</label>
-      <textarea id="cleaning-task-notes" maxLength={500} rows={3} value={notes} disabled={busy}
-        onChange={(event) => setNotes(event.target.value)} placeholder="np. 40°C, program delikatny" />
-      <label htmlFor="cleaning-task-due">Termin wykonania (jednorazowo)</label>
-      <input id="cleaning-task-due" type="date" required value={dueDate} disabled={busy}
-        onChange={(event) => setDueDate(event.target.value)} />
-      <p className="cleaning-task-hint">Powtarzanie dodamy w H4. Ukończone zadanie zachowamy w historii.</p>
-      <div className="cleaning-editor-actions"><button type="button" className="cleaning-secondary-button" disabled={busy} onClick={() => { setEditor(null); setError('') }}>Anuluj</button>
-        <button type="submit" className="cleaning-action" disabled={busy || !title.trim() || !dueDate}>{busy ? 'Zapisywanie…' : 'Zapisz zadanie'}</button></div>
-    </form>}
+    {editor && <AppFormSheet
+      titleId="cleaning-task-editor-title"
+      title={editor.mode === 'new' ? 'Nowe zadanie' : 'Edytuj zadanie'}
+      kicker="POMIESZCZENIE"
+      busy={busy}
+      onClose={() => { setEditor(null); setError('') }}
+      className="cleaning-editor-sheet"
+    >
+      <form className="cleaning-room-editor inventory-form" onSubmit={(event) => { void submitTask(event) }}>
+        <div className="form-field">
+          <label htmlFor="cleaning-task-title">Nazwa zadania</label>
+          <input id="cleaning-task-title" type="text" maxLength={120} value={title} required disabled={busy}
+            onChange={(event) => setTitle(event.target.value)} placeholder="np. Wypierz ręczniki" />
+        </div>
+        <div className="form-field">
+          <label htmlFor="cleaning-task-notes">Notatka (opcjonalnie)</label>
+          <textarea id="cleaning-task-notes" maxLength={500} rows={3} value={notes} disabled={busy}
+            onChange={(event) => setNotes(event.target.value)} placeholder="np. 40°C, program delikatny" />
+        </div>
+        <div className="form-field">
+          <label htmlFor="cleaning-task-due">Termin wykonania (jednorazowo)</label>
+          <div className="cleaning-date-field">
+            <input id="cleaning-task-due" type="date" required value={dueDate} disabled={busy}
+              onChange={(event) => setDueDate(event.target.value)} />
+            <span className="cleaning-date-icon" aria-hidden="true"><KitchenIcon name="calendar" size={20}/></span>
+          </div>
+          <p className="field-hint">Dotknij pola daty, aby otworzyć kalendarz.</p>
+        </div>
+        <p className="cleaning-task-hint">Powtarzanie dodamy w H4. Ukończone zadanie zachowamy w historii.</p>
+        {error && <p className="form-error" role="alert">{error}</p>}
+        <div className="sheet-actions">
+          <button type="button" className="secondary-button" disabled={busy} onClick={() => { setEditor(null); setError('') }}>Anuluj</button>
+          <button type="submit" className="primary-button" disabled={busy || !title.trim() || !dueDate}>{busy ? 'Zapisywanie…' : 'Zapisz zadanie'}</button>
+        </div>
+      </form>
+    </AppFormSheet>}
     {error && <div className="cleaning-inline-error" role="alert">{error} <button type="button" className="cleaning-task-link" disabled={busy} onClick={() => setReload((v) => v + 1)}>Odśwież</button></div>}
     {loading ? <div className="cleaning-status-message" role="status">Wczytywanie zadań…</div> : (
       <>

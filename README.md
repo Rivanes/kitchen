@@ -763,3 +763,6 @@ Every Recipe requires exactly one category: **Śniadanie / Obiad / Kolacja / Prz
 Home keeps a general Recipe discovery section visible at all times for planning/inspiration and exposes category filters. A separate `Na teraz` section is device-local time-aware: Śniadanie 06:00–11:59, Obiad 12:00–17:59, Kolacja 18:00–22:59; from 23:00–05:59 the time-aware section is hidden. Przekąski and Ciasta stay available in General but are never time-promoted. The unfiltered preview avoids duplication with `Na teraz` when alternatives exist, while manual filters remain complete.
 
 Home uses a lightweight Recipe projection and opens the canonical RecipesPage detail through AppShell. V4.3.1 presents `Mogę ugotować` as a separate time-aware Home discovery section; general category filters remain planning controls rather than cookability toggles.
+
+## H3.1 — UI parity corrective (2026-10-31)
+Rooms and tasks now share the Food-style mobile sheet, form-field and action button primitives; the one-off due date keeps the native iOS picker with a visible calendar affordance. No SQL/RPC or recurrence changes. GitHub QA and iPhone verification pending before H4.
