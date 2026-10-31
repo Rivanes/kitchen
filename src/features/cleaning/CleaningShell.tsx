@@ -3,6 +3,7 @@ import { KitchenIcon } from '../../components/KitchenIcon'
 import { AppFormSheet } from '../../components/AppFormSheet'
 import { CleaningTaskBoard } from './CleaningTaskBoard'
 import { CleaningStartTasks } from './CleaningStartTasks'
+import { CleaningSchedule } from './CleaningSchedule'
 import { toUserErrorMessage } from '../../lib/userError'
 import { supabase } from '../../lib/supabase/client'
 import {
@@ -24,7 +25,7 @@ type CleaningShellProps = {
   onExit: () => void
 }
 
-/** H3: owner-scoped one-off task UI; H4 recurrence and H5 schedule are separate stages. */
+/** H5: isolated Cleaning module; schedule reuses H4 owner-scoped read and completion authority. */
 export function CleaningShell({ ownerId, onExit }: CleaningShellProps) {
   const [view, setView] = useState<CleaningView>('start')
   const [rooms, setRooms] = useState<CleaningRoom[]>([])
@@ -278,12 +279,9 @@ export function CleaningShell({ ownerId, onExit }: CleaningShellProps) {
         </section>
       )}
 
-      {view === 'schedule' && (
-        <section className="cleaning-page" aria-labelledby="cleaning-schedule-title">
-          <div className="cleaning-page-heading"><p className="eyebrow">PLAN DNIA</p><h1 id="cleaning-schedule-title">Harmonogram</h1><p>W jednym miejscu zobaczysz, co jest do zrobienia i kiedy.</p></div>
-          <div className="cleaning-empty-state cleaning-empty-spacious"><span className="cleaning-empty-icon" aria-hidden="true"><KitchenIcon name="calendar" size={29} /></span><h2>Twój harmonogram jest pusty</h2><p>Jednorazowe zadania są dostępne w pomieszczeniach i na ekranie Start. Cykle dodamy w H4, a kalendarz i harmonogram w H5.</p></div>
-        </section>
-      )}
+      {view === 'schedule' && <CleaningSchedule ownerId={ownerId} rooms={rooms}
+        onOpenRoom={(room) => { setView('rooms'); openRoom(room) }}
+        onChanged={() => setTaskRevision((revision) => revision + 1)} />}
 
       {roomEditor}
       <nav className="bottom-nav cleaning-bottom-nav" aria-label="Nawigacja Porządki">

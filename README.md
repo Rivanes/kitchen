@@ -1,10 +1,19 @@
+# Kitchen / Home Hub
+
+> **AKTUALNY STAN — 2026-10-31.** H1 (Dom / Jedzenie / Porządki), H2 (Pomieszczenia), H3 (Zadania i historia), H3.1 (wspólne formularze), H4 (cykle i odliczanie) — zaakceptowane przez użytkownika, H4 „wszystko działa”. **H5 Harmonogram jest lokalnie zaimplementowany, ale NIE ZAMKNIĘTY:** GitHub Kitchen QA, GitHub Pages i test iPhone wymagają potwierdzenia. H5 NIE wymaga SQL ani modyfikacji Supabase. Voice/Micro/Neural AI pozostaje zamrożone.
+
+Home Hub ma dwa moduły: **Jedzenie** (zielony, niezmienione Zapasy/Zakupy/Przepisy) oraz **Porządki** (niebieski: Start/Pomieszczenia/Harmonogram). H5 udostępnia widok dnia/tygodnia, kalendarzowy wybór daty, filtrowanie według pomieszczenia, zaległości i checkboxy korzystające z tej samej funkcji `h4_complete_cleaning_task` co Pomieszczenia. Wyświetlany jest wyłącznie najbliższy zapisany termin każdego cyklu. Nie generujemy kolejnych przyszłych wykonań na zapas.
+
+**Wdrażanie H5:** przegląd aktualnego `main` → wgraj pliki z `UPDATED_FILES/FILES.txt` → sprawdź Kitchen QA i Pages na tym samym commicie → wykonaj `OUTSIDE_REPO/H5_PHONE_QA.md` na iPhonie. Nie uruchamiaj `ALL_IN_ONE.sql` ani ponownie migracji H4. `OUTSIDE_REPO/` to dokumentacja i SQL poza repo; `UPDATED_FILES/` to TYLKO rzeczywiste pliki repozytorium.
+
+## Dawne notatki wdrożeniowe — historyczne, nie aktualny status
+
 > **H3 Tasks + Completion History (2026-10-30) — LOCAL QA / SQL+CI+PHONE PENDING.** H2 is user-confirmed PASS/CLOSED (migration, H2 V2 deployment, 8/8 iPhone, simulated nonowner RLS SELECT). H3 implements one-off task create/edit/archive/restore/check-off, with atomic owner-guarded, operation-idempotent completion log. **To upgrade existing Supabase run ONLY** `OUTSIDE_REPO/SQL/H3_TASKS/H3_1_PRECHECK.sql` → `H3_2_MIGRATION.sql` → `H3_3_POSTCHECK.sql`. `ALL_IN_ONE.sql` is clean-install reference only. H4 recurrence and H5 calendar not implemented. Voice/AI remains frozen.
 
 > **H2 packaging corrective V2:** all migration SQL remains in `OUTSIDE_REPO/SQL/`. The repo contains source and runtime contract tests, not a duplicate one-shot migration. This packaging change does not require a new SQL execution.
 
 > **H2 — Cleaning Rooms CRUD (2026-10-30), READY FOR SUPABASE SQL QA / NOT CLOSED.** H1 Home Hub is user-confirmed Deploy PASS + iPhone PASS. H2 adds owner-scoped persistent `cleaning_rooms` (create/list/rename/archive/restore), isolated blue Cleaning UI, owner-only RLS and SQL PRECHECK → migration → POSTCHECK. **Incremental migration only** in an existing Supabase project; `OUTSIDE_REPO/SQL/ALL_IN_ONE.sql` is clean-install reference, not a production upgrade. H3 tasks, H4 recurrence, H5 real schedule not implemented. No remote SQL/CI/phone tests completed for H2; Voice/AI remains frozen. Deployment instructions: `OUTSIDE_REPO/H2_RELEASE_NOTES.md`.
 
-# Kitchen
 
 > **H1 — Home Hub + module shells (2026-10-30), READY FOR GITHUB QA / NOT CLOSED.** After successful OwnerGate, the first screen is a two-tile `Dom` selector: **Jedzenie** (existing green Kitchen with four tabs) and **Porządki** (new muted-blue shell with Start / Pomieszczenia / Harmonogram). Both have an explicit return to the selector. Cleaning has honest empty states only: persistence, tasks, recurrence and calendar are planned H2–H5 and **are not implemented in H1**. No SQL, Supabase authority, dependency, Voice flag or business functionality changed. Baseline is the available H0 snapshot, **not independently verified against live GitHub main**. Do not mark CLOSED before GitHub QA, Pages and phone smoke.
 

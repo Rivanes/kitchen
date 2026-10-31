@@ -4654,3 +4654,42 @@ html:has(.cleaning-shell), body:has(.cleaning-shell) { background: #f5f8fa; }
 @media (max-width: 420px) {
   .cleaning-start-task-row .cleaning-due-status { font-size: 11px; padding: 5px 7px; }
 }
+
+/* H5 — cleaning agenda. Reuse H3.1/H4 cards, inputs and accent tokens; no global Food changes. */
+.cleaning-schedule { display: grid; gap: 15px; min-width: 0; }
+.cleaning-schedule-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.cleaning-schedule-mode { display: inline-flex; gap: 3px; padding: 4px; background: var(--color-accent-soft); border-radius: 16px; }
+.cleaning-schedule-mode button { min-height: 44px; padding: 0 16px; border: 0; background: transparent; border-radius: 12px; color: var(--color-accent-strong); font-size: 13px; font-weight: 760; }
+.cleaning-schedule-mode button.is-active { background: #fff; box-shadow: 0 2px 7px rgba(31, 63, 85, .08); }
+.cleaning-schedule-today { min-height: 46px; border: 1px solid var(--color-border); background: #fff; padding: 0 15px; border-radius: 14px; color: var(--color-accent-strong); font-size: 13px; font-weight: 760; }
+.cleaning-schedule-calendar { background: #fff; border: 1px solid var(--color-border); border-radius: 23px; padding: 16px 13px; display: grid; gap: 15px; min-width: 0; }
+.cleaning-schedule-period { display: grid; grid-template-columns: 44px minmax(0,1fr) 44px; align-items: center; gap: 6px; text-align: center; }
+.cleaning-schedule-period strong { font-size: 14px; letter-spacing: -.02em; }
+.cleaning-schedule-period button { display: grid; place-items: center; min-height: 44px; border-radius: 13px; border: 1px solid var(--color-border); background: #fff; color: var(--color-accent-strong); }
+.cleaning-schedule-weekdays { display: grid; grid-template-columns: repeat(7, minmax(0,1fr)); gap: 3px; min-width: 0; }
+.cleaning-schedule-weekdays button { min-width: 0; min-height: 66px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; border: 1px solid transparent; background: transparent; color: var(--color-text); border-radius: 14px; }
+.cleaning-schedule-weekdays button span { font-size: 10px; color: var(--color-muted); font-weight: 650; }
+.cleaning-schedule-weekdays button strong { font-size: 15px; font-weight: 800; }
+.cleaning-schedule-weekdays button i { height: 5px; width: 5px; border-radius: 50%; background: var(--color-accent-strong); }
+.cleaning-schedule-weekdays button.is-today { border-color: var(--color-border); }
+.cleaning-schedule-weekdays button.is-selected { background: var(--color-accent-soft); color: var(--color-accent-strong); }
+.cleaning-schedule-date-picker, .cleaning-schedule-filter { display: grid; gap: 7px; min-width: 0; }
+.cleaning-schedule-date-picker label, .cleaning-schedule-filter label { font-size: 12px; font-weight: 760; color: var(--color-muted); }
+.cleaning-schedule-date-picker input, .cleaning-schedule-filter select { box-sizing: border-box; width: 100%; min-width: 0; min-height: 48px; border: 1px solid var(--color-border); background: #fff; border-radius: 13px; padding: 0 14px; color: var(--color-text); font: inherit; font-size: 14px; }
+.cleaning-schedule-date-picker input { padding-right: 47px; }
+.cleaning-schedule-filter { background: #fff; padding: 13px 15px; border: 1px solid var(--color-border); border-radius: 19px; }
+.cleaning-schedule-groups, .cleaning-schedule-group { display: grid; gap: 12px; min-width: 0; }
+.cleaning-schedule-group { padding-top: 8px; }
+.cleaning-schedule-group.is-overdue { padding: 14px; border: 1px solid #efd1cc; border-radius: 21px; background: #fff8f7; }
+.cleaning-schedule-group.is-overdue h2 { color: #a6463e; }
+.cleaning-schedule-task .cleaning-task-actions { display: flex; }
+.cleaning-schedule-task .cleaning-task-actions .cleaning-task-link { display: inline-flex; align-items: center; gap: 4px; }
+.cleaning-schedule-feedback { background: #edf7f1; color: #285e42; border: 1px solid #cfe5d9; padding: 12px 15px; border-radius: 15px; font-size: 13px; }
+.cleaning-schedule-hint { margin: 3px 2px 0; color: var(--color-muted); font-size: 12px; line-height: 1.5; }
+@media (max-width: 360px) {
+  .cleaning-schedule-calendar { padding: 13px 8px; }
+  .cleaning-schedule-weekdays { gap: 0; }
+  .cleaning-schedule-weekdays button { min-height: 60px; border-radius: 10px; }
+  .cleaning-schedule-weekdays button span { font-size: 9px; }
+  .cleaning-schedule-mode button { padding: 0 12px; }
+}
