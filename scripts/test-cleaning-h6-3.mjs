@@ -36,4 +36,16 @@ assert.equal(recurrenceLabel('every_months',1),'Co miesiąc')
 assert.equal(recurrenceLabel('every_months',5),'Co 5 miesięcy')
 assert.equal(recurrenceLabel('every_months',22),'Co 22 miesiące')
 assert.equal(cleaningDueStatus('2026-10-31','2026-10-31').text,'Na dziś')
+// Regression guard: the H6.3 parser imports `typescript` from node_modules.
+// Both CI entrypoints must install the exact dependencies before verifier runs.
+for (const workflow of ['qa.yml', 'deploy.yml']) {
+  const yaml = await read(`.github/workflows/${workflow}`)
+  const install = yaml.indexOf('run: npm ci --no-audit --no-fund')
+  const lockCheck = yaml.indexOf('run: node scripts/n0-verify-lock.mjs')
+  const verify = yaml.indexOf('run: node scripts/verify-project.mjs')
+  const typecheck = yaml.indexOf('run: npm run typecheck')
+  assert.ok(install >= 0 && install < lockCheck && lockCheck < verify && verify < typecheck,
+    `H6.3 CI order invalid in ${workflow}: npm ci -> lock check -> verifier -> typecheck`)
+}
+
 console.log('H6.3 source, shared lifecycle, TSX parse and recurrence presentation: PASS')

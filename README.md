@@ -1,3 +1,9 @@
+# BIEŻĄCY ETAP — H6.3 CI Dependency Order Corrective (2026-10-31)
+
+**H6.3 SQL: użytkownik zgłosił PASS** (funkcje `h63_delete_cleaning_task` i `h63_undo_last_cleaning_completion` posiadają `SECURITY DEFINER` i pusty `search_path`). **GitHub QA/Pages: NOT PASS** w zgłoszonym uruchomieniu; poprawiono kolejność kroków obu workflow, aby `npm ci` i kontrola lockfile poprzedzały `node scripts/verify-project.mjs` (test H6.3 importuje `typescript`). Dodatkowy test pilnuje kolejności. Nowy commit CI, TypeScript/Vite i QA iPhone: nadal do potwierdzenia. Bez nowych zmian SQL, Food ani Voice. 
+
+---
+
 # Kitchen — Home Hub (Jedzenie + Porządki)
 > **H6.2 — 2026-10-31, lokalne QA PASS / GitHub i iPhone oczekują.** Lista Pomieszczeń korzysta z układu nagłówka i przycisku `+` z Zapasów, zachowuje zatwierdzony wygląd kart, a badge liczy wszystkie zapisane niearchiwalne zadania danego pomieszczenia (także wykonane jednorazowe; bez historii i archiwum). Jeden owner-scoped odczyt dla listy, odświeżanie po zmianach i powrocie; błędy nie są pokazywane jako `0`. H6.2 **bez SQL**. Wersja bazuje na dostępnym lokalnym H6.1, nie na zweryfikowanym zdalnym `main`.
 
