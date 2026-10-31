@@ -4693,3 +4693,57 @@ html:has(.cleaning-shell), body:has(.cleaning-shell) { background: #f5f8fa; }
   .cleaning-schedule-weekdays button span { font-size: 9px; }
   .cleaning-schedule-mode button { padding: 0 12px; }
 }
+
+/* H6.1: Cleaning uses Food's sheet/stepper and compact, task-first hierarchy. */
+.cleaning-start { gap: 18px; }
+.cleaning-dashboard { display: grid; gap: 25px; min-width: 0; }
+.cleaning-dashboard .cleaning-section-title { align-items: center; }
+.cleaning-dashboard .cleaning-section-title h1,
+.cleaning-dashboard .cleaning-section-title h2 { font-size: 22px; margin: 0; letter-spacing: -.03em; }
+.cleaning-dashboard .cleaning-section-title > .cleaning-task-link { padding: 0 2px; }
+.cleaning-dashboard-empty { background: #fff; border: 1px solid var(--color-border); padding: 17px; border-radius: 17px; color: var(--color-muted); font-size: 14px; margin: 0; }
+.cleaning-dashboard-task { display: flex; align-items: center; gap: 11px; min-width: 0; padding: 11px 13px; }
+.cleaning-dashboard-check { display: grid; place-items: center; flex: 0 0 44px; height: 44px; cursor: pointer; border-radius: 12px; }
+.cleaning-dashboard-check:focus-within { outline: 2px solid #80a8c2; outline-offset: 2px; }
+.cleaning-dashboard-check input[type="checkbox"] { width: 25px; height: 25px; margin: 0; cursor: pointer; accent-color: var(--color-accent-strong); }
+.cleaning-dashboard-task-detail { display: grid; gap: 5px; text-align: left; flex: 1 1 auto; min-width: 0; padding: 8px 0; border: 0; background: transparent; color: var(--color-text); }
+.cleaning-dashboard-task-detail strong { font-size: 15px; line-height: 1.3; overflow-wrap: anywhere; }
+.cleaning-dashboard-task-detail span { font-size: 12px; color: var(--color-muted); }
+.cleaning-dashboard-task .cleaning-due-status { margin-left: auto; flex-shrink: 0; }
+.cleaning-task-main { align-items: flex-start; }
+.cleaning-task-detail-button { display: grid; gap: 5px; text-align: left; min-width: 0; flex: 1; border: 0; background: transparent; color: var(--color-text); padding: 9px 0; overflow-wrap: anywhere; }
+.cleaning-task-detail-button strong { font-size: 15px; line-height: 1.35; }
+.cleaning-task-detail-button > span { color: var(--color-muted); font-size: 13px; white-space: pre-wrap; }
+.cleaning-task-detail-button small { font-size: 12px; color: #688798; }
+.cleaning-task-card .cleaning-dashboard-check { flex: 0 0 44px; }
+.cleaning-task-card.is-done .cleaning-task-description { padding-top: 9px; }
+.cleaning-done-actions { padding-left: 55px; }
+.cleaning-delete-link { color: #9b3c37; }
+.cleaning-delete-confirm { display: grid; gap: 10px; margin: 4px 0 8px; }
+.cleaning-delete-confirm p { margin: 0; font-size: 13px; line-height: 1.5; color: #893b37; }
+.cleaning-delete-confirm .sheet-actions { gap: 8px; }
+.cleaning-room-heading-title { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.cleaning-room-heading-title h1 { min-width: 0; overflow-wrap: anywhere; margin: 0; }
+.cleaning-edit-icon { display: grid; place-items: center; flex: 0 0 46px; width: 46px; height: 46px; background: #fff; color: var(--color-accent-strong); border: 1px solid var(--color-border); border-radius: 14px; }
+.cleaning-room-archive-link { justify-self: start; border: 0; background: transparent; color: #9b3c37; font-size: 13px; font-weight: 700; min-height: 44px; padding: 0 4px; }
+.cleaning-recurrence-controls { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: 12px; }
+.cleaning-recurrence-controls .form-field { min-width: 0; }
+.cleaning-recurrence-count .compact-quantity-stepper { min-height: 50px; grid-template-columns: 42px minmax(34px, auto) 42px; background: #fff; }
+.cleaning-recurrence-count .compact-quantity-stepper button { min-width: 42px; min-height: 44px; }
+.cleaning-recurrence-count .compact-quantity-stepper span { font-size: 16px; }
+.cleaning-editor-sheet .compact-quantity-stepper { border-color: var(--color-border); }
+.cleaning-editor-sheet .compact-quantity-stepper button:active:not(:disabled) { background: var(--color-accent-soft); }
+@media (max-width: 370px) {
+  .cleaning-recurrence-controls { grid-template-columns: 1fr; }
+  .cleaning-recurrence-count .compact-quantity-stepper { width: fit-content; }
+  .cleaning-dashboard-task .cleaning-due-status { font-size: 10px; padding: 5px 7px; }
+}
+
+.cleaning-editor-sheet .form-field .compact-quantity-stepper input[type="number"] {
+  width: 52px; min-width: 0; height: 42px; padding: 2px; text-align: center;
+  border: 0; box-shadow: none; background: transparent; color: var(--color-text);
+  font-size: 16px; font-weight: 750; -moz-appearance: textfield;
+}
+.cleaning-editor-sheet .form-field .compact-quantity-stepper input[type="number"]::-webkit-inner-spin-button,
+.cleaning-editor-sheet .form-field .compact-quantity-stepper input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+.cleaning-editor-sheet .form-field .compact-quantity-stepper input[type="number"]:focus-visible { outline: 2px solid #8eb4cf; outline-offset: 1px; }

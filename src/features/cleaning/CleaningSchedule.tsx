@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { KitchenIcon } from '../../components/KitchenIcon'
+import { useCleaningTaskCompletion } from './useCleaningTaskCompletion'
 import { toUserErrorMessage } from '../../lib/userError'
 import type { CleaningRoom } from './cleaningRooms'
 import { cleaningDueStatus, recurrenceLabel } from './cleaningRecurrence'
@@ -8,7 +9,7 @@ import {
   overdueBefore, scheduleDateLabel, visibleScheduleTasks,
 } from './cleaningSchedule'
 import {
-  completeCleaningTask, formatCleaningDate, loadCleaningTasks,
+  formatCleaningDate, loadCleaningTasks,
   todayWarsaw, type CleaningTask,
 } from './cleaningTasks'
 
@@ -17,6 +18,7 @@ type Props = {
   rooms: CleaningRoom[]
   onOpenRoom: (room: CleaningRoom) => void
   onChanged: () => void
+  jumpToToday?: number
 }
 type Mode = 'day' | 'week'
 
@@ -25,7 +27,7 @@ const shortWeekdays = ['pon.', 'wt.', 'śr.', 'czw.', 'pt.', 'sob.', 'niedz.']
 /** H5 reads H4's owner-scoped tasks and completes through the SAME idempotent H4 RPC.
  * No schedule-specific DB tables, writes, or projections of uncommitted future cycles.
  */
-export function CleaningSchedule({ ownerId, rooms, onOpenRoom, onChanged }: Props) {
+export function CleaningSchedule({ ownerId, rooms, onOpenRoom, onChanged, jumpToToday = 0 }: Props) {
   const [selectedDate, setSelectedDate] = useState(todayWarsaw)
   const [today, setToday] = useState(todayWarsaw)
   const [mode, setMode] = useState<Mode>('week')
@@ -35,9 +37,7 @@ export function CleaningSchedule({ ownerId, rooms, onOpenRoom, onChanged }: Prop
   const [error, setError] = useState('')
   const [actionError, setActionError] = useState('')
   const [completedFeedback, setCompletedFeedback] = useState('')
-  const [busyId, setBusyId] = useState<string | null>(null)
-  const busyRef = useRef(false)
-  const pendingOperations = useRef(new Map<string, { id: string; generation: number }>())
+  const { run: runCompletion, busyId, inFlight } = useCleaningTaskCompletion()
   const requestNumber = useRef(0)
 
   const refresh = useCallback(async (initial = false) => {
@@ -61,7 +61,7 @@ export function CleaningSchedule({ ownerId, rooms, onOpenRoom, onChanged }: Prop
     const sync = () => {
       if (document.visibilityState === 'hidden') return
       setToday(todayWarsaw())
-      if (!busyRef.current) void refresh()
+      if (!inFlight.current) void refresh()
     }
     window.addEventListener('focus', sync)
     document.addEventListener('visibilitychange', sync)
@@ -75,10 +75,14 @@ export function CleaningSchedule({ ownerId, rooms, onOpenRoom, onChanged }: Prop
     }
   }, [refresh])
 
+  useEffect(() => {
+    if (jumpToToday > 0) { setSelectedDate(todayWarsaw()); setMode('day'); setToday(todayWarsaw()) }
+  }, [jumpToToday])
+
   const activeRooms = rooms.filter((room) => !room.isArchived)
   const activeRoomIds = new Set(activeRooms.map((room) => room.id))
   const filter = selectedRoomId === 'all' || activeRoomIds.has(selectedRoomId) ? selectedRoomId : 'all'
-  const visible = visibleScheduleTasks(tasks, activeRoomIds, filter)
+  const visible = visibleScheduleTasks(tasks, activeRoomIds, filter).filter((task) => !task.isCompleted)
   const dates = daysOfWeek(selectedDate)
   const weekStart = mondayOfWeek(selectedDate)
   const weekEnd = dates[6]
@@ -92,41 +96,20 @@ export function CleaningSchedule({ ownerId, rooms, onOpenRoom, onChanged }: Prop
   const periodCount = mode === 'day' ? due.length : inWeek.length
 
   async function complete(task: CleaningTask) {
-    if (busyRef.current || task.isArchived || task.isCompleted || !activeRoomIds.has(task.roomId)) return
-    busyRef.current = true
-    setBusyId(task.id)
+    if (inFlight.current || task.isArchived || task.isCompleted || !activeRoomIds.has(task.roomId)) return
     setActionError('')
     setCompletedFeedback('')
-    let operation = pendingOperations.current.get(task.id)
-    if (operation && operation.generation !== task.cycleGeneration) {
-      // A previous response may have been lost, but another refresh already saw
-      // a newer generation. Never submit a SECOND completion for that new cycle.
-      pendingOperations.current.delete(task.id)
-      setActionError('Cykl zadania zmienił się od ostatniej próby. Sprawdź aktualny termin przed kolejnym wykonaniem.')
-      busyRef.current = false
-      setBusyId(null)
-      return
-    }
-    if (!operation) {
-      operation = { id: crypto.randomUUID(), generation: task.cycleGeneration }
-      pendingOperations.current.set(task.id, operation)
-    }
     try {
-      const saved = await completeCleaningTask(task.id, operation.generation, operation.id)
-      pendingOperations.current.delete(task.id)
-      requestNumber.current += 1 // Invalidate a stale in-flight focus refresh.
+      const saved = await runCompletion(task)
+      if (!saved) return
+      requestNumber.current += 1 // Prevent stale in-flight refresh replacing the updated task.
       setLoading(false)
       setTasks((current) => current.map((item) => item.id === task.id ? saved : item))
-      setCompletedFeedback(saved.isCompleted
-        ? `Wykonano: ${task.title}`
+      setCompletedFeedback(saved.isCompleted ? `Wykonano: ${task.title}`
         : `Zrobione! ${task.title} — kolejny termin ${formatCleaningDate(saved.nextDueDate)}.`)
       onChanged()
     } catch (cause: unknown) {
       setActionError(toUserErrorMessage(cause, 'Nie udało się zapisać wykonania. Spróbuj ponownie.'))
-      // Preserve the SAME operation UUID on retry after an ambiguous network failure.
-    } finally {
-      busyRef.current = false
-      setBusyId(null)
     }
   }
 
@@ -233,6 +216,5 @@ export function CleaningSchedule({ ownerId, rooms, onOpenRoom, onChanged }: Prop
         : <div className="cleaning-empty-state"><span className="cleaning-empty-icon" aria-hidden="true"><KitchenIcon name="calendar" size={24}/></span>
           <h3>Spokojny tydzień</h3><p>Nie ma zaplanowanych zadań na ten tydzień. Zobacz inne daty lub dodaj zadanie.</p></div>}
     </>}
-    <p className="cleaning-schedule-hint">Dla zadań cyklicznych widzisz tylko najbliższy termin zapisany w Kitchen. Po wykonaniu baza wyznaczy następny termin i harmonogram się zaktualizuje.</p>
   </section>
 }

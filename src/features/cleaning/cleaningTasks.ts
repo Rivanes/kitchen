@@ -164,3 +164,11 @@ export async function loadCleaningCompletions(ownerId: string, taskId: string): 
     dueDateBefore: row.due_date_before, dueDateAfter: row.due_date_after, cycleGeneration: row.cycle_generation,
   }))
 }
+
+/** H6.1: destructive owner-guarded RPC, intentionally not table DELETE. */
+export async function deleteCompletedOneoffTask(taskId: string): Promise<void> {
+  const { data, error } = await requireClient().rpc('h6_delete_completed_oneoff_task', { p_task_id: taskId })
+  if (error) fail(error, 'Nie udało się usunąć zadania.')
+  // false means already absent for this owner: safe, idempotent response after a lost HTTP reply.
+  if (data !== true && data !== false) throw new Error('Supabase nie potwierdził usunięcia. Odśwież listę.')
+}

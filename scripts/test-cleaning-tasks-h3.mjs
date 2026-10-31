@@ -11,10 +11,16 @@ const [shell, board, start, api, styles, flags] = await Promise.all([
 for (const marker of ['<CleaningTaskBoard', '<CleaningStartTasks', 'ownerId={ownerId}', "type CleaningView = 'start' | 'rooms' | 'schedule'"]) {
   assert.ok(shell.includes(marker), `H3 missing shell marker: ${marker}`)
 }
-for (const marker of ['type="checkbox"', 'checked={task.isCompleted}', 'disabled={!canChange || busy}', 'createCleaningTask(', 'updateCleaningTask(', 'archiveCleaningTask(', 'completeCleaningTask(', 'loadCleaningCompletions(', 'pendingCompletion', 'crypto.randomUUID()', 'onChanged()']) {
-  assert.ok(board.includes(marker), `H3 missing board marker: ${marker}`)
+const sharedCompletion = await read('src/features/cleaning/useCleaningTaskCompletion.ts')
+for (const marker of ['type="checkbox"', 'checked={task.isCompleted}', 'disabled={!canChange || busy || busyId !== null}',
+  'createCleaningTask(', 'updateCleaningTask(', 'archiveCleaningTask(', 'runCompletion(task)', 'onChanged()']) {
+  assert.ok(board.includes(marker), `H6 board missing preserved H3 behavior: ${marker}`)
 }
-for (const marker of ['loadCleaningTasks(ownerId)', 'onOpenRoom(room)', 'task.isCompleted']) {
+for (const marker of ['completeCleaningTask(', 'crypto.randomUUID()', 'pending.current', 'task.cycleGeneration', 'previous.generation !== task.cycleGeneration']) {
+  assert.ok(sharedCompletion.includes(marker), `H6 shared idempotency missing ${marker}`)
+}
+assert.doesNotMatch(board, /Ukryj historię|>Historia</)
+for (const marker of ['loadCleaningTasks(ownerId)', 'onOpenRoom(room)', 'run(task)']) {
   assert.ok(start.includes(marker), `H3 missing start marker: ${marker}`)
 }
 for (const marker of [".from('cleaning_tasks')", ".from('cleaning_task_completions')", 'h4_create_cleaning_task', 'h4_update_cleaning_task', 'h3_archive_cleaning_task', 'h4_complete_cleaning_task', 'p_expected_generation', 'p_operation_id', 'validateCleaningTask', 'Europe/Warsaw']) {

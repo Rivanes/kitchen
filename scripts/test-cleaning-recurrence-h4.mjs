@@ -33,7 +33,7 @@ const [ui, api, start, styles, migration] = await Promise.all([
   readFile('src/styles/global.css','utf8'),
   readFile('../OUTSIDE_REPO/SQL/H4_RECURRENCE/H4_2_MIGRATION.sql','utf8').catch(()=>'')
 ])
-for (const marker of ['cleaning-task-recurrence','cleaning-task-interval','cleaningDueStatus','recurrenceLabel','AppFormSheet','cleaning-date-icon','type="checkbox"']) {
+for (const marker of ['cleaning-task-recurrence','CompactQuantityStepper','cleaningDueStatus','recurrenceLabel','AppFormSheet','cleaning-date-icon','type="checkbox"']) {
   assert.ok(ui.includes(marker), `H4 UI missing ${marker}`)
 }
 for (const marker of ['h4_create_cleaning_task','h4_update_cleaning_task','h4_complete_cleaning_task','recurrence_kind','recurrence_interval','due_date_after']) {

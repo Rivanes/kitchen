@@ -40,6 +40,7 @@ export function CleaningShell({ ownerId, onExit }: CleaningShellProps) {
   const [confirmArchive, setConfirmArchive] = useState(false)
   const [reloadToken, setReloadToken] = useState(0)
   const [taskRevision, setTaskRevision] = useState(0)
+  const [showTodayIntent, setShowTodayIntent] = useState(0)
 
   useEffect(() => {
     let active = true
@@ -206,23 +207,14 @@ export function CleaningShell({ ownerId, onExit }: CleaningShellProps) {
       </header>
 
       {view === 'start' && (
-        <section className="cleaning-page" aria-labelledby="cleaning-start-title">
-          <div className="cleaning-hero">
-            <div><p className="eyebrow">TWÓJ DOM</p><h1 id="cleaning-start-title">Spokojnie, po kolei.</h1><p>Zaplanuj zadania w swoich pomieszczeniach i oznaczaj je jako wykonane.</p></div>
-            <span className="cleaning-hero-icon" aria-hidden="true"><KitchenIcon name="check" size={27} /></span>
-          </div>
-          <section className="cleaning-section" aria-labelledby="cleaning-start-rooms-title">
-            <div className="cleaning-section-title"><h2 id="cleaning-start-rooms-title">Pomieszczenia</h2>{roomsLoad === 'ready' && <span className="cleaning-section-note">{activeRooms.length} aktywnych</span>}</div>
-            {renderLoadStatus()}
-            {roomsLoad === 'ready' && (
-              <div className="cleaning-start-panel">
-                <span className="cleaning-empty-icon" aria-hidden="true"><KitchenIcon name="room" size={24} /></span>
-                <div><strong>{activeRooms.length === 0 ? 'Zacznij od pierwszego pomieszczenia' : 'Twoje pomieszczenia są gotowe'}</strong><p>{activeRooms.length === 0 ? 'Dodaj np. łazienkę, salon lub sypialnię.' : 'Możesz dodawać kolejne miejsca i zmieniać ich nazwy.'}</p></div>
-                <button type="button" className="cleaning-action" onClick={() => changeView('rooms')}>Pomieszczenia <KitchenIcon name="chevronRight" size={17} /></button>
-              </div>
-            )}
-          </section>
-          {roomsLoad === 'ready' && <CleaningStartTasks key={taskRevision} ownerId={ownerId} rooms={rooms} onOpenRoom={(room) => { setView('rooms'); openRoom(room) }} />}
+        <section className="cleaning-page cleaning-start" aria-label="Start Porządków">
+          {renderLoadStatus()}
+          {roomsLoad === 'ready' && (activeRooms.length === 0
+            ? <div className="cleaning-empty-state"><h2>Dodaj pierwsze pomieszczenie</h2><button type="button" className="cleaning-action" onClick={() => changeView('rooms')}>Pomieszczenia</button></div>
+            : <CleaningStartTasks key={taskRevision} ownerId={ownerId} rooms={rooms}
+                onChanged={() => setTaskRevision((n) => n + 1)}
+                onShowToday={() => { setShowTodayIntent((n) => n + 1); changeView('schedule') }}
+                onOpenRoom={(room) => { setView('rooms'); openRoom(room) }} />)}
         </section>
       )}
 
@@ -231,11 +223,14 @@ export function CleaningShell({ ownerId, onExit }: CleaningShellProps) {
           {selectedRoom ? (
             <>
               <button type="button" className="cleaning-back-button" onClick={() => { setSelectedRoomId(null); setEditor(null); setConfirmArchive(false); setActionError('') }}><KitchenIcon name="chevronLeft" size={18} /> Wszystkie pomieszczenia</button>
-              <div className="cleaning-page-heading"><p className="eyebrow">POMIESZCZENIE</p><h1 id="cleaning-rooms-title">{selectedRoom.name}</h1><p>{selectedRoom.isArchived ? 'To pomieszczenie jest w archiwum.' : 'Dodaj zadania i zaznacz, co udało Ci się zrobić.'}</p></div>
+              <div className="cleaning-page-heading cleaning-room-heading">
+                <p className="eyebrow">POMIESZCZENIE</p>
+                <div className="cleaning-room-heading-title"><h1 id="cleaning-rooms-title">{selectedRoom.name}</h1>
+                  {!selectedRoom.isArchived && <button type="button" className="cleaning-edit-icon" onClick={() => openEditor('rename')} disabled={saving} aria-label="Zmień nazwę pomieszczenia" title="Zmień nazwę"><KitchenIcon name="edit" size={19}/></button>}
+                </div>
+              </div>
               <>
-                  {!selectedRoom.isArchived && (
-                    <div className="cleaning-room-actions"><button type="button" className="cleaning-secondary-button" onClick={() => openEditor('rename')} disabled={saving}><KitchenIcon name="edit" size={17} /> Zmień nazwę</button><button type="button" className="cleaning-subtle-danger" onClick={() => { setConfirmArchive(true); setActionError('') }} disabled={saving}>Archiwizuj</button></div>
-                  )}
+                  {!selectedRoom.isArchived && <button type="button" className="cleaning-room-archive-link" onClick={() => { setConfirmArchive(true); setActionError('') }} disabled={saving}>Archiwizuj pomieszczenie</button>}
                   {selectedRoom.isArchived && <button type="button" className="cleaning-action" onClick={() => { void updateArchive(selectedRoom, false) }} disabled={saving}>{saving ? 'Przywracanie…' : 'Przywróć pomieszczenie'}</button>}
                   {confirmArchive && (
                     <div className="cleaning-archive-confirm" role="group" aria-label="Potwierdź archiwizację">
@@ -279,7 +274,7 @@ export function CleaningShell({ ownerId, onExit }: CleaningShellProps) {
         </section>
       )}
 
-      {view === 'schedule' && <CleaningSchedule ownerId={ownerId} rooms={rooms}
+      {view === 'schedule' && <CleaningSchedule ownerId={ownerId} rooms={rooms} jumpToToday={showTodayIntent}
         onOpenRoom={(room) => { setView('rooms'); openRoom(room) }}
         onChanged={() => setTaskRevision((revision) => revision + 1)} />}
 

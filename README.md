@@ -1,3 +1,11 @@
+# Kitchen — Home Hub (Jedzenie + Porządki)
+
+> **AKTUALNY STAN — 2026-10-31.** H1–H5 zostały uznane przez użytkownika za PASS/CLOSED. **H6.1 (pierwsza runda UI corrective): LOCAL SOURCE QA PASS / SQL + GITHUB + PHONE PENDING.** Nie wdrożono H6.1 na produkcji i nie ma potwierdzonego builda. Zmiany: kompaktowy Start z 3 zadaniami dziś i 3 przyszłymi, szybkie checkboxy, działający link Harmonogram–Dziś, „Zrobione” dla jednorazowych, usuwanie wyłącznie ukończonych jednorazowych z potwierdzeniem i chronionym RPC, edycja przez dotknięcie, wspólny stepper Food. Voice/AI nadal zamrożone.
+
+**Wdrożenie H6.1:** `OUTSIDE_REPO/SQL/H6_DELETE/H6_1_PRECHECK.sql` → zatwierdzenie → `H6_2_MIGRATION.sql` (raz) → `H6_3_POSTCHECK.sql` i test negatywny → aktualizacje `UPDATED_FILES` → Kitchen QA i Pages → iPhone według `OUTSIDE_REPO/H6_1_PHONE_QA.md`. **Nie uruchamiaj `ALL_IN_ONE.sql` na działającym Supabase.**
+
+---
+
 # Kitchen / Home Hub
 
 > **AKTUALNY STAN — 2026-10-31.** H1 (Dom / Jedzenie / Porządki), H2 (Pomieszczenia), H3 (Zadania i historia), H3.1 (wspólne formularze), H4 (cykle i odliczanie) — zaakceptowane przez użytkownika, H4 „wszystko działa”. **H5 Harmonogram jest lokalnie zaimplementowany, ale NIE ZAMKNIĘTY:** GitHub Kitchen QA, GitHub Pages i test iPhone wymagają potwierdzenia. H5 NIE wymaga SQL ani modyfikacji Supabase. Voice/Micro/Neural AI pozostaje zamrożone.

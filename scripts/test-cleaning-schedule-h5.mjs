@@ -45,7 +45,7 @@ const [schedule, shell, api, css, verifier] = await Promise.all([
   readFile('scripts/verify-project.mjs', 'utf8'),
 ])
 for (const marker of [
-  "loadCleaningTasks(ownerId)", 'completeCleaningTask(', 'pendingOperations', 'requestNumber',
+  "loadCleaningTasks(ownerId)", 'runCompletion(task)', 'requestNumber',
   'onChanged()', 'onOpenRoom(room)', 'visibleScheduleTasks(', 'daysOfWeek(',
   'overdueBefore(', 'aria-pressed', 'cleaning-schedule-date', 'cleaning-schedule-room',
   "document.addEventListener('visibilitychange'", "window.addEventListener('focus'",
@@ -54,6 +54,7 @@ assert.ok(shell.includes('<CleaningSchedule ownerId={ownerId} rooms={rooms}'))
 assert.doesNotMatch(shell, /Harmonogram jest pusty|Cykle dodamy w H4/)
 assert.ok(api.includes(".eq('owner_id', ownerId)"))
 assert.ok(api.includes("return taskRpc('h4_complete_cleaning_task'"))
+assert.match(schedule, /useCleaningTaskCompletion/)
 assert.doesNotMatch(schedule, /\.rpc\(|\.from\(/)
 assert.match(css, /\.cleaning-schedule-weekdays/)
 assert.match(css, /\.cleaning-schedule-calendar/)
