@@ -12,6 +12,7 @@ export type CleaningTask = {
   recurrenceKind: CleaningRecurrenceKind
   recurrenceInterval: number | null
   cycleGeneration: number
+  scheduleRevision: number
   isCompleted: boolean
   isArchived: boolean
   lastCompletedAt: string | null
@@ -29,7 +30,7 @@ export type CleaningCompletion = {
 
 type TaskRow = {
   id: string; owner_id: string; room_id: string; title: string; notes: string
-  next_due_date: string; recurrence_kind: CleaningRecurrenceKind; recurrence_interval: number | null; cycle_generation: number; is_completed: boolean
+  next_due_date: string; recurrence_kind: CleaningRecurrenceKind; recurrence_interval: number | null; cycle_generation: number; schedule_revision: number; is_completed: boolean
   is_archived: boolean; last_completed_at: string | null; created_at: string
 }
 
@@ -38,7 +39,7 @@ type CompletionRow = {
   due_date_before: string; due_date_after: string | null; cycle_generation: number
 }
 
-const taskColumns = 'id,owner_id,room_id,title,notes,next_due_date,recurrence_kind,recurrence_interval,cycle_generation,is_completed,is_archived,last_completed_at,created_at'
+const taskColumns = 'id,owner_id,room_id,title,notes,next_due_date,recurrence_kind,recurrence_interval,cycle_generation,schedule_revision,is_completed,is_archived,last_completed_at,created_at'
 const completionColumns = 'id,completed_at,completed_local_date,due_date_before,due_date_after,cycle_generation'
 
 function requireClient() {
@@ -51,7 +52,7 @@ function parseTask(row: TaskRow): CleaningTask {
     id: row.id, ownerId: row.owner_id, roomId: row.room_id,
     title: row.title, notes: row.notes, nextDueDate: row.next_due_date,
     recurrenceKind: row.recurrence_kind, recurrenceInterval: row.recurrence_interval,
-    cycleGeneration: row.cycle_generation, isCompleted: row.is_completed,
+    cycleGeneration: row.cycle_generation, scheduleRevision: row.schedule_revision, isCompleted: row.is_completed,
     isArchived: row.is_archived, lastCompletedAt: row.last_completed_at, createdAt: row.created_at,
   }
 }

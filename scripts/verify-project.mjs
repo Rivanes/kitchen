@@ -1834,6 +1834,7 @@ await execFileAsync(process.execPath, ['scripts/test-cleaning-tasks-h3.mjs'])
 await execFileAsync(process.execPath, ['scripts/test-cleaning-h3-ui-corrective.mjs'])
 await execFileAsync(process.execPath, ['--experimental-strip-types', 'scripts/test-cleaning-recurrence-h4.mjs'])
 await execFileAsync(process.execPath, ['--experimental-strip-types', 'scripts/test-cleaning-schedule-h5.mjs'])
+await execFileAsync(process.execPath, ['--experimental-strip-types', 'scripts/test-cleaning-schedule-h6-4-2.mjs'])
 await execFileAsync(process.execPath, ['--experimental-strip-types', 'scripts/test-cleaning-h6-ui.mjs'])
 await execFileAsync(process.execPath, ['--experimental-strip-types', 'scripts/test-cleaning-rooms-h6-2.mjs'])
 
