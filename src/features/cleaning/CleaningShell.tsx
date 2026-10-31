@@ -4,6 +4,8 @@ import { AppFormSheet } from '../../components/AppFormSheet'
 import { CleaningTaskBoard } from './CleaningTaskBoard'
 import { CleaningStartTasks } from './CleaningStartTasks'
 import { CleaningSchedule } from './CleaningSchedule'
+import { loadCleaningTasks } from './cleaningTasks'
+import { countCleaningRoomTasks } from './cleaningRoomCounts'
 import { toUserErrorMessage } from '../../lib/userError'
 import { supabase } from '../../lib/supabase/client'
 import {
@@ -19,6 +21,7 @@ import {
 type CleaningView = 'start' | 'rooms' | 'schedule'
 type EditorMode = 'create' | 'rename' | null
 type RoomsLoad = 'loading' | 'ready' | 'error'
+type CountsLoad = 'loading' | 'ready' | 'error'
 
 type CleaningShellProps = {
   ownerId: string
@@ -40,6 +43,10 @@ export function CleaningShell({ ownerId, onExit }: CleaningShellProps) {
   const [confirmArchive, setConfirmArchive] = useState(false)
   const [reloadToken, setReloadToken] = useState(0)
   const [taskRevision, setTaskRevision] = useState(0)
+  const [countsLoad, setCountsLoad] = useState<CountsLoad>('loading')
+  const [roomCounts, setRoomCounts] = useState<Map<string, number>>(new Map())
+  const [countsError, setCountsError] = useState('')
+  const [countsRefresh, setCountsRefresh] = useState(0)
   const [showTodayIntent, setShowTodayIntent] = useState(0)
 
   useEffect(() => {
@@ -57,6 +64,39 @@ export function CleaningShell({ ownerId, onExit }: CleaningShellProps) {
     })
     return () => { active = false }
   }, [ownerId, reloadToken])
+
+  // H6.2: one owner-scoped task read for the entire Rooms overview, never N+1 per room.
+  // Re-fetch after returning from a room / schedule, task mutations and foreground resume.
+  useEffect(() => {
+    if (view !== 'rooms' || selectedRoomId !== null || roomsLoad !== 'ready') return
+    let active = true
+    setCountsLoad('loading')
+    setCountsError('')
+    setRoomCounts(new Map()) // Never present stale numbers or a false zero while loading.
+    loadCleaningTasks(ownerId).then((tasks) => {
+      if (!active) return
+      setRoomCounts(countCleaningRoomTasks(tasks))
+      setCountsLoad('ready')
+    }).catch((error: unknown) => {
+      if (!active) return
+      setCountsError(toUserErrorMessage(error, 'Nie udało się pobrać liczby zadań.'))
+      setCountsLoad('error')
+    })
+    return () => { active = false }
+  }, [ownerId, view, selectedRoomId, roomsLoad, taskRevision, countsRefresh])
+
+  useEffect(() => {
+    if (view !== 'rooms' || selectedRoomId !== null) return
+    const refresh = () => {
+      if (document.visibilityState !== 'hidden') setCountsRefresh((old) => old + 1)
+    }
+    document.addEventListener('visibilitychange', refresh)
+    window.addEventListener('focus', refresh)
+    return () => {
+      document.removeEventListener('visibilitychange', refresh)
+      window.removeEventListener('focus', refresh)
+    }
+  }, [view, selectedRoomId])
 
   const activeRooms = rooms.filter((room) => !room.isArchived)
   const archivedRooms = rooms.filter((room) => room.isArchived)
@@ -219,7 +259,7 @@ export function CleaningShell({ ownerId, onExit }: CleaningShellProps) {
       )}
 
       {view === 'rooms' && (
-        <section className="cleaning-page" aria-labelledby="cleaning-rooms-title">
+        <section className={`cleaning-page${selectedRoom ? '' : ' cleaning-rooms-overview'}`} aria-labelledby="cleaning-rooms-title">
           {selectedRoom ? (
             <>
               <button type="button" className="cleaning-back-button" onClick={() => { setSelectedRoomId(null); setEditor(null); setConfirmArchive(false); setActionError('') }}><KitchenIcon name="chevronLeft" size={18} /> Wszystkie pomieszczenia</button>
@@ -244,18 +284,28 @@ export function CleaningShell({ ownerId, onExit }: CleaningShellProps) {
             </>
           ) : (
             <>
-              <div className="cleaning-page-heading"><p className="eyebrow">TWÓJ DOM</p><h1 id="cleaning-rooms-title">Pomieszczenia</h1><p>Wszystkie miejsca, o które chcesz zadbać.</p></div>
+              <div className="page-heading-row cleaning-rooms-heading">
+                <div><h1 id="cleaning-rooms-title">Pomieszczenia</h1></div>
+                <div className="page-actions">
+                  <button className="primary-icon-button" type="button" onClick={() => openEditor('create')} disabled={roomsLoad !== 'ready' || saving} aria-label="Dodaj pomieszczenie" title="Dodaj pomieszczenie"><KitchenIcon name="plus" /></button>
+                </div>
+              </div>
               {renderLoadStatus()}
               {roomsLoad === 'ready' && (
                 <>
-                  <button className="cleaning-action cleaning-add-room" type="button" onClick={() => openEditor('create')}><KitchenIcon name="plus" size={18} /> Dodaj pomieszczenie</button>
                   {!editor && actionErrorBanner}
+                  {countsLoad === 'error' && <div className="cleaning-inline-error" role="alert">{countsError} <button className="cleaning-link-button" type="button" onClick={() => setCountsRefresh((n) => n + 1)}>Ponów</button></div>}
                   {activeRooms.length === 0 ? (
                     <div className="cleaning-empty-state cleaning-empty-spacious"><span className="cleaning-empty-icon" aria-hidden="true"><KitchenIcon name="room" size={28} /></span><h2>Jeszcze nie ma pomieszczeń</h2><p>Dodaj łazienkę, kuchnię, salon lub dowolne miejsce w domu. Pomieszczenia zostaną zapisane na Twoim koncie.</p></div>
                   ) : (
                     <div className="cleaning-room-list" aria-label="Aktywne pomieszczenia">{activeRooms.map((room) => (
                       <button type="button" className="cleaning-room-card" onClick={() => openRoom(room)} key={room.id}>
-                        <span className="cleaning-room-card-icon" aria-hidden="true"><KitchenIcon name="room" size={21} /></span><span className="cleaning-room-card-copy"><strong>{room.name}</strong><span>Zobacz zadania i historię wykonań</span></span><KitchenIcon name="chevronRight" size={19} />
+                        <span className="cleaning-room-card-icon" aria-hidden="true"><KitchenIcon name="room" size={21} /></span><span className="cleaning-room-card-copy"><strong>{room.name}</strong></span>
+                        <span className="cleaning-room-card-end">
+                          {countsLoad === 'ready' && <span className="location-count-badge" aria-label={`Liczba zadań: ${roomCounts.get(room.id) ?? 0}`}>{roomCounts.get(room.id) ?? 0}</span>}
+                          {countsLoad === 'loading' && <span className="cleaning-room-count-loading" role="status" aria-label="Wczytywanie liczby zadań">…</span>}
+                          <KitchenIcon name="chevronRight" size={19} />
+                        </span>
                       </button>
                     ))}</div>
                   )}

@@ -1,4 +1,6 @@
 # Kitchen — Home Hub (Jedzenie + Porządki)
+> **H6.2 — 2026-10-31, lokalne QA PASS / GitHub i iPhone oczekują.** Lista Pomieszczeń korzysta z układu nagłówka i przycisku `+` z Zapasów, zachowuje zatwierdzony wygląd kart, a badge liczy wszystkie zapisane niearchiwalne zadania danego pomieszczenia (także wykonane jednorazowe; bez historii i archiwum). Jeden owner-scoped odczyt dla listy, odświeżanie po zmianach i powrocie; błędy nie są pokazywane jako `0`. H6.2 **bez SQL**. Wersja bazuje na dostępnym lokalnym H6.1, nie na zweryfikowanym zdalnym `main`.
+
 
 > **AKTUALNY STAN — 2026-10-31.** H1–H5 zostały uznane przez użytkownika za PASS/CLOSED. **H6.1 (pierwsza runda UI corrective): LOCAL SOURCE QA PASS / SQL + GITHUB + PHONE PENDING.** Nie wdrożono H6.1 na produkcji i nie ma potwierdzonego builda. Zmiany: kompaktowy Start z 3 zadaniami dziś i 3 przyszłymi, szybkie checkboxy, działający link Harmonogram–Dziś, „Zrobione” dla jednorazowych, usuwanie wyłącznie ukończonych jednorazowych z potwierdzeniem i chronionym RPC, edycja przez dotknięcie, wspólny stepper Food. Voice/AI nadal zamrożone.
 

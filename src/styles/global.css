@@ -4494,6 +4494,15 @@ html:has(.cleaning-shell), body:has(.cleaning-shell) { background: #f5f8fa; }
 .cleaning-room-card-copy { min-width: 0; display: grid; gap: 4px; }
 .cleaning-room-card-copy strong { font-size: 16px; overflow-wrap: anywhere; }
 .cleaning-room-card-copy > span { font-size: 12px; color: var(--color-muted); }
+/* H6.2: reuse the Food heading / plus / count badge. Keep the original room card geometry. */
+.cleaning-rooms-overview { gap: 14px; }
+.cleaning-rooms-heading { margin: 0; padding: 0 3px; align-items: center; }
+.cleaning-rooms-heading h1 { margin: 0; }
+.cleaning-rooms-heading .primary-icon-button { box-shadow: 0 8px 20px rgba(49, 92, 124, .14); }
+.cleaning-room-card-end { margin-left: auto; flex: 0 0 auto; display: flex; gap: 8px; align-items: center; }
+.cleaning-room-card-end > svg { color: #8095a2; }
+.cleaning-room-card-end .location-count-badge { background: var(--color-accent-soft); }
+.cleaning-room-count-loading { display: inline-grid; place-items: center; min-width: 28px; font-size: 14px; color: var(--color-muted); }
 .cleaning-room-card.is-archived { opacity: .76; }
 .cleaning-room-editor { display: grid; gap: 12px; }
 .cleaning-room-editor .form-field label { font-size: 13px; font-weight: 780; }
