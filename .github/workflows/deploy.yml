@@ -32,14 +32,16 @@ jobs:
           node-version: 22.16.0
           cache: npm
 
-      - name: Verify project contracts and Voice regressions
-        run: node scripts/verify-project.mjs
-
+      # H6.3 requires local TypeScript for the TS/TSX syntax contract.
+      # Install the exact lockfile dependencies BEFORE running verify-project.
       - name: Install dependencies
         run: npm ci --no-audit --no-fund
 
       - name: Verify exact lockfile, dependencies and npm version
         run: node scripts/n0-verify-lock.mjs
+
+      - name: Verify project contracts and Voice regressions
+        run: node scripts/verify-project.mjs
 
       - name: TypeScript check
         run: npm run typecheck
