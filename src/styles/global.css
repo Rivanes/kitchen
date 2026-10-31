@@ -4523,3 +4523,32 @@ html:has(.cleaning-shell), body:has(.cleaning-shell) { background: #f5f8fa; }
   .cleaning-room-card-icon { width: 44px; height: 44px; }
   .cleaning-editor-actions .cleaning-action, .cleaning-editor-actions .cleaning-secondary-button { flex: 1 1 auto; }
 }
+
+/* H3 — cleaning one-off tasks, completion/history (blue theme, scoped). */
+.cleaning-tasks { display: grid; gap: 14px; min-width: 0; }
+.cleaning-tasks .cleaning-add-room { margin: 0; }
+.cleaning-task-list { display: grid; gap: 11px; min-width: 0; }
+.cleaning-task-card { display: grid; gap: 8px; padding: 15px 16px; background: #fff; border: 1px solid var(--color-border); border-radius: 20px; }
+.cleaning-task-card.is-done { background: #f7fafc; }
+.cleaning-task-main { display: flex; gap: 12px; align-items: flex-start; min-width: 0; cursor: pointer; }
+.cleaning-task-main input[type="checkbox"] { flex: 0 0 25px; width: 25px; height: 25px; margin: 1px 0 0; accent-color: var(--color-accent-strong); cursor: pointer; }
+.cleaning-task-main input[type="checkbox"]:disabled { opacity: .7; cursor: default; }
+.cleaning-task-description { min-width: 0; display: grid; gap: 5px; overflow-wrap: anywhere; }
+.cleaning-task-description strong { font-size: 15px; color: var(--color-text); line-height: 1.35; }
+.cleaning-task-card.is-done .cleaning-task-description strong { color: var(--color-muted); text-decoration: line-through; text-decoration-color: #9fb7c5; }
+.cleaning-task-description > span { color: var(--color-muted); font-size: 13px; white-space: pre-wrap; }
+.cleaning-task-description small { color: #688798; font-size: 12px; }
+.cleaning-task-actions { display: flex; gap: 8px 14px; flex-wrap: wrap; margin-left: 37px; }
+.cleaning-task-link { min-height: 36px; padding: 4px 2px; color: var(--color-accent-strong); background: transparent; border: 0; font-weight: 700; font-size: 12px; }
+.cleaning-task-history { margin-left: 37px; border-top: 1px solid var(--color-border); padding-top: 10px; font-size: 12px; color: var(--color-muted); }
+.cleaning-task-history ul { margin: 0; padding-left: 15px; display: grid; gap: 6px; }
+.cleaning-task-history li span { color: #748a99; }
+.cleaning-task-hint { font-size: 12px; line-height: 1.5; color: var(--color-muted); margin: 0; }
+.cleaning-room-editor textarea { width: 100%; min-width: 0; padding: 12px 14px; border: 1px solid #c8d7e0; border-radius: 13px; background: #fff; color: var(--color-text); font: inherit; font-size: 16px; resize: vertical; }
+.cleaning-room-editor textarea:focus { outline: 2px solid #a9c8dd; outline-offset: 1px; }
+.cleaning-start-task-row { min-height: 72px; }
+.cleaning-start-task-row .cleaning-task-go { margin-left: auto; color: var(--color-accent-strong); font-size: 12px; font-weight: 720; }
+@media (max-width: 375px) {
+  .cleaning-task-card { padding: 13px; }
+  .cleaning-task-actions, .cleaning-task-history { margin-left: 0; }
+}

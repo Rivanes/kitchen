@@ -1,5 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { KitchenIcon } from '../../components/KitchenIcon'
+import { CleaningTaskBoard } from './CleaningTaskBoard'
+import { CleaningStartTasks } from './CleaningStartTasks'
 import { toUserErrorMessage } from '../../lib/userError'
 import { supabase } from '../../lib/supabase/client'
 import {
@@ -21,7 +23,7 @@ type CleaningShellProps = {
   onExit: () => void
 }
 
-/** H2: owner-only room CRUD. Tasks, recurrence and calendar remain explicitly reserved for H3–H5. */
+/** H3: owner-scoped one-off task UI; H4 recurrence and H5 schedule are separate stages. */
 export function CleaningShell({ ownerId, onExit }: CleaningShellProps) {
   const [view, setView] = useState<CleaningView>('start')
   const [rooms, setRooms] = useState<CleaningRoom[]>([])
@@ -35,6 +37,7 @@ export function CleaningShell({ ownerId, onExit }: CleaningShellProps) {
   const [showArchived, setShowArchived] = useState(false)
   const [confirmArchive, setConfirmArchive] = useState(false)
   const [reloadToken, setReloadToken] = useState(0)
+  const [taskRevision, setTaskRevision] = useState(0)
 
   useEffect(() => {
     let active = true
@@ -193,7 +196,7 @@ export function CleaningShell({ ownerId, onExit }: CleaningShellProps) {
       {view === 'start' && (
         <section className="cleaning-page" aria-labelledby="cleaning-start-title">
           <div className="cleaning-hero">
-            <div><p className="eyebrow">TWÓJ DOM</p><h1 id="cleaning-start-title">Spokojnie, po kolei.</h1><p>Przygotuj pomieszczenia — zadania i harmonogram dodamy w kolejnych etapach.</p></div>
+            <div><p className="eyebrow">TWÓJ DOM</p><h1 id="cleaning-start-title">Spokojnie, po kolei.</h1><p>Zaplanuj zadania w swoich pomieszczeniach i oznaczaj je jako wykonane.</p></div>
             <span className="cleaning-hero-icon" aria-hidden="true"><KitchenIcon name="check" size={27} /></span>
           </div>
           <section className="cleaning-section" aria-labelledby="cleaning-start-rooms-title">
@@ -207,6 +210,7 @@ export function CleaningShell({ ownerId, onExit }: CleaningShellProps) {
               </div>
             )}
           </section>
+          {roomsLoad === 'ready' && <CleaningStartTasks key={taskRevision} ownerId={ownerId} rooms={rooms} onOpenRoom={(room) => { setView('rooms'); openRoom(room) }} />}
         </section>
       )}
 
@@ -215,7 +219,7 @@ export function CleaningShell({ ownerId, onExit }: CleaningShellProps) {
           {selectedRoom ? (
             <>
               <button type="button" className="cleaning-back-button" onClick={() => { setSelectedRoomId(null); setEditor(null); setConfirmArchive(false); setActionError('') }}><KitchenIcon name="chevronLeft" size={18} /> Wszystkie pomieszczenia</button>
-              <div className="cleaning-page-heading"><p className="eyebrow">POMIESZCZENIE</p><h1 id="cleaning-rooms-title">{selectedRoom.name}</h1><p>{selectedRoom.isArchived ? 'To pomieszczenie jest w archiwum.' : 'Tutaj pojawią się zadania przypisane do tego pomieszczenia.'}</p></div>
+              <div className="cleaning-page-heading"><p className="eyebrow">POMIESZCZENIE</p><h1 id="cleaning-rooms-title">{selectedRoom.name}</h1><p>{selectedRoom.isArchived ? 'To pomieszczenie jest w archiwum.' : 'Dodaj zadania i zaznacz, co udało Ci się zrobić.'}</p></div>
               {editor === 'rename' ? roomEditor : (
                 <>
                   {!selectedRoom.isArchived && (
@@ -229,7 +233,7 @@ export function CleaningShell({ ownerId, onExit }: CleaningShellProps) {
                     </div>
                   )}
                   {actionErrorBanner}
-                  <div className="cleaning-empty-state cleaning-room-tasks-placeholder"><span className="cleaning-empty-icon" aria-hidden="true"><KitchenIcon name="check" size={26} /></span><h2>Zadania pojawią się tutaj</h2><p>W H3 dodamy tworzenie zadań, przypisywanie do pomieszczeń i oznaczanie wykonania.</p></div>
+                  <CleaningTaskBoard key={selectedRoom.id} ownerId={ownerId} room={selectedRoom} onChanged={() => setTaskRevision((n) => n + 1)} />
                 </>
               )}
             </>
@@ -246,7 +250,7 @@ export function CleaningShell({ ownerId, onExit }: CleaningShellProps) {
                   ) : (
                     <div className="cleaning-room-list" aria-label="Aktywne pomieszczenia">{activeRooms.map((room) => (
                       <button type="button" className="cleaning-room-card" onClick={() => openRoom(room)} key={room.id}>
-                        <span className="cleaning-room-card-icon" aria-hidden="true"><KitchenIcon name="room" size={21} /></span><span className="cleaning-room-card-copy"><strong>{room.name}</strong><span>Zadania dodamy w H3</span></span><KitchenIcon name="chevronRight" size={19} />
+                        <span className="cleaning-room-card-icon" aria-hidden="true"><KitchenIcon name="room" size={21} /></span><span className="cleaning-room-card-copy"><strong>{room.name}</strong><span>Zobacz zadania i historię wykonań</span></span><KitchenIcon name="chevronRight" size={19} />
                       </button>
                     ))}</div>
                   )}
@@ -268,7 +272,7 @@ export function CleaningShell({ ownerId, onExit }: CleaningShellProps) {
       {view === 'schedule' && (
         <section className="cleaning-page" aria-labelledby="cleaning-schedule-title">
           <div className="cleaning-page-heading"><p className="eyebrow">PLAN DNIA</p><h1 id="cleaning-schedule-title">Harmonogram</h1><p>W jednym miejscu zobaczysz, co jest do zrobienia i kiedy.</p></div>
-          <div className="cleaning-empty-state cleaning-empty-spacious"><span className="cleaning-empty-icon" aria-hidden="true"><KitchenIcon name="calendar" size={29} /></span><h2>Twój harmonogram jest pusty</h2><p>Gdy w H3–H4 dodamy zadania i cykle powtarzania, pojawi się tutaj agenda. Kalendarz uruchomimy w H5.</p></div>
+          <div className="cleaning-empty-state cleaning-empty-spacious"><span className="cleaning-empty-icon" aria-hidden="true"><KitchenIcon name="calendar" size={29} /></span><h2>Twój harmonogram jest pusty</h2><p>Jednorazowe zadania są dostępne w pomieszczeniach i na ekranie Start. Cykle dodamy w H4, a kalendarz i harmonogram w H5.</p></div>
         </section>
       )}
 

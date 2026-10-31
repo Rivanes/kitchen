@@ -1,0 +1,149 @@
+import { supabase } from '../../lib/supabase/client'
+
+/** H3 is one-off only. H4 owns recurrence generation and date arithmetic. */
+export type CleaningTask = {
+  id: string
+  ownerId: string
+  roomId: string
+  title: string
+  notes: string
+  nextDueDate: string
+  cycleGeneration: number
+  isCompleted: boolean
+  isArchived: boolean
+  lastCompletedAt: string | null
+  createdAt: string
+}
+
+export type CleaningCompletion = {
+  id: string
+  completedAt: string
+  completedLocalDate: string
+  dueDateBefore: string
+  cycleGeneration: number
+}
+
+type TaskRow = {
+  id: string; owner_id: string; room_id: string; title: string; notes: string
+  next_due_date: string; cycle_generation: number; is_completed: boolean
+  is_archived: boolean; last_completed_at: string | null; created_at: string
+}
+
+type CompletionRow = {
+  id: string; completed_at: string; completed_local_date: string
+  due_date_before: string; cycle_generation: number
+}
+
+const taskColumns = 'id,owner_id,room_id,title,notes,next_due_date,cycle_generation,is_completed,is_archived,last_completed_at,created_at'
+const completionColumns = 'id,completed_at,completed_local_date,due_date_before,cycle_generation'
+
+function requireClient() {
+  if (!supabase) throw new Error('Brak połączenia z Supabase.')
+  return supabase
+}
+
+function parseTask(row: TaskRow): CleaningTask {
+  return {
+    id: row.id, ownerId: row.owner_id, roomId: row.room_id,
+    title: row.title, notes: row.notes, nextDueDate: row.next_due_date,
+    cycleGeneration: row.cycle_generation, isCompleted: row.is_completed,
+    isArchived: row.is_archived, lastCompletedAt: row.last_completed_at, createdAt: row.created_at,
+  }
+}
+
+function fail(error: { code?: string; message: string } | null, defaultMessage: string): never {
+  if (error?.code === '42P01' || error?.code === 'PGRST205' || error?.code === 'PGRST202' || error?.code === '42883') {
+    throw new Error('Brak tabel lub funkcji Porządki H3 w Supabase. Sprawdź migrację.')
+  }
+  if (error?.code === 'P0001') throw new Error('Zadanie zostało już zmienione. Odśwież listę.')
+  if (error?.code === 'P0002') throw new Error('Pomieszczenie lub zadanie jest niedostępne. Odśwież listę.')
+  if (error?.code === '42501') throw new Error('Brak uprawnień do wykonania operacji.')
+  throw new Error(`${defaultMessage}${error ? ` ${error.message}` : ''}`)
+}
+
+export function validateCleaningTask(title: string, notes: string, dueDate: string) {
+  const cleanTitle = title.trim().replace(/\s+/g, ' ')
+  const cleanNotes = notes.trim().replace(/\r\n?/g, '\n')
+  if (!cleanTitle || cleanTitle.length > 120 || /[\x00-\x1f\x7f]/.test(cleanTitle)) {
+    throw new Error('Nazwa zadania musi mieć 1–120 znaków.')
+  }
+  if (cleanNotes.length > 500 || /[\x00-\x09\x0b-\x1f\x7f]/.test(cleanNotes)) {
+    throw new Error('Opis może mieć maksymalnie 500 znaków i nie może zawierać znaków sterujących.')
+  }
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dueDate)) throw new Error('Wybierz prawidłową datę zadania.')
+  const date = new Date(`${dueDate}T12:00:00Z`)
+  if (Number.isNaN(date.getTime()) || date.toISOString().slice(0, 10) !== dueDate) {
+    throw new Error('Wybierz istniejącą datę.')
+  }
+  return { title: cleanTitle, notes: cleanNotes, dueDate }
+}
+
+export function todayWarsaw(): string {
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Europe/Warsaw', year: 'numeric', month: '2-digit', day: '2-digit',
+  }).formatToParts(new Date())
+  const value = (part: string) => parts.find((p) => p.type === part)?.value ?? ''
+  return `${value('year')}-${value('month')}-${value('day')}`
+}
+
+export function formatCleaningDate(date: string): string {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return date
+  return `${date.slice(8, 10)}.${date.slice(5, 7)}.${date.slice(0, 4)}`
+}
+
+export function sortCleaningTasks(tasks: CleaningTask[]) {
+  return [...tasks].sort((a, b) => (
+    Number(a.isArchived) - Number(b.isArchived)
+    || Number(a.isCompleted) - Number(b.isCompleted)
+    || a.nextDueDate.localeCompare(b.nextDueDate)
+    || a.title.localeCompare(b.title, 'pl')
+    || a.id.localeCompare(b.id)
+  ))
+}
+
+export async function loadCleaningTasks(ownerId: string, roomId?: string): Promise<CleaningTask[]> {
+  let query = requireClient().from('cleaning_tasks').select(taskColumns).eq('owner_id', ownerId)
+  if (roomId) query = query.eq('room_id', roomId)
+  const { data, error } = await query.order('next_due_date', { ascending: true })
+  if (error) fail(error, 'Nie udało się pobrać zadań.')
+  return sortCleaningTasks(((data ?? []) as TaskRow[]).map(parseTask))
+}
+
+async function taskRpc(name: string, params: Record<string, unknown>): Promise<CleaningTask> {
+  // Only server-side, owner-guarded RPCs can write. No client-side table INSERT/UPDATE/DELETE.
+  const { data, error } = await requireClient().rpc(name, params)
+  if (error) fail(error, 'Nie udało się zapisać zadania.')
+  if (!data) throw new Error('Supabase nie potwierdził zmiany zadania.')
+  return parseTask(data as TaskRow)
+}
+
+export async function createCleaningTask(roomId: string, title: string, notes: string, dueDate: string) {
+  const v = validateCleaningTask(title, notes, dueDate)
+  return taskRpc('h3_create_cleaning_task', { p_room_id: roomId, p_title: v.title, p_notes: v.notes, p_due_date: v.dueDate })
+}
+
+export async function updateCleaningTask(taskId: string, title: string, notes: string, dueDate: string) {
+  const v = validateCleaningTask(title, notes, dueDate)
+  return taskRpc('h3_update_cleaning_task', { p_task_id: taskId, p_title: v.title, p_notes: v.notes, p_due_date: v.dueDate })
+}
+
+export async function archiveCleaningTask(taskId: string, archived: boolean) {
+  return taskRpc('h3_archive_cleaning_task', { p_task_id: taskId, p_archive: archived })
+}
+
+export async function completeCleaningTask(taskId: string, expectedGeneration: number, operationId: string) {
+  return taskRpc('h3_complete_cleaning_task', {
+    p_task_id: taskId, p_expected_generation: expectedGeneration, p_operation_id: operationId,
+  })
+}
+
+export async function loadCleaningCompletions(ownerId: string, taskId: string): Promise<CleaningCompletion[]> {
+  const { data, error } = await requireClient().from('cleaning_task_completions')
+    .select(completionColumns).eq('owner_id', ownerId).eq('task_id', taskId)
+    .order('completed_at', { ascending: false }).limit(50)
+  if (error) fail(error, 'Nie udało się pobrać historii.')
+  return ((data ?? []) as CompletionRow[]).map((row) => ({
+    id: row.id, completedAt: row.completed_at, completedLocalDate: row.completed_local_date,
+    dueDateBefore: row.due_date_before, cycleGeneration: row.cycle_generation,
+  }))
+}

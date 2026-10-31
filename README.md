@@ -1,3 +1,7 @@
+> **H3 Tasks + Completion History (2026-10-30) — LOCAL QA / SQL+CI+PHONE PENDING.** H2 is user-confirmed PASS/CLOSED (migration, H2 V2 deployment, 8/8 iPhone, simulated nonowner RLS SELECT). H3 implements one-off task create/edit/archive/restore/check-off, with atomic owner-guarded, operation-idempotent completion log. **To upgrade existing Supabase run ONLY** `OUTSIDE_REPO/SQL/H3_TASKS/H3_1_PRECHECK.sql` → `H3_2_MIGRATION.sql` → `H3_3_POSTCHECK.sql`. `ALL_IN_ONE.sql` is clean-install reference only. H4 recurrence and H5 calendar not implemented. Voice/AI remains frozen.
+
+> **H2 packaging corrective V2:** all migration SQL remains in `OUTSIDE_REPO/SQL/`. The repo contains source and runtime contract tests, not a duplicate one-shot migration. This packaging change does not require a new SQL execution.
+
 > **H2 — Cleaning Rooms CRUD (2026-10-30), READY FOR SUPABASE SQL QA / NOT CLOSED.** H1 Home Hub is user-confirmed Deploy PASS + iPhone PASS. H2 adds owner-scoped persistent `cleaning_rooms` (create/list/rename/archive/restore), isolated blue Cleaning UI, owner-only RLS and SQL PRECHECK → migration → POSTCHECK. **Incremental migration only** in an existing Supabase project; `OUTSIDE_REPO/SQL/ALL_IN_ONE.sql` is clean-install reference, not a production upgrade. H3 tasks, H4 recurrence, H5 real schedule not implemented. No remote SQL/CI/phone tests completed for H2; Voice/AI remains frozen. Deployment instructions: `OUTSIDE_REPO/H2_RELEASE_NOTES.md`.
 
 # Kitchen

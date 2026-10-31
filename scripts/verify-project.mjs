@@ -17,7 +17,6 @@ const requiredFiles = [
   'scripts/test-home-hub-shell.mjs',
   'scripts/test-cleaning-rooms-h2.mjs',
   'tests/CLEANING_ROOMS_H2_CONTRACT.md',
-  'tests/H2_ROOM_MIGRATION_REFERENCE.sql',
   'src/components/LoginPage.tsx',
   'src/components/OwnerGate.tsx',
   'src/components/KitchenIcon.tsx',
@@ -1831,5 +1830,6 @@ await execFileAsync(process.execPath, ['scripts/test-voice-frozen.mjs'])
 // H1 modular Home Hub and scoped Cleaning shell contracts.
 await execFileAsync(process.execPath, ['scripts/test-home-hub-shell.mjs'])
 await execFileAsync(process.execPath, ['scripts/test-cleaning-rooms-h2.mjs'])
+await execFileAsync(process.execPath, ['scripts/test-cleaning-tasks-h3.mjs'])
 
 console.log('Kitchen project contract verification: PASS')
