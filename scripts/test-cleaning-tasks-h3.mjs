@@ -12,8 +12,8 @@ for (const marker of ['<CleaningTaskBoard', '<CleaningStartTasks', 'ownerId={own
   assert.ok(shell.includes(marker), `H3 missing shell marker: ${marker}`)
 }
 const sharedCompletion = await read('src/features/cleaning/useCleaningTaskCompletion.ts')
-for (const marker of ['type="checkbox"', 'checked={task.isCompleted}', 'disabled={!canChange || busy || busyId !== null}',
-  'createCleaningTask(', 'updateCleaningTask(', 'archiveCleaningTask(', 'runCompletion(task)', 'onChanged()']) {
+for (const marker of ['type="checkbox"', 'checked={showChecked}', 'disabled={busy || busyId !== null || undoBusyId !== null',
+  'createCleaningTask(', 'updateCleaningTask(', 'deleteCleaningTask(', 'runCompletion(task)', 'onChanged()']) {
   assert.ok(board.includes(marker), `H6 board missing preserved H3 behavior: ${marker}`)
 }
 for (const marker of ['completeCleaningTask(', 'crypto.randomUUID()', 'pending.current', 'task.cycleGeneration', 'previous.generation !== task.cycleGeneration']) {

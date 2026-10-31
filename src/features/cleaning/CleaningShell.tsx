@@ -263,19 +263,23 @@ export function CleaningShell({ ownerId, onExit }: CleaningShellProps) {
           {selectedRoom ? (
             <>
               <button type="button" className="cleaning-back-button" onClick={() => { setSelectedRoomId(null); setEditor(null); setConfirmArchive(false); setActionError('') }}><KitchenIcon name="chevronLeft" size={18} /> Wszystkie pomieszczenia</button>
-              <div className="cleaning-page-heading cleaning-room-heading">
-                <p className="eyebrow">POMIESZCZENIE</p>
-                <div className="cleaning-room-heading-title"><h1 id="cleaning-rooms-title">{selectedRoom.name}</h1>
-                  {!selectedRoom.isArchived && <button type="button" className="cleaning-edit-icon" onClick={() => openEditor('rename')} disabled={saving} aria-label="Zmień nazwę pomieszczenia" title="Zmień nazwę"><KitchenIcon name="edit" size={19}/></button>}
+              <div className="page-heading-row cleaning-room-detail-heading">
+                <h1 id="cleaning-rooms-title">{selectedRoom.name}</h1>
+                <div className="page-actions">
+                  {!selectedRoom.isArchived && <button type="button" className="icon-button" onClick={() => openEditor('rename')} disabled={saving} aria-label="Zmień nazwę pomieszczenia" title="Zmień nazwę"><KitchenIcon name="edit" size={19}/></button>}
+                  <details className="cleaning-room-options"><summary className="icon-button" aria-label="Opcje pomieszczenia" title="Opcje pomieszczenia"><KitchenIcon name="chevronDown" size={19}/></summary>
+                    <div className="cleaning-room-options-menu">
+                      {!selectedRoom.isArchived ? <button type="button" onClick={(event) => { event.currentTarget.closest('details')?.removeAttribute('open'); setConfirmArchive(true); setActionError('') }}>Archiwizuj pomieszczenie</button>
+                        : <button type="button" disabled={saving} onClick={() => { void updateArchive(selectedRoom, false) }}>Przywróć pomieszczenie</button>}
+                    </div>
+                  </details>
                 </div>
               </div>
               <>
-                  {!selectedRoom.isArchived && <button type="button" className="cleaning-room-archive-link" onClick={() => { setConfirmArchive(true); setActionError('') }} disabled={saving}>Archiwizuj pomieszczenie</button>}
-                  {selectedRoom.isArchived && <button type="button" className="cleaning-action" onClick={() => { void updateArchive(selectedRoom, false) }} disabled={saving}>{saving ? 'Przywracanie…' : 'Przywróć pomieszczenie'}</button>}
                   {confirmArchive && (
                     <div className="cleaning-archive-confirm" role="group" aria-label="Potwierdź archiwizację">
-                      <strong>Przenieść do archiwum?</strong><p>Pomieszczenie nie zostanie usunięte. Możesz je później przywrócić.</p>
-                      <div className="cleaning-editor-actions"><button type="button" className="cleaning-secondary-button" onClick={() => setConfirmArchive(false)} disabled={saving}>Anuluj</button><button type="button" className="cleaning-subtle-danger" onClick={() => { void updateArchive(selectedRoom, true) }} disabled={saving}>{saving ? 'Archiwizowanie…' : 'Archiwizuj'}</button></div>
+                      <strong>Archiwizować pomieszczenie?</strong><p>Pomieszczenie pozostanie w archiwum. Zadania nie zostaną usunięte.</p>
+                      <div className="sheet-actions"><button type="button" className="secondary-button" onClick={() => setConfirmArchive(false)} disabled={saving}>Anuluj</button><button type="button" className="cleaning-subtle-danger" onClick={() => { void updateArchive(selectedRoom, true) }} disabled={saving}>{saving ? 'Archiwizowanie…' : 'Archiwizuj'}</button></div>
                     </div>
                   )}
                   {actionErrorBanner}

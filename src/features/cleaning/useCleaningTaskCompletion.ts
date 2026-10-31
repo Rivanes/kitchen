@@ -23,6 +23,13 @@ export function useCleaningTaskCompletion() {
     setBusyId(task.id)
     try {
       const saved = await completeCleaningTask(task.id, operation.generation, operation.id)
+      // H6.3: a late replay of an UNDONE operation returns the current row from H4,
+      // but it must never be presented as a newly successful completion.
+      if (saved.cycleGeneration !== operation.generation + 1 || !saved.lastCompletedAt ||
+          (task.recurrenceKind === 'once' && !saved.isCompleted)) {
+        pending.current.delete(task.id)
+        throw new Error('Wykonanie zostało cofnięte albo cykl zmienił się. Odśwież zadanie.')
+      }
       pending.current.delete(task.id)
       return saved
     } finally {

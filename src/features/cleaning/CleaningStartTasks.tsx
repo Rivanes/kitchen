@@ -4,6 +4,7 @@ import { formatCleaningDate, loadCleaningTasks, todayWarsaw, type CleaningTask }
 import { cleaningDueStatus } from './cleaningRecurrence'
 import { cleaningDashboardGroups } from './cleaningDashboard'
 import { useCleaningTaskCompletion } from './useCleaningTaskCompletion'
+import { useCleaningTaskUndo } from './useCleaningTaskUndo'
 import { toUserErrorMessage } from '../../lib/userError'
 
 interface Props {
@@ -20,6 +21,9 @@ export function CleaningStartTasks({ ownerId, rooms, onOpenRoom, onShowToday, on
   const [loading, setLoading] = useState(true)
   const [reload, setReload] = useState(0)
   const { run, busyId } = useCleaningTaskCompletion()
+  const { undo: runUndo, undoBusyId } = useCleaningTaskUndo()
+  const [lastCompleted, setLastCompleted] = useState<CleaningTask | null>(null)
+  const [status, setStatus] = useState('')
 
   useEffect(() => {
     let active = true
@@ -40,10 +44,23 @@ export function CleaningStartTasks({ ownerId, rooms, onOpenRoom, onShowToday, on
       const saved = await run(task)
       if (!saved) return
       setTasks((old) => old.map((row) => row.id === saved.id ? saved : row))
+      setLastCompleted(saved); setStatus(`Zrobiono: ${task.title}`)
       onChanged()
     } catch (cause: unknown) {
       setError(toUserErrorMessage(cause, 'Nie udało się zapisać wykonania. Spróbuj ponownie.'))
     }
+  }
+
+  async function undoRecent() {
+    if (!lastCompleted) return
+    setError('')
+    try {
+      const restored = await runUndo(lastCompleted)
+      if (!restored) return
+      setTasks((old) => old.map((row) => row.id === restored.id ? restored : row))
+      setStatus(`Cofnięto: ${restored.title}`); setLastCompleted(null)
+      onChanged()
+    } catch (cause: unknown) { setError(toUserErrorMessage(cause, 'Nie udało się cofnąć wykonania.')) }
   }
 
   function renderTask(task: CleaningTask, isDue: boolean) {
@@ -51,7 +68,7 @@ export function CleaningStartTasks({ ownerId, rooms, onOpenRoom, onShowToday, on
     const status = cleaningDueStatus(task.nextDueDate, today)
     return <article className="cleaning-task-card cleaning-dashboard-task" key={task.id}>
       <label className="cleaning-dashboard-check" aria-label={`Zrobione: ${task.title}`}>
-        <input type="checkbox" checked={false} disabled={busyId !== null} onChange={() => { void complete(task) }} />
+        <input type="checkbox" checked={false} disabled={busyId !== null || undoBusyId !== null} onChange={() => { void complete(task) }} />
       </label>
       <button type="button" className="cleaning-dashboard-task-detail" onClick={() => { if (room) onOpenRoom(room) }}>
         <strong>{task.title}</strong>
@@ -64,6 +81,9 @@ export function CleaningStartTasks({ ownerId, rooms, onOpenRoom, onShowToday, on
   return <div className="cleaning-dashboard" aria-label="Najbliższe zadania">
     {loading && <div className="cleaning-status-message" role="status">Wczytywanie zadań…</div>}
     {error && <div className="cleaning-inline-error" role="alert">{error} <button className="cleaning-task-link" type="button" onClick={() => { setError(''); setReload((v) => v + 1) }}>Odśwież</button></div>}
+    {status && !error && <p className="cleaning-feedback" role="status">{status}
+      {lastCompleted && <button className="cleaning-task-link" type="button" disabled={busyId !== null || undoBusyId !== null} onClick={() => { void undoRecent() }}>Cofnij</button>}
+    </p>}
     {!loading && !error && <>
       <section className="cleaning-section" aria-labelledby="cleaning-start-due-title">
         <div className="cleaning-section-title">

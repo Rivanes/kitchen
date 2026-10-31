@@ -5,9 +5,9 @@ export type CleaningRecurrenceKind = 'once' | 'every_days' | 'every_weeks' | 'ev
 
 export const cleaningRecurrenceOptions: { value: CleaningRecurrenceKind; label: string }[] = [
   { value: 'once', label: 'Jednorazowo' },
-  { value: 'every_days', label: 'Co określoną liczbę dni' },
-  { value: 'every_weeks', label: 'Co określoną liczbę tygodni' },
-  { value: 'every_months', label: 'Co określoną liczbę miesięcy' },
+  { value: 'every_days', label: 'Dni' },
+  { value: 'every_weeks', label: 'Tygodnie' },
+  { value: 'every_months', label: 'Miesiące' },
 ]
 
 export function recurrenceBounds(kind: CleaningRecurrenceKind): { min: number; max: number } | null {
@@ -34,7 +34,8 @@ export function validateCleaningRecurrence(kind: CleaningRecurrenceKind, interva
 export function recurrenceLabel(kind: CleaningRecurrenceKind, interval: number | null): string {
   if (kind === 'once') return 'Jednorazowo'
   if (!interval) return 'Cykl nieustawiony'
-  const unit = kind === 'every_days' ? 'dni' : kind === 'every_weeks' ? 'tyg.' : 'mies.'
+  const few = interval % 10 >= 2 && interval % 10 <= 4 && (interval % 100 < 12 || interval % 100 > 14)
+  const unit = kind === 'every_days' ? 'dni' : kind === 'every_weeks' ? (few ? 'tygodnie' : 'tygodni') : (few ? 'miesiące' : 'miesięcy')
   if (interval === 1) return kind === 'every_days' ? 'Codziennie' : kind === 'every_weeks' ? 'Co tydzień' : 'Co miesiąc'
   return `Co ${interval} ${unit}`
 }

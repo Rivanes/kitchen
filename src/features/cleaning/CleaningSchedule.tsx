@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { KitchenIcon } from '../../components/KitchenIcon'
 import { useCleaningTaskCompletion } from './useCleaningTaskCompletion'
+import { useCleaningTaskUndo } from './useCleaningTaskUndo'
 import { toUserErrorMessage } from '../../lib/userError'
 import type { CleaningRoom } from './cleaningRooms'
 import { cleaningDueStatus, recurrenceLabel } from './cleaningRecurrence'
@@ -38,6 +39,8 @@ export function CleaningSchedule({ ownerId, rooms, onOpenRoom, onChanged, jumpTo
   const [actionError, setActionError] = useState('')
   const [completedFeedback, setCompletedFeedback] = useState('')
   const { run: runCompletion, busyId, inFlight } = useCleaningTaskCompletion()
+  const { undo: runUndo, undoBusyId } = useCleaningTaskUndo()
+  const [lastCompleted, setLastCompleted] = useState<CleaningTask | null>(null)
   const requestNumber = useRef(0)
 
   const refresh = useCallback(async (initial = false) => {
@@ -105,6 +108,7 @@ export function CleaningSchedule({ ownerId, rooms, onOpenRoom, onChanged, jumpTo
       requestNumber.current += 1 // Prevent stale in-flight refresh replacing the updated task.
       setLoading(false)
       setTasks((current) => current.map((item) => item.id === task.id ? saved : item))
+      setLastCompleted(saved)
       setCompletedFeedback(saved.isCompleted ? `Wykonano: ${task.title}`
         : `Zrobione! ${task.title} — kolejny termin ${formatCleaningDate(saved.nextDueDate)}.`)
       onChanged()
@@ -113,12 +117,28 @@ export function CleaningSchedule({ ownerId, rooms, onOpenRoom, onChanged, jumpTo
     }
   }
 
+  async function undoRecent() {
+    if (!lastCompleted || inFlight.current) return
+    setActionError('')
+    try {
+      const saved = await runUndo(lastCompleted)
+      if (!saved) return
+      requestNumber.current += 1
+      setTasks((current) => current.map((item) => item.id === saved.id ? saved : item))
+      setLastCompleted(null)
+      setCompletedFeedback(`Cofnięto wykonanie: ${saved.title}`)
+      onChanged()
+    } catch (cause: unknown) {
+      setActionError(toUserErrorMessage(cause, 'Nie udało się cofnąć wykonania.'))
+    }
+  }
+
   function renderTask(task: CleaningTask) {
     const room = activeRooms.find((item) => item.id === task.roomId)
     const status = cleaningDueStatus(task.nextDueDate, today)
     return <article className={`cleaning-task-card cleaning-schedule-task${task.isCompleted ? ' is-done' : ''}`} key={task.id}>
       <label className="cleaning-task-main">
-        <input type="checkbox" checked={task.isCompleted} disabled={busyId !== null || task.isCompleted}
+        <input type="checkbox" checked={task.isCompleted} disabled={busyId !== null || undoBusyId !== null || task.isCompleted}
           aria-label={`Oznacz jako wykonane: ${task.title}`}
           onChange={() => { void complete(task) }} />
         <span className="cleaning-task-description">
@@ -203,7 +223,9 @@ export function CleaningSchedule({ ownerId, rooms, onOpenRoom, onChanged, jumpTo
     {loading && <div className="cleaning-status-message" role="status">Wczytywanie harmonogramu…</div>}
     {error && <div className="cleaning-inline-error" role="alert">{error} <button type="button" className="cleaning-task-link" onClick={() => { void refresh(true) }}>Spróbuj ponownie</button></div>}
     {actionError && <div className="cleaning-inline-error" role="alert">{actionError} <button type="button" className="cleaning-task-link" onClick={() => { void refresh() }}>Odśwież</button></div>}
-    {completedFeedback && <div className="cleaning-schedule-feedback" role="status">{completedFeedback}</div>}
+    {completedFeedback && <div className="cleaning-schedule-feedback" role="status">{completedFeedback}
+      {lastCompleted && <button type="button" className="cleaning-task-link" disabled={busyId !== null || undoBusyId !== null} onClick={() => { void undoRecent() }}>Cofnij</button>}
+    </div>}
     {!loading && !error && <>
       {showOverdue && overdueExtras.length > 0 && <section className="cleaning-schedule-group is-overdue" aria-labelledby="cleaning-overdue-title">
         <div className="cleaning-section-title"><h2 id="cleaning-overdue-title">Zaległe</h2><span className="cleaning-section-note">{overdueExtras.length} do wykonania</span></div>

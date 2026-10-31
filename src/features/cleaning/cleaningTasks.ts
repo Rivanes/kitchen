@@ -172,3 +172,17 @@ export async function deleteCompletedOneoffTask(taskId: string): Promise<void> {
   // false means already absent for this owner: safe, idempotent response after a lost HTTP reply.
   if (data !== true && data !== false) throw new Error('Supabase nie potwierdził usunięcia. Odśwież listę.')
 }
+
+/** H6.3: undo only the latest completion; RPC enforces generation and history invariants. */
+export async function undoLastCleaningCompletion(task: CleaningTask, operationId: string): Promise<CleaningTask> {
+  return taskRpc('h63_undo_last_cleaning_completion', {
+    p_task_id: task.id, p_expected_generation: task.cycleGeneration, p_operation_id: operationId,
+  })
+}
+
+/** Owner-guarded hard deletion of any task and all its completions. */
+export async function deleteCleaningTask(taskId: string): Promise<void> {
+  const { data, error } = await requireClient().rpc('h63_delete_cleaning_task', { p_task_id: taskId })
+  if (error) fail(error, 'Nie udało się usunąć zadania.')
+  if (data !== true && data !== false) throw new Error('Brak potwierdzenia usunięcia. Odśwież zadania.')
+}

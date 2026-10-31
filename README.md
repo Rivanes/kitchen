@@ -788,3 +788,7 @@ Rooms and tasks now share the Food-style mobile sheet, form-field and action but
 
 ## H4 — cleaning recurring tasks (release candidate)
 Cleaning supports completion-based once/every N days/weeks/months and a due countdown. Apply guarded H4 Supabase migration from `OUTSIDE_REPO/SQL/H4_RECURRENCE/` before releasing this frontend; H3 create/update/complete RPC access is retired. Historical Food and Voice freeze unaffected. GitHub QA/Pages and phone acceptance pending.
+
+
+## H6.3 — Cleaning task UI / safe task lifecycle (candidate, 2026-10-31)
+Shared Food UI elements are reused in Cleaning room detail and task form. Source-only checks pass, but owner-guarded `h63_undo_last_cleaning_completion` and `h63_delete_cleaning_task` must be deployed from `OUTSIDE_REPO/SQL/H63_TASK_LIFECYCLE/` and verified on Supabase before UI deployment. Do not run ALL_IN_ONE against an existing database. GitHub QA/Pages and phone smoke pending. AI remains frozen.
