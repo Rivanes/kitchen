@@ -1832,5 +1832,6 @@ await execFileAsync(process.execPath, ['scripts/test-home-hub-shell.mjs'])
 await execFileAsync(process.execPath, ['scripts/test-cleaning-rooms-h2.mjs'])
 await execFileAsync(process.execPath, ['scripts/test-cleaning-tasks-h3.mjs'])
 await execFileAsync(process.execPath, ['scripts/test-cleaning-h3-ui-corrective.mjs'])
+await execFileAsync(process.execPath, ['--experimental-strip-types', 'scripts/test-cleaning-recurrence-h4.mjs'])
 
 console.log('Kitchen project contract verification: PASS')

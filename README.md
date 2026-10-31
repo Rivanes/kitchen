@@ -766,3 +766,6 @@ Home uses a lightweight Recipe projection and opens the canonical RecipesPage de
 
 ## H3.1 — UI parity corrective (2026-10-31)
 Rooms and tasks now share the Food-style mobile sheet, form-field and action button primitives; the one-off due date keeps the native iOS picker with a visible calendar affordance. No SQL/RPC or recurrence changes. GitHub QA and iPhone verification pending before H4.
+
+## H4 — cleaning recurring tasks (release candidate)
+Cleaning supports completion-based once/every N days/weeks/months and a due countdown. Apply guarded H4 Supabase migration from `OUTSIDE_REPO/SQL/H4_RECURRENCE/` before releasing this frontend; H3 create/update/complete RPC access is retired. Historical Food and Voice freeze unaffected. GitHub QA/Pages and phone acceptance pending.

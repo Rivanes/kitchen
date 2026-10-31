@@ -4626,3 +4626,31 @@ html:has(.cleaning-shell), body:has(.cleaning-shell) { background: #f5f8fa; }
 @media (max-width: 619px) {
   .cleaning-editor-sheet { padding-bottom: max(22px, env(safe-area-inset-bottom)); }
 }
+
+/* H4 — Cleaning recurrence reuses the Food sheet/form vocabulary and Cleaning blue tokens. */
+.cleaning-editor-sheet .form-field select {
+  width: 100%; min-height: 50px; min-width: 0;
+  border: 1px solid var(--color-border); border-radius: 13px;
+  background: #fbfcff; color: var(--color-text);
+  padding: 11px 38px 11px 13px; font: inherit; font-size: 16px;
+}
+.cleaning-editor-sheet .form-field select:focus {
+  outline: none; border-color: #8eb4cf;
+  box-shadow: 0 0 0 4px rgba(84,125,154,.11); background: #fff;
+}
+.cleaning-recurrence-stepper { display: flex; align-items: center; gap: 12px; }
+.cleaning-editor-sheet .cleaning-recurrence-stepper input[type="number"] { width: 94px; min-width: 94px; text-align: center; }
+.cleaning-recurrence-stepper > span { color: var(--color-muted); font-size: 14px; }
+.cleaning-due-status {
+  display: inline-flex; align-items: center; justify-self: start;
+  width: fit-content; max-width: 100%; border-radius: 999px;
+  padding: 5px 10px; font-size: 12px; font-weight: 700;
+  color: #315d7c; background: #e9f3fb;
+}
+.cleaning-due-status.is-today { background: #e1eefb; color: #255e86; }
+.cleaning-due-status.is-overdue { background: #fff0ed; color: #aa4337; }
+.cleaning-task-feedback { font-size: 12px; font-weight: 700; color: #246c60; line-height: 1.4; }
+.cleaning-start-task-row .cleaning-due-status { margin-left: auto; flex: 0 0 auto; }
+@media (max-width: 420px) {
+  .cleaning-start-task-row .cleaning-due-status { font-size: 11px; padding: 5px 7px; }
+}

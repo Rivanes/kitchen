@@ -1,6 +1,7 @@
 import { supabase } from '../../lib/supabase/client'
+import { validateCleaningRecurrence, type CleaningRecurrenceKind } from './cleaningRecurrence'
 
-/** H3 is one-off only. H4 owns recurrence generation and date arithmetic. */
+/** H4: server owns recurrence generation; client never advances persisted dates. */
 export type CleaningTask = {
   id: string
   ownerId: string
@@ -8,6 +9,8 @@ export type CleaningTask = {
   title: string
   notes: string
   nextDueDate: string
+  recurrenceKind: CleaningRecurrenceKind
+  recurrenceInterval: number | null
   cycleGeneration: number
   isCompleted: boolean
   isArchived: boolean
@@ -20,22 +23,23 @@ export type CleaningCompletion = {
   completedAt: string
   completedLocalDate: string
   dueDateBefore: string
+  dueDateAfter: string | null
   cycleGeneration: number
 }
 
 type TaskRow = {
   id: string; owner_id: string; room_id: string; title: string; notes: string
-  next_due_date: string; cycle_generation: number; is_completed: boolean
+  next_due_date: string; recurrence_kind: CleaningRecurrenceKind; recurrence_interval: number | null; cycle_generation: number; is_completed: boolean
   is_archived: boolean; last_completed_at: string | null; created_at: string
 }
 
 type CompletionRow = {
   id: string; completed_at: string; completed_local_date: string
-  due_date_before: string; cycle_generation: number
+  due_date_before: string; due_date_after: string | null; cycle_generation: number
 }
 
-const taskColumns = 'id,owner_id,room_id,title,notes,next_due_date,cycle_generation,is_completed,is_archived,last_completed_at,created_at'
-const completionColumns = 'id,completed_at,completed_local_date,due_date_before,cycle_generation'
+const taskColumns = 'id,owner_id,room_id,title,notes,next_due_date,recurrence_kind,recurrence_interval,cycle_generation,is_completed,is_archived,last_completed_at,created_at'
+const completionColumns = 'id,completed_at,completed_local_date,due_date_before,due_date_after,cycle_generation'
 
 function requireClient() {
   if (!supabase) throw new Error('Brak połączenia z Supabase.')
@@ -46,6 +50,7 @@ function parseTask(row: TaskRow): CleaningTask {
   return {
     id: row.id, ownerId: row.owner_id, roomId: row.room_id,
     title: row.title, notes: row.notes, nextDueDate: row.next_due_date,
+    recurrenceKind: row.recurrence_kind, recurrenceInterval: row.recurrence_interval,
     cycleGeneration: row.cycle_generation, isCompleted: row.is_completed,
     isArchived: row.is_archived, lastCompletedAt: row.last_completed_at, createdAt: row.created_at,
   }
@@ -53,7 +58,7 @@ function parseTask(row: TaskRow): CleaningTask {
 
 function fail(error: { code?: string; message: string } | null, defaultMessage: string): never {
   if (error?.code === '42P01' || error?.code === 'PGRST205' || error?.code === 'PGRST202' || error?.code === '42883') {
-    throw new Error('Brak tabel lub funkcji Porządki H3 w Supabase. Sprawdź migrację.')
+    throw new Error('Brak tabel lub funkcji Porządki H4 w Supabase. Sprawdź migrację.')
   }
   if (error?.code === 'P0001') throw new Error('Zadanie zostało już zmienione. Odśwież listę.')
   if (error?.code === 'P0002') throw new Error('Pomieszczenie lub zadanie jest niedostępne. Odśwież listę.')
@@ -117,14 +122,26 @@ async function taskRpc(name: string, params: Record<string, unknown>): Promise<C
   return parseTask(data as TaskRow)
 }
 
-export async function createCleaningTask(roomId: string, title: string, notes: string, dueDate: string) {
+export async function createCleaningTask(roomId: string, title: string, notes: string, dueDate: string,
+  recurrenceKind: CleaningRecurrenceKind, recurrenceInterval: number | null) {
   const v = validateCleaningTask(title, notes, dueDate)
-  return taskRpc('h3_create_cleaning_task', { p_room_id: roomId, p_title: v.title, p_notes: v.notes, p_due_date: v.dueDate })
+  const cycle = validateCleaningRecurrence(recurrenceKind, recurrenceInterval)
+  return taskRpc('h4_create_cleaning_task', {
+    p_room_id: roomId, p_title: v.title, p_notes: v.notes, p_due_date: v.dueDate,
+    p_recurrence_kind: cycle.kind, p_recurrence_interval: cycle.interval,
+  })
 }
 
-export async function updateCleaningTask(taskId: string, title: string, notes: string, dueDate: string) {
+export async function updateCleaningTask(taskId: string, expectedGeneration: number,
+  title: string, notes: string, dueDate: string,
+  recurrenceKind: CleaningRecurrenceKind, recurrenceInterval: number | null) {
   const v = validateCleaningTask(title, notes, dueDate)
-  return taskRpc('h3_update_cleaning_task', { p_task_id: taskId, p_title: v.title, p_notes: v.notes, p_due_date: v.dueDate })
+  const cycle = validateCleaningRecurrence(recurrenceKind, recurrenceInterval)
+  return taskRpc('h4_update_cleaning_task', {
+    p_task_id: taskId, p_expected_generation: expectedGeneration,
+    p_title: v.title, p_notes: v.notes, p_due_date: v.dueDate,
+    p_recurrence_kind: cycle.kind, p_recurrence_interval: cycle.interval,
+  })
 }
 
 export async function archiveCleaningTask(taskId: string, archived: boolean) {
@@ -132,7 +149,7 @@ export async function archiveCleaningTask(taskId: string, archived: boolean) {
 }
 
 export async function completeCleaningTask(taskId: string, expectedGeneration: number, operationId: string) {
-  return taskRpc('h3_complete_cleaning_task', {
+  return taskRpc('h4_complete_cleaning_task', {
     p_task_id: taskId, p_expected_generation: expectedGeneration, p_operation_id: operationId,
   })
 }
@@ -144,6 +161,6 @@ export async function loadCleaningCompletions(ownerId: string, taskId: string): 
   if (error) fail(error, 'Nie udało się pobrać historii.')
   return ((data ?? []) as CompletionRow[]).map((row) => ({
     id: row.id, completedAt: row.completed_at, completedLocalDate: row.completed_local_date,
-    dueDateBefore: row.due_date_before, cycleGeneration: row.cycle_generation,
+    dueDateBefore: row.due_date_before, dueDateAfter: row.due_date_after, cycleGeneration: row.cycle_generation,
   }))
 }

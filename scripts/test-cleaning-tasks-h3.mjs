@@ -17,7 +17,7 @@ for (const marker of ['type="checkbox"', 'checked={task.isCompleted}', 'disabled
 for (const marker of ['loadCleaningTasks(ownerId)', 'onOpenRoom(room)', 'task.isCompleted']) {
   assert.ok(start.includes(marker), `H3 missing start marker: ${marker}`)
 }
-for (const marker of [".from('cleaning_tasks')", ".from('cleaning_task_completions')", 'h3_create_cleaning_task', 'h3_update_cleaning_task', 'h3_archive_cleaning_task', 'h3_complete_cleaning_task', 'p_expected_generation', 'p_operation_id', 'validateCleaningTask', 'Europe/Warsaw']) {
+for (const marker of [".from('cleaning_tasks')", ".from('cleaning_task_completions')", 'h4_create_cleaning_task', 'h4_update_cleaning_task', 'h3_archive_cleaning_task', 'h4_complete_cleaning_task', 'p_expected_generation', 'p_operation_id', 'validateCleaningTask', 'Europe/Warsaw']) {
   assert.ok(api.includes(marker), `H3 missing data-layer marker: ${marker}`)
 }
 assert.doesNotMatch(api, /\.from\('cleaning_tasks'\)[\s\S]{0,120}\.(insert|update|delete)\(/)
