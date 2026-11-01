@@ -22,7 +22,7 @@ const [start, shell, board, schedule, hook, api, css, verifier] = await Promise.
   read('src/features/cleaning/CleaningShell.tsx'),
   read('src/features/cleaning/CleaningTaskBoard.tsx'),
   read('src/features/cleaning/CleaningSchedule.tsx'),
-  read('src/features/cleaning/useCleaningTaskCompletion.ts'),
+  read('src/features/cleaning/useCleaningOccurrenceCompletion.ts'),
   read('src/features/cleaning/cleaningTasks.ts'),
   read('src/styles/global.css'), read('scripts/verify-project.mjs'),
 ])
@@ -36,12 +36,13 @@ assert.match(schedule, /scheduleEntries\(occurrences, tasks/)
 for (const needle of ['Zrobione (', 'showDone', 'doneTasks', 'deleteCleaningTask', 'confirmDeleteId', 'CompactQuantityStepper', 'openEdit(task)', 'cleaning-task-detail-button'])
   assert.ok(board.includes(needle), `Board missing ${needle}`)
 assert.match(start, /useCleaningOccurrenceCompletion/)
-assert.match(board, /useCleaningTaskCompletion/)
+assert.doesNotMatch(board, /useCleaningTaskCompletion|type="checkbox"|cleaningDueStatus/)
+assert.match(board, /cleaning-catalog-edit/)
 assert.match(schedule, /useCleaningOccurrenceCompletion/)
 assert.match(schedule, /loadCleaningOccurrences/)
-assert.match(hook, /previous.generation !== task.cycleGeneration/)
+assert.match(hook, /previous.generation !== occurrence.cycleGeneration/)
 assert.match(hook, /pending.current.set\(task.id, operation\)/)
-assert.match(hook, /completeCleaningTask\(task.id, operation.generation, operation.id\)/)
+assert.match(hook, /completeCleaningOccurrence\(/)
 assert.doesNotMatch(board, /Ukryj historię|>Historia</)
 assert.doesNotMatch(board, /Kolejny termin liczymy od dnia|Zapis wykonania pozostaje w historii/)
 assert.match(api, /rpc\('h6_delete_completed_oneoff_task'/)

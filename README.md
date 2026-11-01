@@ -1,3 +1,6 @@
+### Cleaning H6.4.3E — source corrective (2026-11-01)
+Room task catalog now shows only definition fields (title/notes/recurrence) with edit/delete actions; no completion/due-status UX. Start and Harmonogram remain the sole completion interfaces. One-off done and legacy archived records remain accessible for permanent deletion. Added dedicated H6.4.3E source contract in `verify-project.mjs`; SQL and `ALL_IN_ONE.sql` unchanged. GitHub QA/Pages and phone tests pending. For current workflow see `OUTSIDE_REPO/H6_4_3E_RELEASE_NOTES.md`.
+
 ## Kitchen H6.4.3C — korekta cykli według rzeczywistego wykonania (2026-11-01)
 
 Zmieniono zasadę po ukończeniu zaległego zadania: tygodniowe 31.10 ukończone 01.11 wyświetla „Zrobione” 01.11, a kolejny termin przypada na 08.11 (potem 15.11). Przyszłe wystąpienia nadal są projektowane od razu po utworzeniu; po wykonaniu cykl jest kotwiczony od **rzeczywistej daty wykonania**. Cofnięcie przywraca poprzednią datę i anchor. Część SQL to wyłącznie inkrementalny `OUTSIDE_REPO/SQL/H64_SCHEDULE_ENGINE/H64_7_ROLLING_COMPLETION_MIGRATION.sql` na istniejącą H64.1; **nie uruchamiać `ALL_IN_ONE`**. Status: SOURCE QA PASS / SQL runtime + CI + Safari PENDING. Więcej: `OUTSIDE_REPO/H6_4_3C_ROLLING_RELEASE_NOTES.md`.

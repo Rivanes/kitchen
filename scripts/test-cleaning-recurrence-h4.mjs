@@ -33,15 +33,16 @@ const [ui, api, start, styles, migration] = await Promise.all([
   readFile('src/styles/global.css','utf8'),
   readFile('../OUTSIDE_REPO/SQL/H4_RECURRENCE/H4_2_MIGRATION.sql','utf8').catch(()=>'')
 ])
-for (const marker of ['cleaning-task-recurrence','CompactQuantityStepper','cleaningDueStatus','recurrenceLabel','AppFormSheet','cleaning-date-icon','type="checkbox"']) {
+for (const marker of ['cleaning-task-recurrence','CompactQuantityStepper','recurrenceLabel','AppFormSheet','cleaning-date-icon','cleaning-catalog-edit']) {
   assert.ok(ui.includes(marker), `H4 UI missing ${marker}`)
 }
-for (const marker of ['h4_create_cleaning_task','h4_update_cleaning_task','h4_complete_cleaning_task','recurrence_kind','recurrence_interval','due_date_after']) {
+for (const marker of ['h4_create_cleaning_task','h4_update_cleaning_task','h63_delete_cleaning_task','recurrence_kind','recurrence_interval','due_date_after']) {
   assert.ok(api.includes(marker), `H4 data model missing ${marker}`)
 }
 assert.match(start,/cleaningDueStatus/)
 assert.match(styles,/\.cleaning-recurrence-stepper/)
 assert.match(styles,/\.cleaning-due-status/)
+assert.doesNotMatch(ui, /type="checkbox"|cleaningDueStatus|Cofnij ostatnie wykonanie/)
 // The SQL reference is outside the repository; during GitHub QA do not require a local SQL mirror.
 if (migration) {
   for (const marker of ["at time zone 'Europe/Warsaw'",'for update','p_expected_generation','operation_id','due_date_after','make_interval','security definer set search_path = \'\'','revoke all on function public.h3_complete_cleaning_task']) {

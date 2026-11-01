@@ -37,5 +37,6 @@ assert.match(css, /\.cleaning-editor-sheet/)
 assert.match(css, /max-height: calc\(100dvh - 8px\)/)
 // Pure UI corrective: data-layer signatures are still present and rechecked by original H2/H3 contracts.
 assert.match(roomApi, /createCleaningRoom/)
-assert.match(taskApi, /completeCleaningTask/)
+assert.match(taskApi, /updateCleaningTask/)
+assert.match(taskApi, /deleteCleaningTask/)
 console.log('Kitchen H3.1 UI parity + iOS native date affordance: PASS')

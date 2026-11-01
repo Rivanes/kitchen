@@ -2,13 +2,11 @@ import { useEffect, useState, type FormEvent } from 'react'
 import { KitchenIcon } from '../../components/KitchenIcon'
 import { AppFormSheet } from '../../components/AppFormSheet'
 import { CompactQuantityStepper } from '../quantity/CompactQuantityStepper'
-import { useCleaningTaskCompletion } from './useCleaningTaskCompletion'
-import { useCleaningTaskUndo } from './useCleaningTaskUndo'
 import { toUserErrorMessage } from '../../lib/userError'
 import type { CleaningRoom } from './cleaningRooms'
-import { cleaningDueStatus, cleaningRecurrenceOptions, recurrenceBounds, recurrenceLabel, type CleaningRecurrenceKind } from './cleaningRecurrence'
+import { cleaningRecurrenceOptions, recurrenceBounds, recurrenceLabel, type CleaningRecurrenceKind } from './cleaningRecurrence'
 import {
-  createCleaningTask, deleteCleaningTask, formatCleaningDate, loadCleaningTasks,
+  createCleaningTask, deleteCleaningTask, loadCleaningTasks,
   sortCleaningTasks, todayWarsaw, updateCleaningTask,
   type CleaningTask,
 } from './cleaningTasks'
@@ -29,13 +27,10 @@ export function CleaningTaskBoard({ ownerId, room, onChanged }: Props) {
   const [dueDate, setDueDate] = useState(todayWarsaw())
   const [recurrenceKind, setRecurrenceKind] = useState<CleaningRecurrenceKind>('once')
   const [recurrenceInterval, setRecurrenceInterval] = useState(1)
-  const [justCompletedId, setJustCompletedId] = useState<string | null>(null)
   const [feedback, setFeedback] = useState('')
   const [showDone, setShowDone] = useState(false)
   const [showLegacyArchived, setShowLegacyArchived] = useState(false)
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
-  const { run: runCompletion, busyId, inFlight } = useCleaningTaskCompletion()
-  const { undo: runUndo, clear: clearUndo, undoBusyId, inFlightUndo } = useCleaningTaskUndo()
   const [reload, setReload] = useState(0)
   const mountedRoomId = room.id
 
@@ -45,7 +40,6 @@ export function CleaningTaskBoard({ ownerId, room, onChanged }: Props) {
     setLoadError('')
     setTasks([])
     setEditor(null)
-    setJustCompletedId(null)
     loadCleaningTasks(ownerId, mountedRoomId).then((results) => {
       if (active) { setTasks(results); setLoading(false) }
     }).catch((cause: unknown) => {
@@ -54,25 +48,27 @@ export function CleaningTaskBoard({ ownerId, room, onChanged }: Props) {
     return () => { active = false }
   }, [ownerId, mountedRoomId, reload])
 
-  const activeTasks = tasks.filter((task) => !task.isArchived && !task.isCompleted)
-  const doneTasks = tasks.filter((task) => !task.isArchived && task.isCompleted && task.recurrenceKind === 'once')
-  const archivedTasks = tasks.filter((task) => task.isArchived)
+  // Definition catalog ordering must not change when a completion moves next_due_date.
+  const byName = (a: CleaningTask, b: CleaningTask) => a.title.localeCompare(b.title, 'pl') || a.id.localeCompare(b.id)
+  const activeTasks = tasks.filter((task) => !task.isArchived && !task.isCompleted).sort(byName)
+  const doneTasks = tasks.filter((task) => !task.isArchived && task.isCompleted && task.recurrenceKind === 'once').sort(byName)
+  const archivedTasks = tasks.filter((task) => task.isArchived).sort(byName)
   function upsert(updated: CleaningTask) {
     setTasks((previous) => sortCleaningTasks([...previous.filter((task) => task.id !== updated.id), updated]))
     onChanged()
   }
   function openNew() {
     setEditor({ mode: 'new' }); setTitle(''); setNotes(''); setDueDate(todayWarsaw())
-    setRecurrenceKind('once'); setRecurrenceInterval(1); setFormError('')
+    setRecurrenceKind('once'); setRecurrenceInterval(1); setFormError(''); setConfirmDeleteId(null)
   }
   function openEdit(task: CleaningTask) {
     setEditor({ mode: 'edit', taskId: task.id }); setTitle(task.title); setNotes(task.notes)
     setDueDate(task.nextDueDate); setRecurrenceKind(task.recurrenceKind)
-    setRecurrenceInterval(task.recurrenceInterval ?? 1); setFormError(''); setJustCompletedId(null)
+    setRecurrenceInterval(task.recurrenceInterval ?? 1); setFormError(''); setConfirmDeleteId(null)
   }
   async function submitTask(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    if (busy || inFlight.current || inFlightUndo.current || room.isArchived || !editor) return
+    if (busy || room.isArchived || !editor) return
     setBusy(true); setFormError('')
     try {
       const interval = recurrenceKind === 'once' ? null : recurrenceInterval
@@ -80,45 +76,17 @@ export function CleaningTaskBoard({ ownerId, room, onChanged }: Props) {
         ? await createCleaningTask(room.id, title, notes, dueDate, recurrenceKind, interval)
         : await updateCleaningTask(editor.taskId, tasks.find((task) => task.id === editor.taskId)?.cycleGeneration ?? -1,
           title, notes, dueDate, recurrenceKind, interval)
-      setJustCompletedId(null); upsert(updated); setEditor(null); setFeedback('Zapisano zadanie.')
+      upsert(updated); setEditor(null); setFeedback('Zapisano zadanie.')
     } catch (cause: unknown) {
       setFormError(toUserErrorMessage(cause, 'Nie udało się zapisać zadania.'))
     } finally { setBusy(false) }
   }
-  async function complete(task: CleaningTask) {
-    if (busy || inFlight.current || inFlightUndo.current || task.isCompleted || task.isArchived || room.isArchived) return
-    setActionError(''); setFeedback('')
-    try {
-      const updated = await runCompletion(task)
-      if (!updated) return
-      setJustCompletedId(task.id)
-      if (updated.isCompleted) setShowDone(true)
-      upsert(updated)
-      setFeedback(updated.isCompleted ? `Zrobione: ${task.title}. Możesz cofnąć wykonanie.` : `Zrobione: ${task.title}. Możesz cofnąć ostatnie wykonanie.`)
-    } catch (cause: unknown) {
-      setActionError(toUserErrorMessage(cause, 'Nie udało się potwierdzić wykonania. Możesz ponowić operację.'))
-    }
-  }
-  async function undo(task: CleaningTask) {
-    if (busy || inFlight.current || inFlightUndo.current || task.isArchived || room.isArchived || !task.lastCompletedAt) return
-    setBusy(true); setActionError(''); setFeedback('')
-    try {
-      const updated = await runUndo(task)
-      if (!updated) return
-      setJustCompletedId(null)
-      upsert(updated)
-      setFeedback(`Cofnięto wykonanie: ${task.title}.`)
-    } catch (cause: unknown) {
-      setActionError(toUserErrorMessage(cause, 'Nie udało się cofnąć wykonania.'))
-    } finally { setBusy(false) }
-  }
   async function remove(task: CleaningTask) {
-    if (busy || inFlight.current || inFlightUndo.current) return
+    if (busy) return
     setBusy(true); setActionError(''); setFormError('')
     try {
       await deleteCleaningTask(task.id)
       setTasks((current) => current.filter((item) => item.id !== task.id))
-      clearUndo(task.id)
       setConfirmDeleteId(null); setEditor(null)
       setFeedback(`Usunięto zadanie: ${task.title}.`)
       onChanged()
@@ -141,39 +109,25 @@ export function CleaningTaskBoard({ ownerId, room, onChanged }: Props) {
       <p>Trwale usunąć „{task.title}” i wszystkie jego wykonania?</p>
       <div className="sheet-actions">
         <button type="button" className="secondary-button" disabled={busy} onClick={() => setConfirmDeleteId(null)}>Anuluj</button>
-        <button type="button" className="cleaning-subtle-danger" disabled={busy || inFlight.current} onClick={() => { void remove(task) }}>{busy ? 'Usuwanie…' : 'Usuń na stałe'}</button>
+        <button type="button" className="cleaning-subtle-danger" disabled={busy} onClick={() => { void remove(task) }}>{busy ? 'Usuwanie…' : 'Usuń na stałe'}</button>
       </div>
     </div>
   }
   function renderTask(task: CleaningTask) {
-    const due = cleaningDueStatus(task.nextDueDate, todayWarsaw())
-    const repeating = task.recurrenceKind !== 'once'
     const canEdit = !room.isArchived && !task.isArchived && !task.isCompleted
-    const canUndo = !room.isArchived && !task.isArchived && Boolean(task.lastCompletedAt)
-    const showChecked = task.isCompleted || (repeating && justCompletedId === task.id)
-    return <article className={`cleaning-task-card${task.isCompleted ? ' is-done' : ''}`} key={task.id}>
-      <div className="cleaning-task-main">
-        <div className="cleaning-task-leading">
-          <label className="cleaning-task-checkbox-hit">
-            <input type="checkbox" checked={showChecked} disabled={busy || busyId !== null || undoBusyId !== null || room.isArchived || task.isArchived}
-              aria-label={showChecked ? `Cofnij wykonanie: ${task.title}` : `Oznacz jako wykonane: ${task.title}`}
-              onChange={() => { if (showChecked) { void undo(task) } else { void complete(task) } }} />
-          </label>
-          {!task.isCompleted && !task.isArchived && (showChecked
-            ? <span className="cleaning-due-status is-today">Zrobione</span>
-            : <span className={`cleaning-due-status is-${due.kind}`}>{due.text}</span>)}
-        </div>
-        {canEdit ? <button type="button" className="cleaning-task-detail-button" onClick={() => openEdit(task)} disabled={busy || busyId !== null || undoBusyId !== null} aria-label={`Edytuj zadanie: ${task.title}`}>
-          <strong>{task.title}</strong>
-          {task.notes && <span>{task.notes}</span>}
-          <small>{recurrenceLabel(task.recurrenceKind, task.recurrenceInterval)}{!repeating && due.kind !== 'today' ? ` · Termin: ${formatCleaningDate(task.nextDueDate)}` : ''}</small>
-        </button> : <div className="cleaning-task-description">
-          <strong>{task.title}</strong>{task.notes && <span>{task.notes}</span>}
-          <small>{task.isCompleted ? 'Zrobione' : recurrenceLabel(task.recurrenceKind, task.recurrenceInterval)}</small>
-        </div>}
-      </div>
-      {!room.isArchived && !task.isArchived && canUndo && !showChecked && <button type="button" className="cleaning-task-link cleaning-undo-link" disabled={busy || busyId !== null || undoBusyId !== null} onClick={() => { void undo(task) }}>Cofnij ostatnie wykonanie</button>}
-      {(task.isCompleted || task.isArchived) && <button type="button" className="cleaning-task-link cleaning-delete-link" disabled={busy || busyId !== null || undoBusyId !== null} onClick={() => { setConfirmDeleteId(task.id); setActionError(''); setFormError('') }}>Usuń zadanie</button>}
+    const details = <>
+      <strong>{task.title}</strong>
+      {task.notes && <span>{task.notes}</span>}
+      <small>{recurrenceLabel(task.recurrenceKind, task.recurrenceInterval)}</small>
+    </>
+    return <article className={`cleaning-task-card cleaning-catalog-card${task.isCompleted ? ' is-done' : ''}`} key={task.id}>
+      {canEdit
+        ? <button type="button" className="cleaning-task-detail-button cleaning-catalog-edit" onClick={() => openEdit(task)} disabled={busy} aria-label={`Edytuj zadanie: ${task.title}`}>
+          <span className="cleaning-catalog-content">{details}</span>
+          <KitchenIcon name="chevronRight" size={19}/>
+        </button>
+        : <div className="cleaning-task-description cleaning-catalog-content">{details}</div>}
+      {(task.isCompleted || task.isArchived) && <button type="button" className="cleaning-task-link cleaning-delete-link" disabled={busy} onClick={() => { setConfirmDeleteId(task.id); setActionError(''); setFormError('') }}>Usuń zadanie</button>}
       {!editor && renderDeleteConfirm(task)}
     </article>
   }
@@ -183,7 +137,7 @@ export function CleaningTaskBoard({ ownerId, room, onChanged }: Props) {
   return <section className="cleaning-tasks" aria-label={`Zadania — ${room.name}`}>
     <div className="page-heading-row cleaning-tasks-heading">
       <h2>Zadania</h2>
-      {!room.isArchived && <div className="page-actions"><button className="primary-icon-button" type="button" onClick={openNew} disabled={busy || busyId !== null || undoBusyId !== null} aria-label="Dodaj zadanie" title="Dodaj zadanie"><KitchenIcon name="plus" /></button></div>}
+      {!room.isArchived && <div className="page-actions"><button className="primary-icon-button" type="button" onClick={openNew} disabled={busy} aria-label="Dodaj zadanie" title="Dodaj zadanie"><KitchenIcon name="plus" /></button></div>}
     </div>
     {editor && <AppFormSheet titleId="cleaning-task-editor-title" title={editor.mode === 'new' ? 'Nowe zadanie' : 'Edytuj zadanie'}
       kicker="POMIESZCZENIE" busy={busy} onClose={() => { setEditor(null); setFormError(''); setActionError(''); setConfirmDeleteId(null) }} className="cleaning-editor-sheet">
@@ -194,7 +148,7 @@ export function CleaningTaskBoard({ ownerId, room, onChanged }: Props) {
         <div className="form-field"><label htmlFor="cleaning-task-notes">Notatka (opcjonalnie)</label>
           <textarea id="cleaning-task-notes" maxLength={500} rows={3} value={notes} disabled={busy}
             onChange={(event) => setNotes(event.target.value)} placeholder="np. 40°C, program delikatny" /></div>
-        <div className="form-field"><label htmlFor="cleaning-task-due">{recurrenceKind === 'once' ? 'Termin wykonania' : 'Pierwszy termin wykonania'}</label>
+        <div className="form-field"><label htmlFor="cleaning-task-due">{recurrenceKind === 'once' ? 'Termin wykonania' : editor?.mode === 'edit' ? 'Następny termin' : 'Pierwszy termin'}</label>
           <div className="cleaning-date-field"><input id="cleaning-task-due" type="date" required value={dueDate} disabled={busy}
             onChange={(event) => setDueDate(event.target.value)} /><span className="cleaning-date-icon" aria-hidden="true"><KitchenIcon name="calendar" size={20}/></span></div></div>
         <div className="cleaning-recurrence-controls">
