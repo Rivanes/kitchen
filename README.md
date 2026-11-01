@@ -1,3 +1,7 @@
+### 2026-11-01 — H6.4.4C final release verification (QA PENDING)
+
+H6.4.4B rolling native calendar/swipe was **user-confirmed PASS on real phone**, and H6.4.3F forecast logic was accepted. Added `scripts/test-cleaning-release-h6-4-4c.mjs` (cross-view source regression, REPO-only) to `scripts/verify-project.mjs`. No change to UI or SQL. Final H6.4 closeout requires external read-only SQL/Cron and security runtime checks, latest GitHub CI/Pages evidence, remaining device/accessibility and Food regression; see OUTSIDE_REPO/H6_4_4C_RELEASE_QA.md in the full release archive. No SQL migration or ALL_IN_ONE replay.
+
 ### 2026-11-01 — H6.4.4B rolling calendar candidate (LOCAL QA; CI and iPhone pending)
 
 Harmonogram uses native Safari horizontal scroll + per-day CSS snap, seven-day rolling window, date labels from actual civil dates, arrows +/-1 day and a single Today reset. Selected date/agenda do not jump when the strip scrolls. 21 DOM dates provide a buffer around the visible 7. Occurrences are server-projected, with bounded page query caching; no SQL changes. `scripts/test-cleaning-schedule-h6-4-4b.mjs` plus existing regressions must pass before GitHub/iPhone QA. See OUTSIDE_REPO/H6_4_4B_RELEASE_NOTES.md. **Do not close H6.4.4 until actual iPhone Safari QA, CI, SQL/Cron runtime, and owner sign-off.**
