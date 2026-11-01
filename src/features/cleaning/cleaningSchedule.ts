@@ -45,19 +45,25 @@ export function scheduleRange(date: string, today: string) {
 
 export type ScheduleEntry = { occurrence: CleaningOccurrence; task: CleaningTask }
 
+/** A completion belongs to its actual local day; original due date is retained for RPC/undo identity. */
+export function occurrenceCalendarDay(occurrence: CleaningOccurrence): string {
+  return occurrence.isDone && occurrence.completedLocalDate
+    ? occurrence.completedLocalDate : occurrence.scheduledDueDate
+}
+
 export function scheduleEntries(occurrences: CleaningOccurrence[], tasks: CleaningTask[], activeRoomIds: ReadonlySet<string>): ScheduleEntry[] {
   const byId = new Map(tasks.map((task) => [task.id, task]))
   return occurrences.flatMap((occurrence) => {
     const task = byId.get(occurrence.taskId)
     if (!task || task.isArchived || !activeRoomIds.has(task.roomId)) return []
     return [{ occurrence, task }]
-  }).sort((a, b) => a.occurrence.scheduledDueDate.localeCompare(b.occurrence.scheduledDueDate)
+  }).sort((a, b) => occurrenceCalendarDay(a.occurrence).localeCompare(occurrenceCalendarDay(b.occurrence))
     || Number(a.occurrence.isDone) - Number(b.occurrence.isDone)
     || a.task.title.localeCompare(b.task.title, 'pl'))
 }
 
 export function entriesOn(entries: ScheduleEntry[], date: string) {
-  return entries.filter((entry) => entry.occurrence.scheduledDueDate === date)
+  return entries.filter((entry) => occurrenceCalendarDay(entry.occurrence) === date)
 }
 
 /** Open backlog remains actionable even when its original date has aged out of the calendar. */

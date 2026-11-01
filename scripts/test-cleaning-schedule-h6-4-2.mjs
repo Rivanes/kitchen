@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import {
   addCalendarDays, earliestScheduleDay, clampScheduleDay, scheduleRange,
-  scheduleEntries, entriesOn, overdueBacklog, canUndoOccurrence, swipeDirection, swipeDragIntent, constrainedDrag,
+  scheduleEntries, entriesOn, overdueBacklog, canUndoOccurrence, swipeDirection, swipeDragIntent, constrainedDrag, occurrenceCalendarDay,
 } from '../src/features/cleaning/cleaningSchedule.ts'
 
 const today = '2026-10-31'
@@ -48,6 +48,20 @@ const entries = scheduleEntries(projected,tasks,rooms)
 assert.deepEqual(entries.filter(x => x.task.id==='pet').map(x => x.occurrence.scheduledDueDate),
   ['2026-10-31','2026-11-14','2026-11-28'])
 assert.deepEqual(entriesOn(entries,'2026-11-14').map(x=>x.task.id),['pet'])
+// Overdue 31 Oct checked on 1 Nov: displayed as DONE on 1 Nov,
+// but the immutable scheduledDueDate 31 Oct is still used for undo identity.
+const lateDone = event('pet','2026-10-31',{
+  completedLocalDate: '2026-11-01', isDone: true,
+})
+assert.equal(occurrenceCalendarDay(lateDone), '2026-11-01')
+assert.equal(occurrenceCalendarDay(event('pet','2026-11-08')), '2026-11-08')
+const lateEntries = scheduleEntries([lateDone], tasks, rooms)
+assert.deepEqual(entriesOn(lateEntries,'2026-11-01').map((x)=>x.task.id), ['pet'])
+assert.deepEqual(entriesOn(lateEntries,'2026-10-31'), [])
+assert.equal(canUndoOccurrence(lateDone, {
+  ...tasks[0], lastCompletedAt: '2026-11-01T08:30:00+00:00',
+}, {dueDate:'2026-10-31',completedAt:'2026-11-01T08:30:00+00:00'}),true)
+
 assert.equal(entriesOn(scheduleEntries(projected,tasks,new Set(['bath'])),'2026-11-14').length,0)
 assert.equal(entries.some(x=>x.task.id==='archived'), false)
 const doneEvent = event('pet','2026-10-31',{ isDone:true })

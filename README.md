@@ -1,3 +1,7 @@
+## Kitchen H6.4.3C — korekta cykli według rzeczywistego wykonania (2026-11-01)
+
+Zmieniono zasadę po ukończeniu zaległego zadania: tygodniowe 31.10 ukończone 01.11 wyświetla „Zrobione” 01.11, a kolejny termin przypada na 08.11 (potem 15.11). Przyszłe wystąpienia nadal są projektowane od razu po utworzeniu; po wykonaniu cykl jest kotwiczony od **rzeczywistej daty wykonania**. Cofnięcie przywraca poprzednią datę i anchor. Część SQL to wyłącznie inkrementalny `OUTSIDE_REPO/SQL/H64_SCHEDULE_ENGINE/H64_7_ROLLING_COMPLETION_MIGRATION.sql` na istniejącą H64.1; **nie uruchamiać `ALL_IN_ONE`**. Status: SOURCE QA PASS / SQL runtime + CI + Safari PENDING. Więcej: `OUTSIDE_REPO/H6_4_3C_ROLLING_RELEASE_NOTES.md`.
+
 ## Kitchen H6.4.3 — Porządki: wspólny nagłówek i Nadchodzące (2026-11-01)
 
 W `CleaningShell` jest jeden nagłówek H1: **Start / Pomieszczenia / Harmonogram / nazwa pomieszczenia**; usunięto zdublowane tytuły, zachowano Dom/wylogowanie i akcje pokojów. `CleaningStartTasks` pobiera teraz rzeczywiste przyszłe wystąpienia przez `h64_list_cleaning_occurrences` dla dziś + 7 dni, a stare zaległości pozostają na podstawie otwartego kursora zadania. Start i Harmonogram współdzielą zabezpieczoną obsługę wykonania pojedynczego wystąpienia (`useCleaningOccurrenceCompletion`). Nie dodano SQL, a `OUTSIDE_REPO/SQL/ALL_IN_ONE.sql` nadal opisuje stan H6.4.1. 

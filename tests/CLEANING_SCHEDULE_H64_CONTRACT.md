@@ -1,3 +1,13 @@
+## H6.4.3C amendment — rolling completion / actual-day history
+
+- With the original planned due 2026-10-31, completing on 2026-11-01 displays a checked card on **2026-11-01** (not 2026-10-31); original scheduledDueDate remains stable for H64 RPC identity and latest-only undo.
+- The same weekly recurrence shifts to **2026-11-08**, **2026-11-15**, etc. The two-week recurrence shifts to **2026-11-15**, not 2026-11-14.
+- Before first execution, future projection still starts from the created due date and is visible without performing it.
+- Server `schedule_anchor_date` rolls on execution, revision bumps; undo restores the snapshotted previous anchor and invalidates cached revisions. No false historical done flags for missed occurrences.
+- Start future previews and Harmonogram use the same H64 owner-scoped occurrence RPC; no second recurrence engine.
+- Retention stays seven days and cron stays enabled; no need to re-run H64_2.
+- Check on real phone, in live owner RPC and role/security tests before final PASS.
+
 # H6.4.2 Corrective — Harmonogram (single selected day)
 
 - Calendar schedule is an **execution surface**, not another room/task editor. `CleaningShell` shows **one** H1 for Harmonogram in the existing top header. H6.4.3 will unify the other Cleaning headers, without duplicating this H1.
