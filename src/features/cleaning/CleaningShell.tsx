@@ -101,6 +101,7 @@ export function CleaningShell({ ownerId, onExit }: CleaningShellProps) {
   const activeRooms = rooms.filter((room) => !room.isArchived)
   const archivedRooms = rooms.filter((room) => room.isArchived)
   const selectedRoom = selectedRoomId ? rooms.find((room) => room.id === selectedRoomId) ?? null : null
+  const pageTitle = view === 'rooms' ? selectedRoom?.name ?? 'Pomieszczenia' : view === 'schedule' ? 'Harmonogram' : 'Start'
 
   function changeView(next: CleaningView) {
     setView(next)
@@ -238,9 +239,7 @@ export function CleaningShell({ ownerId, onExit }: CleaningShellProps) {
       <header className="app-header cleaning-header">
         <div className="app-brand">
           <div className="brand-mark brand-mark-small cleaning-brand-mark" aria-hidden="true"><KitchenIcon name="cleaning" size={23} /></div>
-          <div>{view === 'schedule'
-            ? <h1 className="brand-kicker cleaning-shell-page-title">Harmonogram</h1>
-            : <><p className="brand-kicker">Porządki</p><p className="app-greeting">Twój dom, Twój rytm</p></>}</div>
+          <div><h1 id="cleaning-page-title" className="brand-kicker cleaning-shell-page-title">{pageTitle}</h1></div>
         </div>
         <div className="module-header-actions">
           <button className="module-home-button" type="button" onClick={onExit} aria-label="Wróć do strony głównej Dom"><KitchenIcon name="home" size={19} /><span>Dom</span></button>
@@ -253,7 +252,7 @@ export function CleaningShell({ ownerId, onExit }: CleaningShellProps) {
           {renderLoadStatus()}
           {roomsLoad === 'ready' && (activeRooms.length === 0
             ? <div className="cleaning-empty-state"><h2>Dodaj pierwsze pomieszczenie</h2><button type="button" className="cleaning-action" onClick={() => changeView('rooms')}>Pomieszczenia</button></div>
-            : <CleaningStartTasks key={taskRevision} ownerId={ownerId} rooms={rooms}
+            : <CleaningStartTasks ownerId={ownerId} rooms={rooms}
                 onChanged={() => setTaskRevision((n) => n + 1)}
                 onShowToday={() => { setShowTodayIntent((n) => n + 1); changeView('schedule') }}
                 onOpenRoom={(room) => { setView('rooms'); openRoom(room) }} />)}
@@ -261,12 +260,11 @@ export function CleaningShell({ ownerId, onExit }: CleaningShellProps) {
       )}
 
       {view === 'rooms' && (
-        <section className={`cleaning-page${selectedRoom ? '' : ' cleaning-rooms-overview'}`} aria-labelledby="cleaning-rooms-title">
+        <section className={`cleaning-page${selectedRoom ? '' : ' cleaning-rooms-overview'}`} aria-labelledby="cleaning-page-title">
           {selectedRoom ? (
             <>
-              <button type="button" className="cleaning-back-button" onClick={() => { setSelectedRoomId(null); setEditor(null); setConfirmArchive(false); setActionError('') }}><KitchenIcon name="chevronLeft" size={18} /> Wszystkie pomieszczenia</button>
               <div className="page-heading-row cleaning-room-detail-heading">
-                <h1 id="cleaning-rooms-title">{selectedRoom.name}</h1>
+                <button type="button" className="cleaning-back-button" onClick={() => { setSelectedRoomId(null); setEditor(null); setConfirmArchive(false); setActionError('') }}><KitchenIcon name="chevronLeft" size={18} /> Wszystkie pomieszczenia</button>
                 <div className="page-actions">
                   {!selectedRoom.isArchived && <button type="button" className="icon-button" onClick={() => openEditor('rename')} disabled={saving} aria-label="Zmień nazwę pomieszczenia" title="Zmień nazwę"><KitchenIcon name="edit" size={19}/></button>}
                   <details className="cleaning-room-options"><summary className="icon-button" aria-label="Opcje pomieszczenia" title="Opcje pomieszczenia"><KitchenIcon name="chevronDown" size={19}/></summary>
@@ -291,7 +289,6 @@ export function CleaningShell({ ownerId, onExit }: CleaningShellProps) {
           ) : (
             <>
               <div className="page-heading-row cleaning-rooms-heading">
-                <div><h1 id="cleaning-rooms-title">Pomieszczenia</h1></div>
                 <div className="page-actions">
                   <button className="primary-icon-button" type="button" onClick={() => openEditor('create')} disabled={roomsLoad !== 'ready' || saving} aria-label="Dodaj pomieszczenie" title="Dodaj pomieszczenie"><KitchenIcon name="plus" /></button>
                 </div>

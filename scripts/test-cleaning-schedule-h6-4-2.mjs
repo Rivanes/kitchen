@@ -70,7 +70,7 @@ const [ui, rpc, css, verifier, oldH6] = await Promise.all([
   readFile('scripts/verify-project.mjs','utf8'),
   readFile('scripts/test-cleaning-h6-ui.mjs','utf8'),
 ])
-for (const marker of ['loadCleaningOccurrences(', 'completeCleaningOccurrence(',
+for (const marker of ['loadCleaningOccurrences(', 'runCompletion(occurrence, task)',
   'scheduledDueDate', 'isActionable', 'swipeDirection(', 'swipeDragIntent(', 'onPointerMove={pointerMove}',
   'earliestScheduleDay(', 'cleaningDueStatus(', 'undoRecent()', 'clampScheduleDay(',
   'onPointerDown={pointerDown}', 'onClickCapture=', 'aria-pressed', 'cleaning-schedule-week-clip'])
@@ -89,7 +89,7 @@ assert.match(css, /\.cleaning-schedule-week-clip \{[^}]*touch-action: pan-y/)
 assert.match(css, /\.cleaning-schedule-weekdays\.is-dragging \{ transition: none/)
 assert.match(css, /reduced-motion: reduce/)
 const shell = await readFile('src/features/cleaning/CleaningShell.tsx','utf8')
-assert.match(shell, /view === 'schedule'[\s\S]*cleaning-shell-page-title[^>]*>Harmonogram/)
+assert.match(shell, /const pageTitle = view === 'rooms'[\s\S]*'Harmonogram'/)
 assert.match(shell, /view === 'schedule' && <CleaningSchedule/)
 
 assert.match(rpc, /h64_list_cleaning_occurrences/)
@@ -101,5 +101,5 @@ assert.match(rpc, /p_schedule_revision: occurrence.scheduleRevision/)
 assert.match(css, /touch-action: pan-y/)
 assert.match(css, /prefers-reduced-motion/)
 assert.match(verifier,/test-cleaning-schedule-h6-4-2\.mjs/)
-assert.match(oldH6,/completeCleaningOccurrence/)
+assert.match(oldH6,/useCleaningOccurrenceCompletion/)
 console.log('H6.4.2 Corrective calendar, drag intent, status, undo and source contract: PASS (device QA pending)')

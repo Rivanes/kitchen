@@ -20,8 +20,8 @@ for (const marker of ['completeCleaningTask(', 'crypto.randomUUID()', 'pending.c
   assert.ok(sharedCompletion.includes(marker), `H6 shared idempotency missing ${marker}`)
 }
 assert.doesNotMatch(board, /Ukryj historię|>Historia</)
-for (const marker of ['loadCleaningTasks(ownerId)', 'onOpenRoom(room)', 'run(task)']) {
-  assert.ok(start.includes(marker), `H3 missing start marker: ${marker}`)
+for (const marker of ['loadCleaningTasks(ownerId)', 'onOpenRoom(room)', 'runCompletion(entry.occurrence, entry.task)']) {
+  assert.ok(start.includes(marker), `H3/H6.4 Start missing marker: ${marker}`)
 }
 for (const marker of [".from('cleaning_tasks')", ".from('cleaning_task_completions')", 'h4_create_cleaning_task', 'h4_update_cleaning_task', 'h3_archive_cleaning_task', 'h4_complete_cleaning_task', 'p_expected_generation', 'p_operation_id', 'validateCleaningTask', 'Europe/Warsaw']) {
   assert.ok(api.includes(marker), `H3 missing data-layer marker: ${marker}`)
@@ -32,4 +32,4 @@ for (const marker of ['.cleaning-tasks', '.cleaning-task-card', '.cleaning-task-
   assert.ok(styles.includes(marker), `H3 CSS missing: ${marker}`)
 }
 assert.match(flags, /export const KITCHEN_VOICE_ENABLED = false/)
-console.log('Kitchen H3 task UI/data and Voice freeze source contracts: PASS')
+console.log('Kitchen H3 task UI/data + H6.4 Start completion + Voice freeze: PASS')

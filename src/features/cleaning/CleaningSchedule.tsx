@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import { KitchenIcon } from '../../components/KitchenIcon'
 import { useCleaningTaskUndo } from './useCleaningTaskUndo'
+import { useCleaningOccurrenceCompletion } from './useCleaningOccurrenceCompletion'
 import { toUserErrorMessage } from '../../lib/userError'
 import type { CleaningRoom } from './cleaningRooms'
 import { cleaningDueStatus } from './cleaningRecurrence'
-import { completeCleaningOccurrence, loadCleaningOccurrences, loadRecentCleaningCompletions, type CleaningOccurrence, type CleaningRecentCompletion } from './cleaningOccurrences'
+import { loadCleaningOccurrences, loadRecentCleaningCompletions, type CleaningOccurrence, type CleaningRecentCompletion } from './cleaningOccurrences'
 import {
   addCalendarDays, canUndoOccurrence, clampScheduleDay, earliestScheduleDay, entriesOn, overdueBacklog,
   scheduleDateLabel, scheduleEntries, scheduleRange, swipeDirection, swipeDragIntent, constrainedDrag,
@@ -35,13 +36,10 @@ export function CleaningSchedule({ ownerId, rooms, onOpenRoom, onChanged, jumpTo
   const [error, setError] = useState('')
   const [actionError, setActionError] = useState('')
   const [feedback, setFeedback] = useState('')
-  const [busyId, setBusyId] = useState<string | null>(null)
+  const { run: runCompletion, busyId, inFlight } = useCleaningOccurrenceCompletion()
   const [lastCompleted, setLastCompleted] = useState<CleaningTask | null>(null)
   const { undo: runUndo, undoBusyId, inFlightUndo } = useCleaningTaskUndo()
   const requestNumber = useRef(0)
-  const inFlight = useRef(false)
-  // Retry after an ambiguous response must reuse the same operation ID AND occurrence identity.
-  const pending = useRef(new Map<string, { id: string; generation: number; revision: number; date: string }>())
   // Pointer Events also work when a drag starts directly on a clickable date.
   // Do not bind gestures to the agenda: scrolling the task list must remain native.
   const gesture = useRef<{ pointerId: number; startX: number; startY: number; axis: 'pending' | 'horizontal' | 'vertical'; width: number } | null>(null)
@@ -169,41 +167,19 @@ export function CleaningSchedule({ ownerId, rooms, onOpenRoom, onChanged, jumpTo
   }
 
   async function complete(entry: ScheduleEntry) {
-    const { occurrence, task } = entry
-    if (busy || inFlight.current || !occurrence.isActionable || occurrence.isDone || task.isArchived || task.isCompleted) return
-    const previous = pending.current.get(task.id)
-    if (previous && (previous.generation !== occurrence.cycleGeneration
-      || previous.revision !== occurrence.scheduleRevision || previous.date !== occurrence.scheduledDueDate)) {
-      pending.current.delete(task.id)
-      setActionError('Termin zadania zmienił się. Odśwież harmonogram.')
-      return
-    }
-    const operation = previous ?? {
-      id: crypto.randomUUID(), generation: occurrence.cycleGeneration,
-      revision: occurrence.scheduleRevision, date: occurrence.scheduledDueDate,
-    }
-    pending.current.set(task.id, operation)
-    inFlight.current = true
-    setBusyId(task.id)
+    const { task, occurrence } = entry
+    if (busy || inFlight.current) return
     setActionError('')
     setFeedback('')
     try {
-      const saved = await completeCleaningOccurrence(occurrence, operation.id)
-      if (saved.cycleGeneration !== occurrence.cycleGeneration + 1 || !saved.lastCompletedAt ||
-        (task.recurrenceKind === 'once' && !saved.isCompleted)) {
-        pending.current.delete(task.id)
-        throw new Error('Wykonanie zostało już cofnięte lub termin się zmienił. Odśwież harmonogram.')
-      }
-      pending.current.delete(task.id)
+      const saved = await runCompletion(occurrence, task)
+      if (!saved) return
       setLastCompleted(saved)
       setFeedback(`Zrobione: ${task.title}`)
       onChanged()
       await refresh()
     } catch (cause: unknown) {
       setActionError(toUserErrorMessage(cause, 'Nie udało się wykonać zadania.'))
-    } finally {
-      inFlight.current = false
-      setBusyId(null)
     }
   }
 

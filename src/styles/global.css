@@ -4476,7 +4476,7 @@ html:has(.cleaning-shell), body:has(.cleaning-shell) { background: #f5f8fa; }
 /* Narrow iPhone: protect header action targets instead of allowing horizontal overflow. */
 .cleaning-header .app-brand { flex: 1; min-width: 0; }
 .cleaning-header .app-brand > div:last-child { min-width: 0; }
-.cleaning-header .app-greeting { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.cleaning-header .cleaning-shell-page-title { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .cleaning-header .module-header-actions { flex-shrink: 0; }
 
 /* H2 — Cleaning Rooms CRUD. Tokens remain scoped to .cleaning-shell. */
@@ -4496,8 +4496,7 @@ html:has(.cleaning-shell), body:has(.cleaning-shell) { background: #f5f8fa; }
 .cleaning-room-card-copy > span { font-size: 12px; color: var(--color-muted); }
 /* H6.2: reuse the Food heading / plus / count badge. Keep the original room card geometry. */
 .cleaning-rooms-overview { gap: 14px; }
-.cleaning-rooms-heading { margin: 0; padding: 0 3px; align-items: center; }
-.cleaning-rooms-heading h1 { margin: 0; }
+.cleaning-rooms-heading { margin: 0; padding: 0 3px; align-items: center; justify-content: flex-end; min-height: 44px; }
 .cleaning-rooms-heading .primary-icon-button { box-shadow: 0 8px 20px rgba(49, 92, 124, .14); }
 .cleaning-room-card-end { margin-left: auto; flex: 0 0 auto; display: flex; gap: 8px; align-items: center; }
 .cleaning-room-card-end > svg { color: #8095a2; }
@@ -4725,7 +4724,6 @@ html:has(.cleaning-shell), body:has(.cleaning-shell) { background: #f5f8fa; }
 .cleaning-start { gap: 18px; }
 .cleaning-dashboard { display: grid; gap: 25px; min-width: 0; }
 .cleaning-dashboard .cleaning-section-title { align-items: center; }
-.cleaning-dashboard .cleaning-section-title h1,
 .cleaning-dashboard .cleaning-section-title h2 { font-size: 22px; margin: 0; letter-spacing: -.03em; }
 .cleaning-dashboard .cleaning-section-title > .cleaning-task-link { padding: 0 2px; }
 .cleaning-dashboard-empty { background: #fff; border: 1px solid var(--color-border); padding: 17px; border-radius: 17px; color: var(--color-muted); font-size: 14px; margin: 0; }
@@ -4736,7 +4734,16 @@ html:has(.cleaning-shell), body:has(.cleaning-shell) { background: #f5f8fa; }
 .cleaning-dashboard-task-detail { display: grid; gap: 5px; text-align: left; flex: 1 1 auto; min-width: 0; padding: 8px 0; border: 0; background: transparent; color: var(--color-text); }
 .cleaning-dashboard-task-detail strong { font-size: 15px; line-height: 1.3; overflow-wrap: anywhere; }
 .cleaning-dashboard-task-detail span { font-size: 12px; color: var(--color-muted); }
-.cleaning-dashboard-task .cleaning-due-status { margin-left: auto; flex-shrink: 0; }
+/* H6.4.3: same deadline badge as Rooms/Schedule, no repeated full date. */
+.cleaning-dashboard-task { align-items: flex-start; gap: 4px; padding: 9px 11px 9px 5px; }
+.cleaning-dashboard-task-detail { position: relative; gap: 5px; padding: 5px 25px 5px 0; }
+.cleaning-dashboard-task-detail .cleaning-dashboard-task-notes { font-size: 13px; line-height: 1.4; white-space: pre-wrap; overflow-wrap: anywhere; }
+.cleaning-dashboard-task-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.cleaning-dashboard-task-meta > span:first-child { font-size: 12px; color: var(--color-muted); }
+.cleaning-dashboard-task-meta .cleaning-due-status { margin: 0; padding: 4px 8px; font-size: 11px; color: #315d7c; }
+.cleaning-dashboard-task-meta .cleaning-due-status.is-today { color: #255e86; }
+.cleaning-dashboard-task-meta .cleaning-due-status.is-overdue { color: #aa4337; }
+.cleaning-dashboard-task-arrow { position: absolute; top: 8px; right: 0; color: var(--color-muted); }
 .cleaning-task-main { align-items: flex-start; }
 .cleaning-task-detail-button { display: grid; gap: 5px; text-align: left; min-width: 0; flex: 1; border: 0; background: transparent; color: var(--color-text); padding: 9px 0; overflow-wrap: anywhere; }
 .cleaning-task-detail-button strong { font-size: 15px; line-height: 1.35; }
@@ -4778,7 +4785,9 @@ html:has(.cleaning-shell), body:has(.cleaning-shell) { background: #f5f8fa; }
 /* H6.3 — use the existing Food heading and icon-button system; do not resize room cards. */
 .cleaning-page:has(.cleaning-room-detail-heading) { gap: 13px; }
 .cleaning-room-detail-heading { align-items: center; margin: 0; padding: 0 3px; }
-.cleaning-room-detail-heading h1 { margin: 0; overflow-wrap: anywhere; }
+.cleaning-room-detail-heading { justify-content: space-between; gap: 8px; }
+.cleaning-room-detail-heading .page-actions { flex-shrink: 0; }
+.cleaning-room-detail-heading .cleaning-back-button { min-width: 0; text-align: left; }
 .cleaning-room-options { position: relative; }
 .cleaning-room-options > summary { display: grid; place-items: center; list-style: none; cursor: pointer; }
 .cleaning-room-options > summary::-webkit-details-marker { display: none; }

@@ -1,3 +1,9 @@
+## Kitchen H6.4.3 — Porządki: wspólny nagłówek i Nadchodzące (2026-11-01)
+
+W `CleaningShell` jest jeden nagłówek H1: **Start / Pomieszczenia / Harmonogram / nazwa pomieszczenia**; usunięto zdublowane tytuły, zachowano Dom/wylogowanie i akcje pokojów. `CleaningStartTasks` pobiera teraz rzeczywiste przyszłe wystąpienia przez `h64_list_cleaning_occurrences` dla dziś + 7 dni, a stare zaległości pozostają na podstawie otwartego kursora zadania. Start i Harmonogram współdzielą zabezpieczoną obsługę wykonania pojedynczego wystąpienia (`useCleaningOccurrenceCompletion`). Nie dodano SQL, a `OUTSIDE_REPO/SQL/ALL_IN_ONE.sql` nadal opisuje stan H6.4.1. 
+
+**Status: LOCAL SOURCE QA — nie CLOSED.** Wymagane GitHub QA/Pages + iPhone Safari, a końcowe testy SQL/Cron należą do H6.4.4. Patrz `OUTSIDE_REPO/H6_4_3_RELEASE_NOTES.md` oraz `H6_4_3_PHONE_QA.md`.
+
 # BIEŻĄCY ETAP — H6.3 CI Dependency Order Corrective (2026-10-31)
 
 **H6.3 SQL: użytkownik zgłosił PASS** (funkcje `h63_delete_cleaning_task` i `h63_undo_last_cleaning_completion` posiadają `SECURITY DEFINER` i pusty `search_path`). **GitHub QA/Pages: NOT PASS** w zgłoszonym uruchomieniu; poprawiono kolejność kroków obu workflow, aby `npm ci` i kontrola lockfile poprzedzały `node scripts/verify-project.mjs` (test H6.3 importuje `typescript`). Dodatkowy test pilnuje kolejności. Nowy commit CI, TypeScript/Vite i QA iPhone: nadal do potwierdzenia. Bez nowych zmian SQL, Food ani Voice. 
@@ -796,5 +802,5 @@ Rooms and tasks now share the Food-style mobile sheet, form-field and action but
 Cleaning supports completion-based once/every N days/weeks/months and a due countdown. Apply guarded H4 Supabase migration from `OUTSIDE_REPO/SQL/H4_RECURRENCE/` before releasing this frontend; H3 create/update/complete RPC access is retired. Historical Food and Voice freeze unaffected. GitHub QA/Pages and phone acceptance pending.
 
 
-## H6.3 — Cleaning task UI / safe task lifecycle (candidate, 2026-10-31)
-Shared Food UI elements are reused in Cleaning room detail and task form. Source-only checks pass, but owner-guarded `h63_undo_last_cleaning_completion` and `h63_delete_cleaning_task` must be deployed from `OUTSIDE_REPO/SQL/H63_TASK_LIFECYCLE/` and verified on Supabase before UI deployment. Do not run ALL_IN_ONE against an existing database. GitHub QA/Pages and phone smoke pending. AI remains frozen.
+## H6.3 — Cleaning task UI / safe task lifecycle (PASS / CLOSED)
+H6.3 was accepted by the user on 2026-10-31. Owner-guarded task deletion and latest-only undo were installed and validated. This is a historical milestone; **do not rerun H6.3 SQL** on production. The current H6.4.3 UI uses existing H6.4.1 anchored schedule SQL, with new Start/Schedule shared occurrence completion and a single shared Cleaning H1. Voice remains frozen.
