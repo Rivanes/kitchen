@@ -1,3 +1,6 @@
+### H6.4.3E — CI boundary corrective (2026-11-01)
+`test-cleaning-h6-4-3d.mjs` no longer tries to load `../OUTSIDE_REPO/SQL/...` in GitHub Actions. The deployable verifier tests frontend behavior; mandatory H64_11/ALL_IN_ONE migration contracts are checked in `OUTSIDE_REPO/QA/H64_SQL_CONTRACT_CHECK.mjs` when the full package is present. No production SQL/code behavior changes. GitHub QA/Deploy still pending. See `OUTSIDE_REPO/H6_4_3E_CI_BOUNDARY_CORRECTIVE.md`.
+
 ### Cleaning H6.4.3E — source corrective (2026-11-01)
 Room task catalog now shows only definition fields (title/notes/recurrence) with edit/delete actions; no completion/due-status UX. Start and Harmonogram remain the sole completion interfaces. One-off done and legacy archived records remain accessible for permanent deletion. Added dedicated H6.4.3E source contract in `verify-project.mjs`; SQL and `ALL_IN_ONE.sql` unchanged. GitHub QA/Pages and phone tests pending. For current workflow see `OUTSIDE_REPO/H6_4_3E_RELEASE_NOTES.md`.
 
