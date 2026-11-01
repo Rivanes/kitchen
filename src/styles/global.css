@@ -4665,40 +4665,33 @@ html:has(.cleaning-shell), body:has(.cleaning-shell) { background: #f5f8fa; }
 }
 
 /* H6.4.2 — compact, mobile-first execution calendar; Food design tokens stay untouched. */
+/* H6.4.2 Corrective: a single-date calendar with direct-manipulation week drag. */
+.cleaning-shell-page-title { margin: 0; font-size: clamp(16px, 4.2vw, 19px); line-height: 1.25; }
 .cleaning-schedule { display: grid; gap: 14px; min-width: 0; }
-.cleaning-schedule-heading h1 { margin: 1px 0 2px; font-size: clamp(23px, 5vw, 28px); letter-spacing: -.035em; line-height: 1.2; }
-.cleaning-schedule-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-width: 0; }
-.cleaning-schedule-toolbar-actions { display: flex; align-items: center; gap: 6px; }
-.cleaning-schedule-mode { display: inline-flex; gap: 3px; padding: 3px; background: var(--color-accent-soft); border-radius: 13px; }
-.cleaning-schedule-mode button { min-height: 44px; padding: 0 14px; border: 0; background: transparent; border-radius: 10px; color: var(--color-accent-strong); font-size: 13px; font-weight: 750; }
-.cleaning-schedule-mode button.is-active { background: #fff; box-shadow: 0 2px 7px rgba(31,63,85,.09); }
-.cleaning-schedule-today, .cleaning-schedule-picker-toggle { display: grid; place-items: center; min-height: 44px; border: 1px solid var(--color-border); background: #fff; border-radius: 12px; color: var(--color-accent-strong); font-size: 13px; font-weight: 750; }
-.cleaning-schedule-today { padding: 0 12px; }
-.cleaning-schedule-picker-toggle { width: 44px; }
-.cleaning-schedule-calendar { background: #fff; border: 1px solid var(--color-border); border-radius: 19px; padding: 10px 11px 12px; display: grid; gap: 9px; min-width: 0; touch-action: pan-y; }
+.cleaning-schedule-calendar { background: #fff; border: 1px solid var(--color-border); border-radius: 19px; padding: 7px 11px 10px; display: grid; gap: 4px; min-width: 0; }
 .cleaning-schedule-period { display: grid; grid-template-columns: 44px minmax(0,1fr) 44px; align-items: center; gap: 4px; text-align: center; }
-.cleaning-schedule-period strong { font-size: 15px; font-weight: 800; letter-spacing: -.025em; overflow-wrap: anywhere; text-transform: capitalize; }
-.cleaning-schedule-period button { display: grid; place-items: center; min-height: 44px; border: 0; border-radius: 12px; background: transparent; color: var(--color-accent-strong); }
-.cleaning-schedule-period button:disabled { opacity: .3; }
-.cleaning-schedule-weekdays { display: grid; grid-template-columns: repeat(7,minmax(0,1fr)); gap: 2px; min-width: 0; }
-.cleaning-schedule-weekdays button { min-width: 0; min-height: 58px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; border: 1px solid transparent; background: transparent; color: var(--color-text); border-radius: 11px; }
+.cleaning-schedule-period-center { display: flex; align-items: center; justify-content: center; flex-direction: column; min-height: 56px; gap: 1px; }
+.cleaning-schedule-period-center strong { font-size: 15px; font-weight: 800; letter-spacing: -.025em; text-transform: capitalize; line-height: 1.15; }
+.cleaning-schedule-period > button { display: grid; place-items: center; min-height: 44px; min-width: 44px; border: 0; border-radius: 12px; background: transparent; color: var(--color-accent-strong); }
+.cleaning-schedule-period > button:disabled { opacity: .3; }
+.cleaning-schedule-period .cleaning-schedule-today { min-height: 44px; padding: 1px 12px; font-size: 11px; font-weight: 760; border-radius: 10px; border: 0; color: var(--color-accent-strong); background: transparent; }
+.cleaning-schedule-period .cleaning-schedule-today:active { background: var(--color-accent-soft); }
+.cleaning-schedule-week-clip { overflow: hidden; min-width: 0; touch-action: pan-y; user-select: none; -webkit-user-select: none; }
+.cleaning-schedule-weekdays { display: grid; grid-template-columns: repeat(7,minmax(0,1fr)); gap: 2px; min-width: 0; transition: transform 190ms cubic-bezier(.2,.8,.2,1); will-change: transform; animation: cleaning-week-in 160ms ease-out; }
+@keyframes cleaning-week-in { from { opacity: .66; } to { opacity: 1; } }
+.cleaning-schedule-weekdays.is-dragging { transition: none; animation: none; }
+.cleaning-schedule-weekdays button { touch-action: pan-y; min-width: 0; min-height: 62px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; border: 1px solid transparent; background: transparent; color: var(--color-text); border-radius: 11px; }
 .cleaning-schedule-weekdays button span { font-size: 10px; font-weight: 650; color: var(--color-muted); }
 .cleaning-schedule-weekdays button strong { font-size: 15px; font-weight: 790; }
 .cleaning-schedule-weekdays button i { height: 5px; width: 5px; border-radius: 50%; background: var(--color-accent-strong); }
 .cleaning-schedule-weekdays button.is-today { border-color: var(--color-border); }
 .cleaning-schedule-weekdays button.is-selected { background: var(--color-accent-soft); color: var(--color-accent-strong); }
-.cleaning-schedule-weekdays button:disabled { opacity: .32; }
-.cleaning-schedule-date-picker { display: grid; gap: 6px; padding: 6px 3px 1px; }
-.cleaning-schedule-date-picker label { font-size: 12px; font-weight: 740; color: var(--color-muted); }
-.cleaning-schedule-date-picker input { box-sizing: border-box; width: 100%; min-height: 48px; border: 1px solid var(--color-border); border-radius: 12px; background: #fff; color: var(--color-text); padding: 0 48px 0 12px; font: inherit; font-size: 16px; }
-.cleaning-schedule-filter { display: flex; align-items: center; gap: 11px; min-width: 0; }
-.cleaning-schedule-filter label { flex: 0 0 auto; font-size: 12px; font-weight: 740; color: var(--color-muted); }
-.cleaning-schedule-filter select { flex: 1 1 auto; box-sizing: border-box; min-width: 0; width: 100%; min-height: 44px; border: 1px solid var(--color-border); border-radius: 12px; background: #fff; color: var(--color-text); padding: 0 32px 0 11px; font: inherit; font-size: 13px; }
-.cleaning-schedule-agenda { display: grid; gap: 17px; min-width: 0; touch-action: pan-y; animation: cleaning-schedule-enter .18s ease-out both; }
+.cleaning-schedule-weekdays button[aria-disabled="true"] { opacity: .32; }
+.cleaning-schedule-future-note { color: var(--color-muted); font-size: 10px; }
+.cleaning-schedule-agenda { display: grid; gap: 17px; min-width: 0; animation: cleaning-schedule-enter .18s ease-out both; }
 @keyframes cleaning-schedule-enter { from { opacity: .65; transform: translateX(5px); } to { opacity: 1; transform: translateX(0); } }
-.cleaning-schedule-groups, .cleaning-schedule-group, .cleaning-schedule-items { display: grid; min-width: 0; }
+.cleaning-schedule-group, .cleaning-schedule-items { display: grid; min-width: 0; }
 .cleaning-schedule-group { gap: 9px; }
-.cleaning-schedule-groups { gap: 19px; }
 .cleaning-schedule-items { gap: 8px; }
 .cleaning-schedule-day-title { margin: 0; min-width: 0; align-items: baseline; gap: 9px; }
 .cleaning-schedule-day-title h2 { font-size: 16px; line-height: 1.3; margin: 0; letter-spacing: -.02em; text-transform: none; }
@@ -4724,11 +4717,9 @@ html:has(.cleaning-shell), body:has(.cleaning-shell) { background: #f5f8fa; }
   .cleaning-schedule-weekdays { gap: 0; }
   .cleaning-schedule-weekdays button { min-height: 55px; }
   .cleaning-schedule-weekdays button span { font-size: 9px; }
-  .cleaning-schedule-mode button { padding: 0 11px; }
-  .cleaning-schedule-filter { gap: 7px; }
-  .cleaning-schedule-filter label { font-size: 11px; }
+  .cleaning-schedule-period-center strong { font-size: 14px; }
 }
-@media (prefers-reduced-motion: reduce) { .cleaning-schedule-agenda { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .cleaning-schedule-agenda { animation: none; } .cleaning-schedule-weekdays { transition: none; animation: none; } }
 
 /* H6.1: Cleaning uses Food's sheet/stepper and compact, task-first hierarchy. */
 .cleaning-start { gap: 18px; }

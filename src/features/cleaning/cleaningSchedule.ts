@@ -37,22 +37,19 @@ export function clampScheduleDay(date: string, today: string): string {
   return date < floor ? floor : date
 }
 
-export function scheduleRange(date: string, mode: 'day' | 'week', today: string) {
+export function scheduleRange(date: string, today: string) {
   // Always fetch visible week for dots; a partial historical week is clipped to today-7.
   const days = daysOfWeek(date)
-  return { from: clampScheduleDay(days[0], today), to: days[6], days,
-    activeFrom: mode === 'day' ? date : clampScheduleDay(days[0], today),
-    activeTo: mode === 'day' ? date : days[6] }
+  return { from: clampScheduleDay(days[0], today), to: days[6], days }
 }
 
 export type ScheduleEntry = { occurrence: CleaningOccurrence; task: CleaningTask }
 
-export function scheduleEntries(occurrences: CleaningOccurrence[], tasks: CleaningTask[], activeRoomIds: ReadonlySet<string>, roomFilter: string): ScheduleEntry[] {
+export function scheduleEntries(occurrences: CleaningOccurrence[], tasks: CleaningTask[], activeRoomIds: ReadonlySet<string>): ScheduleEntry[] {
   const byId = new Map(tasks.map((task) => [task.id, task]))
   return occurrences.flatMap((occurrence) => {
     const task = byId.get(occurrence.taskId)
-    if (!task || task.isArchived || !activeRoomIds.has(task.roomId) ||
-        (roomFilter !== 'all' && task.roomId !== roomFilter)) return []
+    if (!task || task.isArchived || !activeRoomIds.has(task.roomId)) return []
     return [{ occurrence, task }]
   }).sort((a, b) => a.occurrence.scheduledDueDate.localeCompare(b.occurrence.scheduledDueDate)
     || Number(a.occurrence.isDone) - Number(b.occurrence.isDone)
@@ -64,16 +61,28 @@ export function entriesOn(entries: ScheduleEntry[], date: string) {
 }
 
 /** Open backlog remains actionable even when its original date has aged out of the calendar. */
-export function overdueBacklog(tasks: CleaningTask[], activeRoomIds: ReadonlySet<string>, roomFilter: string, today: string, rangeStart: string): CleaningTask[] {
+export function overdueBacklog(tasks: CleaningTask[], activeRoomIds: ReadonlySet<string>, today: string): CleaningTask[] {
   return tasks.filter((task) => !task.isArchived && !task.isCompleted && task.nextDueDate < today
-    && task.nextDueDate < rangeStart && activeRoomIds.has(task.roomId)
-    && (roomFilter === 'all' || task.roomId === roomFilter))
+    && activeRoomIds.has(task.roomId))
     .sort((a, b) => a.nextDueDate.localeCompare(b.nextDueDate) || a.title.localeCompare(b.title, 'pl'))
 }
 
 export function scheduleDateLabel(date: string, options: Intl.DateTimeFormatOptions): string {
   const format = new Intl.DateTimeFormat('pl-PL', { timeZone: 'UTC', ...options })
   return format.format(new Date(calendarDateMillis(date)))
+}
+
+/** Horizontal drag lock; never intercept a vertical scroll or Safari's edge gestures. */
+export function swipeDragIntent(dx: number, dy: number, startX: number, viewportWidth: number): 'pending' | 'horizontal' | 'vertical' {
+  if (startX < 25 || startX > viewportWidth - 25) return 'vertical'
+  if (Math.abs(dy) > 9 && Math.abs(dy) > Math.abs(dx) * 1.1) return 'vertical'
+  if (Math.abs(dx) > 10 && Math.abs(dx) > Math.abs(dy) * 1.15) return 'horizontal'
+  return 'pending'
+}
+
+export function constrainedDrag(dx: number, width: number): number {
+  const limit = Math.max(0, width * .8)
+  return Math.max(-limit, Math.min(limit, dx))
 }
 
 /** Horizontal intent must exceed vertical movement, so native vertical scrolling remains fluid. */

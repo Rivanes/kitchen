@@ -238,7 +238,9 @@ export function CleaningShell({ ownerId, onExit }: CleaningShellProps) {
       <header className="app-header cleaning-header">
         <div className="app-brand">
           <div className="brand-mark brand-mark-small cleaning-brand-mark" aria-hidden="true"><KitchenIcon name="cleaning" size={23} /></div>
-          <div><p className="brand-kicker">Porządki</p><p className="app-greeting">Twój dom, Twój rytm</p></div>
+          <div>{view === 'schedule'
+            ? <h1 className="brand-kicker cleaning-shell-page-title">Harmonogram</h1>
+            : <><p className="brand-kicker">Porządki</p><p className="app-greeting">Twój dom, Twój rytm</p></>}</div>
         </div>
         <div className="module-header-actions">
           <button className="module-home-button" type="button" onClick={onExit} aria-label="Wróć do strony głównej Dom"><KitchenIcon name="home" size={19} /><span>Dom</span></button>

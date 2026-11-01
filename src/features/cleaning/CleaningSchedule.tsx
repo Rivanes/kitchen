@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type TouchEvent } from 'react'
+import { useCallback, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import { KitchenIcon } from '../../components/KitchenIcon'
 import { useCleaningTaskUndo } from './useCleaningTaskUndo'
 import { toUserErrorMessage } from '../../lib/userError'
@@ -7,7 +7,7 @@ import { cleaningDueStatus } from './cleaningRecurrence'
 import { completeCleaningOccurrence, loadCleaningOccurrences, loadRecentCleaningCompletions, type CleaningOccurrence, type CleaningRecentCompletion } from './cleaningOccurrences'
 import {
   addCalendarDays, canUndoOccurrence, clampScheduleDay, earliestScheduleDay, entriesOn, overdueBacklog,
-  scheduleDateLabel, scheduleEntries, scheduleRange, swipeDirection,
+  scheduleDateLabel, scheduleEntries, scheduleRange, swipeDirection, swipeDragIntent, constrainedDrag,
   type ScheduleEntry,
 } from './cleaningSchedule'
 import { loadCleaningTasks, todayWarsaw, type CleaningTask } from './cleaningTasks'
@@ -19,7 +19,6 @@ type Props = {
   onChanged: () => void
   jumpToToday?: number
 }
-type Mode = 'day' | 'week'
 
 const shortWeekdays = ['pon.', 'wt.', 'śr.', 'czw.', 'pt.', 'sob.', 'niedz.']
 
@@ -29,9 +28,6 @@ const shortWeekdays = ['pon.', 'wt.', 'śr.', 'czw.', 'pt.', 'sob.', 'niedz.']
 export function CleaningSchedule({ ownerId, rooms, onOpenRoom, onChanged, jumpToToday = 0 }: Props) {
   const [selectedDate, setSelectedDate] = useState(todayWarsaw)
   const [today, setToday] = useState(todayWarsaw)
-  const [mode, setMode] = useState<Mode>('week')
-  const [selectedRoomId, setSelectedRoomId] = useState('all')
-  const [datePickerOpen, setDatePickerOpen] = useState(false)
   const [tasks, setTasks] = useState<CleaningTask[]>([])
   const [occurrences, setOccurrences] = useState<CleaningOccurrence[]>([])
   const [recentCompletions, setRecentCompletions] = useState<CleaningRecentCompletion[]>([])
@@ -46,11 +42,16 @@ export function CleaningSchedule({ ownerId, rooms, onOpenRoom, onChanged, jumpTo
   const inFlight = useRef(false)
   // Retry after an ambiguous response must reuse the same operation ID AND occurrence identity.
   const pending = useRef(new Map<string, { id: string; generation: number; revision: number; date: string }>())
-  const touch = useRef<{ x: number; y: number } | null>(null)
+  // Pointer Events also work when a drag starts directly on a clickable date.
+  // Do not bind gestures to the agenda: scrolling the task list must remain native.
+  const gesture = useRef<{ pointerId: number; startX: number; startY: number; axis: 'pending' | 'horizontal' | 'vertical'; width: number } | null>(null)
+  const swallowSwipeClick = useRef(false)
+  const [dragOffset, setDragOffset] = useState(0)
+  const [dragging, setDragging] = useState(false)
 
   const floor = earliestScheduleDay(today)
   const currentDate = clampScheduleDay(selectedDate, today)
-  const range = scheduleRange(currentDate, mode, today)
+  const range = scheduleRange(currentDate, today)
   const { from, to, days } = range
 
   const refresh = useCallback(async (initial = false) => {
@@ -96,47 +97,75 @@ export function CleaningSchedule({ ownerId, rooms, onOpenRoom, onChanged, jumpTo
     if (jumpToToday > 0) {
       setToday(todayWarsaw())
       setSelectedDate(todayWarsaw())
-      setMode('day')
     }
   }, [jumpToToday])
 
   const activeRooms = rooms.filter((room) => !room.isArchived)
   const roomById = new Map(activeRooms.map((room) => [room.id, room]))
   const activeRoomIds = new Set(roomById.keys())
-  const filter = selectedRoomId === 'all' || activeRoomIds.has(selectedRoomId) ? selectedRoomId : 'all'
-  const entries = scheduleEntries(occurrences, tasks, activeRoomIds, filter)
+  const entries = scheduleEntries(occurrences, tasks, activeRoomIds)
   const recentByTask = new Map<string, CleaningRecentCompletion>()
   for (const item of recentCompletions) {
     if (!recentByTask.has(item.taskId)) recentByTask.set(item.taskId, item)
   }
-  const displayed = entries.filter((entry) =>
-    entry.occurrence.scheduledDueDate >= range.activeFrom && entry.occurrence.scheduledDueDate <= range.activeTo)
-  const showBacklog = mode === 'day' ? currentDate === today : from <= today && today <= to
-  const backlogStart = mode === 'day' ? today : from
-  const backlog = showBacklog ? overdueBacklog(tasks, activeRoomIds, filter, today, backlogStart) : []
-  const canPrevious = currentDate > floor
+  const backlog = currentDate === today ? overdueBacklog(tasks, activeRoomIds, today) : []
+  const canPrevious = addCalendarDays(days[0], -1) >= floor
   const busy = busyId !== null || undoBusyId !== null
 
   function navigate(direction: -1 | 1) {
-    if (busy) return
-    const offset = (mode === 'day' ? 1 : 7) * direction
-    setSelectedDate((date) => clampScheduleDay(addCalendarDays(clampScheduleDay(date, today), offset), today))
+    if (busy || (direction === -1 && !canPrevious)) return
+    setSelectedDate((date) => clampScheduleDay(addCalendarDays(clampScheduleDay(date, today), 7 * direction), today))
   }
 
-  function touchStart(event: TouchEvent<HTMLElement>) {
-    if (event.touches.length !== 1 || busy) { touch.current = null; return }
-    const target = event.target as HTMLElement
-    if (target.closest('button,input,select,textarea,a,label')) { touch.current = null; return }
-    touch.current = { x: event.touches[0].clientX, y: event.touches[0].clientY }
+  function pointerDown(event: ReactPointerEvent<HTMLDivElement>) {
+    if (!event.isPrimary || event.button !== 0 || busy) return
+    // Do not steal iOS Safari's back/forward gesture from either screen edge.
+    swallowSwipeClick.current = false
+    gesture.current = { pointerId: event.pointerId, startX: event.clientX, startY: event.clientY,
+      width: event.currentTarget.getBoundingClientRect().width, axis: 'pending' }
   }
 
-  function touchEnd(event: TouchEvent<HTMLElement>) {
-    const start = touch.current
-    touch.current = null
-    if (!start || event.changedTouches.length !== 1) return
-    const direction = swipeDirection(event.changedTouches[0].clientX - start.x,
-      event.changedTouches[0].clientY - start.y, start.x, window.innerWidth)
-    if (direction) navigate(direction)
+  function pointerMove(event: ReactPointerEvent<HTMLDivElement>) {
+    const active = gesture.current
+    if (!active || active.pointerId !== event.pointerId) return
+    const dx = event.clientX - active.startX
+    const dy = event.clientY - active.startY
+    if (active.axis === 'pending') {
+      const intent = swipeDragIntent(dx, dy, active.startX, window.innerWidth)
+      if (intent === 'pending') return
+      active.axis = intent
+      if (intent === 'horizontal') {
+        // Capturing only after horizontal intent keeps ordinary date taps native.
+        event.currentTarget.setPointerCapture(event.pointerId)
+        setDragging(true)
+      }
+    }
+    if (active.axis !== 'horizontal') return
+    setDragOffset(constrainedDrag(dx, active.width))
+  }
+
+  function resetGesture() {
+    gesture.current = null
+    setDragging(false)
+    setDragOffset(0)
+  }
+
+  function pointerUp(event: ReactPointerEvent<HTMLDivElement>) {
+    const active = gesture.current
+    if (!active || active.pointerId !== event.pointerId) return
+    const isHorizontal = active.axis === 'horizontal'
+    const dx = event.clientX - active.startX
+    const dy = event.clientY - active.startY
+    // Prevent the synthetic click on the date button after a completed drag.
+    if (isHorizontal) swallowSwipeClick.current = true
+    resetGesture()
+    if (!isHorizontal) return
+    const direction = swipeDirection(dx, dy, active.startX, window.innerWidth)
+    if (direction !== 0) navigate(direction)
+  }
+
+  function pointerCancel() {
+    resetGesture() // iOS vertical scrolling and interrupted touches must not navigate.
   }
 
   async function complete(entry: ScheduleEntry) {
@@ -201,16 +230,20 @@ export function CleaningSchedule({ ownerId, rooms, onOpenRoom, onChanged, jumpTo
     const canUndoHere = canUndoOccurrence(occurrence, task, latest)
     const canComplete = occurrence.isActionable && !occurrence.isDone && !task.isCompleted
     const status = cleaningDueStatus(occurrence.scheduledDueDate, today)
+    const disabledReason = occurrence.isDone
+      ? 'Można cofnąć tylko ostatnie wykonanie zadania.'
+      : 'Najpierw wykonaj wcześniejszy termin tego zadania.'
     return <article key={`${task.id}:${occurrence.scheduledDueDate}:${occurrence.scheduleRevision}`}
       className={`cleaning-schedule-item${occurrence.isDone ? ' is-done' : ''}`}>
-      <label className="cleaning-schedule-check" title={!canComplete && !canUndoHere && !occurrence.isDone
-        ? 'Najpierw wykonaj wcześniejszy termin tego zadania.' : undefined}>
+      <label className="cleaning-schedule-check" title={!canComplete && !canUndoHere ? disabledReason : undefined}>
         <input type="checkbox" checked={occurrence.isDone}
           disabled={busy || (!canComplete && !canUndoHere)}
           aria-label={occurrence.isDone ? `Wykonano: ${task.title}` : `Wykonaj: ${task.title}`}
+          aria-describedby={!canComplete && !canUndoHere ? `schedule-blocked-${task.id}-${occurrence.scheduledDueDate}` : undefined}
           onChange={() => { if (canUndoHere) void undoRecent(task); else if (canComplete) void complete(entry) }} />
       </label>
       <div className="cleaning-schedule-item-body">
+        {!canComplete && !canUndoHere && <span className="sr-only" id={`schedule-blocked-${task.id}-${occurrence.scheduledDueDate}`}>{disabledReason}</span>}
         <strong>{task.title}</strong>
         {task.notes && <p>{task.notes}</p>}
         <div className="cleaning-schedule-item-meta">
@@ -218,6 +251,7 @@ export function CleaningSchedule({ ownerId, rooms, onOpenRoom, onChanged, jumpTo
           <span className={`cleaning-due-status ${occurrence.isDone ? 'is-done' : `is-${status.kind}`}`}>
             {occurrence.isDone ? 'Zrobione' : status.text}
           </span>
+          {!occurrence.isDone && !canComplete && <span className="cleaning-schedule-future-note" title={disabledReason}>Najpierw wcześniejszy termin</span>}
         </div>
       </div>
       {room && <button type="button" className="cleaning-schedule-open-room"
@@ -260,7 +294,7 @@ export function CleaningSchedule({ ownerId, rooms, onOpenRoom, onChanged, jumpTo
   }
 
   function renderGroup(date: string) {
-    const onDate = entriesOn(displayed, date)
+    const onDate = entriesOn(entries, date)
     if (!onDate.length || date < floor) return null
     return <section className="cleaning-schedule-group" key={date} aria-label={scheduleDateLabel(date, { weekday: 'long', day: 'numeric', month: 'long' })}>
       <div className="cleaning-section-title cleaning-schedule-day-title">
@@ -271,58 +305,39 @@ export function CleaningSchedule({ ownerId, rooms, onOpenRoom, onChanged, jumpTo
     </section>
   }
 
-  const headerLabel = mode === 'day'
-    ? scheduleDateLabel(currentDate, { day: 'numeric', month: 'long', year: 'numeric' })
-    : scheduleDateLabel(currentDate, { month: 'long', year: 'numeric' })
+  const headerLabel = scheduleDateLabel(currentDate, { month: 'long', year: 'numeric' })
 
-  return <section className="cleaning-page cleaning-schedule" aria-labelledby="cleaning-schedule-title">
-    <div className="cleaning-schedule-heading"><h1 id="cleaning-schedule-title">Harmonogram</h1></div>
-    <div className="cleaning-schedule-toolbar">
-      <div className="cleaning-schedule-mode" role="group" aria-label="Widok harmonogramu">
-        <button type="button" className={mode === 'day' ? 'is-active' : ''} aria-pressed={mode === 'day'} onClick={() => setMode('day')}>Dzień</button>
-        <button type="button" className={mode === 'week' ? 'is-active' : ''} aria-pressed={mode === 'week'} onClick={() => setMode('week')}>Tydzień</button>
-      </div>
-      <div className="cleaning-schedule-toolbar-actions">
-        <button type="button" className="cleaning-schedule-today" onClick={() => { setSelectedDate(todayWarsaw()); setToday(todayWarsaw()) }}>Dzisiaj</button>
-        <button type="button" className="cleaning-schedule-picker-toggle" aria-label="Wybierz datę" aria-expanded={datePickerOpen}
-          onClick={() => setDatePickerOpen((open) => !open)}><KitchenIcon name="calendar" size={19}/></button>
-      </div>
-    </div>
-
-    <div className="cleaning-schedule-calendar" onTouchStart={touchStart} onTouchEnd={touchEnd} onTouchCancel={() => { touch.current = null }}>
+  return <section className="cleaning-page cleaning-schedule" aria-label="Harmonogram">
+    <div className="cleaning-schedule-calendar">
       <div className="cleaning-schedule-period">
-        <button type="button" aria-label={mode === 'day' ? 'Poprzedni dzień' : 'Poprzedni tydzień'} disabled={!canPrevious}
+        <button type="button" aria-label="Poprzedni tydzień" disabled={!canPrevious || busy}
           onClick={() => navigate(-1)}><KitchenIcon name="chevronLeft" size={20}/></button>
-        <strong>{headerLabel}</strong>
-        <button type="button" aria-label={mode === 'day' ? 'Następny dzień' : 'Następny tydzień'}
+        <div className="cleaning-schedule-period-center">
+          <strong>{headerLabel}</strong>
+          <button type="button" className="cleaning-schedule-today" aria-label="Przejdź do dzisiaj"
+            onClick={() => { setToday(todayWarsaw()); setSelectedDate(todayWarsaw()) }}>Dzisiaj</button>
+        </div>
+        <button type="button" aria-label="Następny tydzień" disabled={busy}
           onClick={() => navigate(1)}><KitchenIcon name="chevronRight" size={20}/></button>
       </div>
-      <div className="cleaning-schedule-weekdays" aria-label="Wybierz dzień tygodnia">
-        {days.map((date, index) => {
-          const count = entriesOn(entries, date).length
-          return <button key={date} type="button" disabled={date < floor}
-            className={`${date === currentDate ? 'is-selected' : ''} ${date === today ? 'is-today' : ''}`.trim()}
-            aria-pressed={date === currentDate}
-            aria-label={`${scheduleDateLabel(date, { weekday: 'long', day: 'numeric', month: 'long' })}, ${count} zadań`}
-            onClick={() => { setSelectedDate(date); setMode('day') }}>
-            <span>{shortWeekdays[index]}</span><strong>{Number(date.slice(8))}</strong>{count > 0 && <i aria-hidden="true"/>}
-          </button>
-        })}
+      <div className="cleaning-schedule-week-clip" onPointerDown={pointerDown} onPointerMove={pointerMove}
+        onPointerUp={pointerUp} onPointerCancel={pointerCancel} onLostPointerCapture={pointerCancel}
+        onClickCapture={(event) => { if (swallowSwipeClick.current) { event.preventDefault(); event.stopPropagation(); swallowSwipeClick.current = false } }}>
+        <div key={days[0]} className={`cleaning-schedule-weekdays${dragging ? ' is-dragging' : ''}`}
+          style={{ transform: `translate3d(${dragOffset}px,0,0)` }} aria-label="Wybierz dzień tygodnia">
+          {days.map((date, index) => {
+            const count = entriesOn(entries, date).length
+            return <button key={date} type="button" aria-disabled={date < floor || busy}
+              tabIndex={date < floor ? -1 : undefined}
+              className={`${date === currentDate ? 'is-selected' : ''} ${date === today ? 'is-today' : ''}`.trim()}
+              aria-pressed={date === currentDate}
+              aria-label={`${scheduleDateLabel(date, { weekday: 'long', day: 'numeric', month: 'long' })}, ${count} zadań`}
+              onClick={() => { if (date >= floor && !busy) setSelectedDate(date) }}>
+              <span>{shortWeekdays[index]}</span><strong>{Number(date.slice(8))}</strong>{count > 0 && <i aria-hidden="true"/>}
+            </button>
+          })}
+        </div>
       </div>
-      {datePickerOpen && <div className="cleaning-schedule-date-picker">
-        <label htmlFor="cleaning-schedule-date">Przejdź do daty</label>
-        <div className="cleaning-date-field"><input id="cleaning-schedule-date" type="date" value={currentDate} min={floor}
-          onChange={(event) => { if (event.target.value) { setSelectedDate(clampScheduleDay(event.target.value, today)); setDatePickerOpen(false) } }} />
-          <span className="cleaning-date-icon" aria-hidden="true"><KitchenIcon name="calendar" size={19}/></span></div>
-      </div>}
-    </div>
-
-    <div className="cleaning-schedule-filter">
-      <label htmlFor="cleaning-schedule-room">Pomieszczenie</label>
-      <select id="cleaning-schedule-room" value={filter} onChange={(event) => setSelectedRoomId(event.target.value)}>
-        <option value="all">Wszystkie pomieszczenia</option>
-        {activeRooms.map((room) => <option key={room.id} value={room.id}>{room.name}</option>)}
-      </select>
     </div>
 
     {loading && <div className="cleaning-status-message" role="status">Wczytywanie harmonogramu…</div>}
@@ -331,16 +346,16 @@ export function CleaningSchedule({ ownerId, rooms, onOpenRoom, onChanged, jumpTo
     {feedback && <div className="cleaning-schedule-feedback" role="status">{feedback}
       {lastCompleted && <button type="button" className="cleaning-task-link" disabled={busy} onClick={() => { void undoRecent() }}>Cofnij</button>}
     </div>}
-    {!loading && !error && <div className="cleaning-schedule-agenda" key={`${mode}:${currentDate}:${filter}`}
-      onTouchStart={touchStart} onTouchEnd={touchEnd} onTouchCancel={() => { touch.current = null }}>
-      {showBacklog && backlog.length > 0 && <section className="cleaning-schedule-group is-overdue" aria-label="Zaległe">
+    {!loading && !error && <div className="cleaning-schedule-agenda" key={currentDate}>
+      {backlog.length > 0 && <section className="cleaning-schedule-group is-overdue" aria-label="Zaległe">
         <div className="cleaning-section-title cleaning-schedule-day-title"><h2>Zaległe</h2><span className="cleaning-section-note">{backlog.length} do wykonania</span></div>
         <div className="cleaning-schedule-items">{backlog.map(renderBacklog)}</div>
       </section>}
-      {mode === 'day' ? (displayed.length ? renderGroup(currentDate)
-        : <p className="cleaning-empty-compact">Brak zadań na wybrany dzień.</p>)
-        : displayed.length ? <div className="cleaning-schedule-groups">{days.map(renderGroup)}</div>
-          : <p className="cleaning-empty-compact">Brak zadań w tym tygodniu.</p>}
+      {entriesOn(entries, currentDate).length ? renderGroup(currentDate)
+        : <div className="cleaning-schedule-group"><div className="cleaning-section-title cleaning-schedule-day-title">
+            <h2>{scheduleDateLabel(currentDate, { weekday: 'long', day: 'numeric', month: 'long' })}</h2>
+            <span className="cleaning-section-note">0 zadań</span>
+          </div><p className="cleaning-empty-compact">Brak zadań na wybrany dzień.</p></div>}
     </div>}
   </section>
 }

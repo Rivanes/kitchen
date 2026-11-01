@@ -31,7 +31,7 @@ for (const needle of ['onShowToday', 'onChanged', 'due.slice(0, 3)', 'upcoming.s
   assert.ok(start.includes(needle), `Start missing ${needle}`)
 assert.match(shell, /setShowTodayIntent\(\(n\) => n \+ 1\)/)
 assert.match(schedule, /jumpToToday/)
-assert.match(schedule, /setMode\('day'\)/)
+assert.match(schedule, /scheduleRange\(currentDate, today\)/)
 assert.match(schedule, /scheduleEntries\(occurrences, tasks/)
 for (const needle of ['Zrobione (', 'showDone', 'doneTasks', 'deleteCleaningTask', 'confirmDeleteId', 'CompactQuantityStepper', 'openEdit(task)', 'cleaning-task-detail-button'])
   assert.ok(board.includes(needle), `Board missing ${needle}`)
