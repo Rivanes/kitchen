@@ -1,34 +1,41 @@
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import {
-  addCalendarDays, earliestScheduleDay, clampScheduleDay, scheduleRange,
-  scheduleEntries, entriesOn, overdueBacklog, canUndoOccurrence, swipeDirection, swipeDragIntent, constrainedDrag, occurrenceCalendarDay,
+  addCalendarDays, earliestScheduleDay, clampScheduleDay, rollingScheduleDays, rollingScheduleHeader, shortCalendarWeekday,
+  scheduleQueryRange, calendarDayDistance, rollingScrollShift,
+  scheduleEntries, entriesOn, overdueBacklog, canUndoOccurrence, occurrenceCalendarDay,
 } from '../src/features/cleaning/cleaningSchedule.ts'
 
 const today = '2026-10-31'
 assert.equal(earliestScheduleDay(today), '2026-10-24')
 assert.equal(clampScheduleDay('2026-10-23', today), '2026-10-24')
 assert.equal(clampScheduleDay('2026-11-14', today), '2026-11-14')
-assert.deepEqual(scheduleRange('2026-10-24', today), {
-  from: '2026-10-24', to: '2026-10-25',
-  days: ['2026-10-19','2026-10-20','2026-10-21','2026-10-22','2026-10-23','2026-10-24','2026-10-25'],
-})
-assert.equal(scheduleRange('2026-11-14', today).from, '2026-11-09')
+assert.deepEqual(rollingScheduleDays('2026-11-03'), [
+  '2026-11-03','2026-11-04','2026-11-05','2026-11-06','2026-11-07','2026-11-08','2026-11-09',
+])
+assert.deepEqual(rollingScheduleDays('2026-11-04'), [
+  '2026-11-04','2026-11-05','2026-11-06','2026-11-07','2026-11-08','2026-11-09','2026-11-10',
+])
+assert.equal(shortCalendarWeekday('2026-11-03'),'wt.')
+assert.equal(shortCalendarWeekday('2026-11-09'),'pon.')
+assert.equal(shortCalendarWeekday('2026-11-01'),'niedz.')
+assert.match(rollingScheduleHeader('2026-11-27'), /listopad/i)
+assert.match(rollingScheduleHeader('2026-11-27'), /grudzień 2026/i)
+assert.match(rollingScheduleHeader('2026-12-30'), /styczeń 2027/i)
+assert.equal(calendarDayDistance('2026-10-24','2026-11-03'),10)
+assert.equal(rollingScrollShift(366,366,'2026-11-02','2026-11-01'),0)
+assert.equal(rollingScrollShift(366 + 366/7,366,'2026-11-02','2026-11-01'),1)
+assert.equal(rollingScrollShift(366 - 366/7,366,'2026-11-02','2026-11-01'),-1)
+assert.equal(rollingScrollShift(366 - 366,366,'2026-10-25','2026-11-01'),0)
+assert.equal(rollingScrollShift(366 + 366,366,'2026-11-02','2026-11-01'),7)
+assert.equal(rollingScrollShift(366 + 10000,366,'2026-11-02','2026-11-01'),7)
 assert.equal(addCalendarDays('2026-10-31',14),'2026-11-14')
-assert.equal(swipeDirection(-90, 8, 110, 390), 1)
-assert.equal(swipeDirection(90, 8, 110, 390), -1)
-assert.equal(swipeDirection(80, 120, 110, 390), 0) // Scroll, not swipe.
-assert.equal(swipeDirection(-80, 0, 8, 390), 0) // iOS back gesture area.
-assert.equal(swipeDirection(40, 0, 110, 390), 0)
-// Swipe intent gets locked before the release threshold and can start on day buttons.
-assert.equal(swipeDragIntent(-15, 2, 110, 390), 'horizontal')
-assert.equal(swipeDragIntent(16, 2, 110, 390), 'horizontal')
-assert.equal(swipeDragIntent(2, 15, 110, 390), 'vertical')
-assert.equal(swipeDragIntent(4, 3, 110, 390), 'pending')
-assert.equal(swipeDragIntent(-65, 1, 8, 390), 'vertical')
-assert.equal(constrainedDrag(500, 280), 224)
-assert.equal(constrainedDrag(-500, 280), -224)
-assert.equal(constrainedDrag(35, 280), 35)
+for (const start of ['2026-10-24','2026-11-02','2026-11-15','2027-01-01']) {
+  const range = scheduleQueryRange(start, today)
+  assert.ok(range.from >= earliestScheduleDay(today))
+  assert.ok(calendarDayDistance(range.from,range.to) <= 41)
+  assert.ok(range.from <= start && range.to >= addCalendarDays(start,6))
+}
 
 const task = (id, roomId, nextDueDate, extra={}) => ({
   id, roomId, title: id, nextDueDate, isCompleted: false, isArchived: false, ...extra,
@@ -85,22 +92,27 @@ const [ui, rpc, css, verifier, oldH6] = await Promise.all([
   readFile('scripts/test-cleaning-h6-ui.mjs','utf8'),
 ])
 for (const marker of ['loadCleaningOccurrences(', 'runCompletion(occurrence, task)',
-  'scheduledDueDate', 'isActionable', 'swipeDirection(', 'swipeDragIntent(', 'onPointerMove={pointerMove}',
-  'earliestScheduleDay(', 'cleaningDueStatus(', 'undoRecent()', 'clampScheduleDay(',
-  'onPointerDown={pointerDown}', 'onClickCapture=', 'aria-pressed', 'cleaning-schedule-week-clip'])
-  assert.ok(ui.includes(marker),`Schedule missing ${marker}`)
+  'scheduledDueDate', 'isActionable', 'onScroll=', 'onPointerDown=', 'onPointerCancel=',
+  'scrollend', 'scrollLeft', 'rollingScrollShift(', 'earliestScheduleDay(', 'cleaningDueStatus(', 'undoRecent()',
+  'clampScheduleDay(', 'aria-pressed', 'cleaning-schedule-week-clip',
+  'rollingScheduleDays(windowStart)', 'shortCalendarWeekday(date)', 'setVisibleStart(', 'setSelectedDate(date)',
+  'scheduleQueryRange(windowStart, today)', 'cacheIdentity', 'calendarCache'])
+  assert.ok(ui.includes(marker), `Schedule missing ${marker}`)
 assert.doesNotMatch(ui, /recurrenceLabel|Co 2 tygodnie|Termin: |Otwórz pomieszczenie <KitchenIcon/)
-assert.doesNotMatch(ui, /setMode\(|datePickerOpen|selectedRoomId|onTouchStart=|onTouchEnd=|cleaning-schedule-filter/)
-assert.match(ui, /setPointerCapture\(event.pointerId\)/)
-assert.match(ui, /swallowSwipeClick.current = true/)
-assert.match(ui, /onPointerCancel={pointerCancel}/)
-assert.match(ui, /onLostPointerCapture={pointerCancel}/)
-assert.match(ui, /key={currentDate}/)
+assert.doesNotMatch(ui, /setMode\(|datePickerOpen|selectedRoomId|onTouchMove=|cleaning-schedule-filter/)
+assert.doesNotMatch(ui, /setPointerCapture|onPointerMove|swallowSwipeClick|suppressDragClick|dragOffset|Przywróć początkowy tydzień/)
+assert.doesNotMatch(ui, /7 \* direction|shortWeekdays\[index\]/)
+assert.match(ui, /onPointerCancel=/)
+assert.match(ui, /onPointerUp=/)
+assert.match(ui, /onScroll=/)
+assert.match(ui, /rollingScrollShift\(element\.scrollLeft, element\.clientWidth, windowStart, today\)/)
+assert.match(ui, /element\.scrollLeft = element\.clientWidth/)
+assert.match(ui, /setVisibleStart\(\(start\) => clampScheduleDay\(addCalendarDays\(start, direction\), today\)\)/)
 assert.match(ui, /onClick={\(\) => \{ if \(date >= floor && !busy\) setSelectedDate\(date\) \}\}/)
 assert.match(ui, /Przejdź do dzisiaj/)
 assert.match(ui, /Najpierw wcześniejszy termin/)
-assert.match(css, /\.cleaning-schedule-week-clip \{[^}]*touch-action: pan-y/)
-assert.match(css, /\.cleaning-schedule-weekdays\.is-dragging \{ transition: none/)
+assert.match(css, /\.cleaning-schedule-week-clip \{[^}]*overflow-x: auto;[^}]*scroll-snap-type: x mandatory/ )
+assert.match(css, /\.cleaning-schedule-weekdays button \{[^}]*scroll-snap-align: start/ )
 assert.match(css, /reduced-motion: reduce/)
 const shell = await readFile('src/features/cleaning/CleaningShell.tsx','utf8')
 assert.match(shell, /const pageTitle = view === 'rooms'[\s\S]*'Harmonogram'/)
@@ -112,8 +124,8 @@ assert.match(rpc, /loadRecentCleaningCompletions/)
 assert.match(rpc, /\.is\('undone_at', null\)/)
 assert.match(rpc, /p_scheduled_due_date: occurrence.scheduledDueDate/)
 assert.match(rpc, /p_schedule_revision: occurrence.scheduleRevision/)
-assert.match(css, /touch-action: pan-y/)
+assert.match(css, /touch-action: auto/)
 assert.match(css, /prefers-reduced-motion/)
 assert.match(verifier,/test-cleaning-schedule-h6-4-2\.mjs/)
 assert.match(oldH6,/useCleaningOccurrenceCompletion/)
-console.log('H6.4.2 Corrective calendar, drag intent, status, undo and source contract: PASS (device QA pending)')
+console.log('H6.4.4B native-scroll rolling calendar, query windows, status and undo: PASS (iPhone QA pending)')

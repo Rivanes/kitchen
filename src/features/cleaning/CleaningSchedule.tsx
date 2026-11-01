@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { KitchenIcon } from '../../components/KitchenIcon'
 import { useCleaningTaskUndo } from './useCleaningTaskUndo'
 import { useCleaningOccurrenceCompletion } from './useCleaningOccurrenceCompletion'
@@ -8,7 +8,8 @@ import { cleaningDueStatus } from './cleaningRecurrence'
 import { loadCleaningOccurrences, loadRecentCleaningCompletions, type CleaningOccurrence, type CleaningRecentCompletion } from './cleaningOccurrences'
 import {
   addCalendarDays, canUndoOccurrence, clampScheduleDay, earliestScheduleDay, entriesOn, overdueBacklog,
-  scheduleDateLabel, scheduleEntries, scheduleRange, swipeDirection, swipeDragIntent, constrainedDrag,
+  scheduleDateLabel, scheduleEntries, rollingScheduleDays, rollingScheduleHeader,
+  scheduleQueryRange, shortCalendarWeekday, rollingScrollShift, mondayOfWeek,
   type ScheduleEntry,
 } from './cleaningSchedule'
 import { loadCleaningTasks, todayWarsaw, type CleaningTask } from './cleaningTasks'
@@ -21,13 +22,13 @@ type Props = {
   jumpToToday?: number
 }
 
-const shortWeekdays = ['pon.', 'wt.', 'śr.', 'czw.', 'pt.', 'sob.', 'niedz.']
 
 /** H6.4.2: anchored server occurrences; schedule is an execution surface, not an editor.
  * Never infer future recurrence locally or complete a non-actionable projection.
  */
 export function CleaningSchedule({ ownerId, rooms, onOpenRoom, onChanged, jumpToToday = 0 }: Props) {
   const [selectedDate, setSelectedDate] = useState(todayWarsaw)
+  const [visibleStart, setVisibleStart] = useState(() => mondayOfWeek(todayWarsaw()))
   const [today, setToday] = useState(todayWarsaw)
   const [tasks, setTasks] = useState<CleaningTask[]>([])
   const [occurrences, setOccurrences] = useState<CleaningOccurrence[]>([])
@@ -40,29 +41,61 @@ export function CleaningSchedule({ ownerId, rooms, onOpenRoom, onChanged, jumpTo
   const [lastCompleted, setLastCompleted] = useState<CleaningTask | null>(null)
   const { undo: runUndo, undoBusyId, inFlightUndo } = useCleaningTaskUndo()
   const requestNumber = useRef(0)
-  // Pointer Events also work when a drag starts directly on a clickable date.
-  // Do not bind gestures to the agenda: scrolling the task list must remain native.
-  const gesture = useRef<{ pointerId: number; startX: number; startY: number; axis: 'pending' | 'horizontal' | 'vertical'; width: number } | null>(null)
-  const swallowSwipeClick = useRef(false)
-  const [dragOffset, setDragOffset] = useState(0)
-  const [dragging, setDragging] = useState(false)
+  const calendarCache = useRef(new Map<string, CleaningOccurrence[]>())
+  const cacheIdentity = useRef('')
+  const scroller = useRef<HTMLDivElement | null>(null)
+  const isPointerDown = useRef(false)
+  const isTouchDown = useRef(false)
+  const recentering = useRef(false)
+  const scrollTimer = useRef<number | null>(null)
 
   const floor = earliestScheduleDay(today)
   const currentDate = clampScheduleDay(selectedDate, today)
-  const range = scheduleRange(currentDate, today)
-  const { from, to, days } = range
+  const windowStart = clampScheduleDay(visibleStart, today)
+  const days = rollingScheduleDays(windowStart)
+  // Seven days on either side are rendered for direct manipulation; no blank space mid-drag.
+  const bufferedDays = rollingScheduleDays(addCalendarDays(windowStart, -7), 21)
+  const query = scheduleQueryRange(windowStart, today)
 
-  const refresh = useCallback(async (initial = false) => {
+  const refresh = useCallback(async (force = false, initial = false) => {
+    const cacheKey = `${ownerId}:${today}`
+    if (cacheIdentity.current !== cacheKey) {
+      calendarCache.current.clear()
+      cacheIdentity.current = cacheKey
+      force = true
+    }
+    if (force) calendarCache.current.clear()
+    const needed = [...days, currentDate]
+    if (!force && needed.every((day) => calendarCache.current.has(day))) return
     const requestId = ++requestNumber.current
-    if (initial) setLoading(true)
+    if (initial || !calendarCache.current.has(currentDate)) setLoading(true)
     try {
-      const [latestTasks, latestOccurrences, latestCompletions] = await Promise.all([
-        loadCleaningTasks(ownerId), loadCleaningOccurrences(from, to),
+      // An old selected day may remain on screen as the user scrolls the strip far away.
+      const selectedOutsideQuery = currentDate < query.from || currentDate > query.to
+      const [latestTasks, latestOccurrences, extraSelected, latestCompletions] = await Promise.all([
+        loadCleaningTasks(ownerId), loadCleaningOccurrences(query.from, query.to),
+        selectedOutsideQuery ? loadCleaningOccurrences(currentDate, currentDate) : Promise.resolve([]),
         loadRecentCleaningCompletions(ownerId, earliestScheduleDay(today)),
       ])
       if (requestId !== requestNumber.current) return
+      const fillCache = (from: string, to: string, data: CleaningOccurrence[]) => {
+        const grouped = new Map<string, CleaningOccurrence[]>()
+        for (const item of data) {
+          const onDay = item.isDone && item.completedLocalDate ? item.completedLocalDate : item.scheduledDueDate
+          if (onDay < from || onDay > to) continue
+          const group = grouped.get(onDay) ?? []
+          group.push(item)
+          grouped.set(onDay, group)
+        }
+        for (let day = from; day <= to; day = addCalendarDays(day, 1)) {
+          calendarCache.current.set(day, grouped.get(day) ?? [])
+        }
+      }
+      fillCache(query.from, query.to, latestOccurrences)
+      if (selectedOutsideQuery) fillCache(currentDate, currentDate, extraSelected)
+      // Cache stores only server-returned occurrences, never a local recurrence calculation.
+      setOccurrences(Array.from(calendarCache.current.values()).flat())
       setTasks(latestTasks)
-      setOccurrences(latestOccurrences)
       setRecentCompletions(latestCompletions)
       setError('')
     } catch (cause: unknown) {
@@ -71,30 +104,43 @@ export function CleaningSchedule({ ownerId, rooms, onOpenRoom, onChanged, jumpTo
     } finally {
       if (requestId === requestNumber.current) setLoading(false)
     }
-  }, [ownerId, from, to, today])
+  }, [ownerId, today, currentDate, query.from, query.to, windowStart])
 
   useEffect(() => {
-    void refresh(true)
+    void refresh(false, true)
+  }, [refresh])
+
+  useEffect(() => {
     const sync = () => {
       if (document.visibilityState === 'hidden') return
       setToday(todayWarsaw())
-      if (!inFlight.current && !inFlightUndo.current) void refresh()
+      if (!inFlight.current && !inFlightUndo.current) void refresh(true)
     }
     window.addEventListener('focus', sync)
     document.addEventListener('visibilitychange', sync)
     const interval = window.setInterval(() => setToday(todayWarsaw()), 60_000)
     return () => {
-      requestNumber.current += 1
       window.removeEventListener('focus', sync)
       document.removeEventListener('visibilitychange', sync)
       window.clearInterval(interval)
     }
   }, [refresh, inFlightUndo])
 
+  useEffect(() => () => {
+    requestNumber.current += 1
+    if (scrollTimer.current !== null) window.clearTimeout(scrollTimer.current)
+  }, [])
+
+  useEffect(() => {
+    if (visibleStart < floor) setVisibleStart(floor)
+  }, [visibleStart, floor])
+
   useEffect(() => {
     if (jumpToToday > 0) {
-      setToday(todayWarsaw())
-      setSelectedDate(todayWarsaw())
+      const now = todayWarsaw()
+      setToday(now)
+      setSelectedDate(now)
+      setVisibleStart(mondayOfWeek(now))
     }
   }, [jumpToToday])
 
@@ -107,63 +153,76 @@ export function CleaningSchedule({ ownerId, rooms, onOpenRoom, onChanged, jumpTo
     if (!recentByTask.has(item.taskId)) recentByTask.set(item.taskId, item)
   }
   const backlog = currentDate === today ? overdueBacklog(tasks, activeRoomIds, today) : []
-  const canPrevious = addCalendarDays(days[0], -1) >= floor
+  const canPrevious = windowStart > floor
   const busy = busyId !== null || undoBusyId !== null
+
+  function clearScrollTimer() {
+    if (scrollTimer.current !== null) window.clearTimeout(scrollTimer.current)
+    scrollTimer.current = null
+  }
+
+  function recenter() {
+    const element = scroller.current
+    if (!element) return
+    clearScrollTimer()
+    recentering.current = true
+    // Keep the same seven visible civil dates while replacing the offscreen buffer.
+    const snap = element.style.scrollSnapType
+    element.style.scrollSnapType = 'none'
+    element.scrollLeft = element.clientWidth
+    element.style.scrollSnapType = snap
+    window.requestAnimationFrame(() => { recentering.current = false })
+  }
+
+  function finishScroll() {
+    if (isPointerDown.current || isTouchDown.current || recentering.current) return
+    clearScrollTimer()
+    const element = scroller.current
+    if (!element || !element.clientWidth) return
+    const shift = rollingScrollShift(element.scrollLeft, element.clientWidth, windowStart, today)
+    if (shift !== 0) setVisibleStart((start) => clampScheduleDay(addCalendarDays(start, shift), today))
+    else recenter()
+  }
+
+  function scheduleScrollFinish() {
+    clearScrollTimer()
+    scrollTimer.current = window.setTimeout(finishScroll, 180)
+  }
+
+  // Native overflow scrolling means iOS Safari owns the touch gesture.
+  // On scrollend (or its fallback), one-day snap offsets are committed to the rolling window.
+  useLayoutEffect(() => { recenter() }, [windowStart])
+
+  useEffect(() => {
+    const element = scroller.current
+    if (!element) return
+    const onScrollEnd = () => finishScroll()
+    const onResize = () => recenter()
+    element.addEventListener('scrollend', onScrollEnd)
+    window.addEventListener('resize', onResize)
+    return () => {
+      element.removeEventListener('scrollend', onScrollEnd)
+      window.removeEventListener('resize', onResize)
+    }
+  })
 
   function navigate(direction: -1 | 1) {
     if (busy || (direction === -1 && !canPrevious)) return
-    setSelectedDate((date) => clampScheduleDay(addCalendarDays(clampScheduleDay(date, today), 7 * direction), today))
+    clearScrollTimer()
+    setVisibleStart((start) => clampScheduleDay(addCalendarDays(start, direction), today))
   }
 
-  function pointerDown(event: ReactPointerEvent<HTMLDivElement>) {
-    if (!event.isPrimary || event.button !== 0 || busy) return
-    // Do not steal iOS Safari's back/forward gesture from either screen edge.
-    swallowSwipeClick.current = false
-    gesture.current = { pointerId: event.pointerId, startX: event.clientX, startY: event.clientY,
-      width: event.currentTarget.getBoundingClientRect().width, axis: 'pending' }
-  }
-
-  function pointerMove(event: ReactPointerEvent<HTMLDivElement>) {
-    const active = gesture.current
-    if (!active || active.pointerId !== event.pointerId) return
-    const dx = event.clientX - active.startX
-    const dy = event.clientY - active.startY
-    if (active.axis === 'pending') {
-      const intent = swipeDragIntent(dx, dy, active.startX, window.innerWidth)
-      if (intent === 'pending') return
-      active.axis = intent
-      if (intent === 'horizontal') {
-        // Capturing only after horizontal intent keeps ordinary date taps native.
-        event.currentTarget.setPointerCapture(event.pointerId)
-        setDragging(true)
-      }
-    }
-    if (active.axis !== 'horizontal') return
-    setDragOffset(constrainedDrag(dx, active.width))
-  }
-
-  function resetGesture() {
-    gesture.current = null
-    setDragging(false)
-    setDragOffset(0)
-  }
-
-  function pointerUp(event: ReactPointerEvent<HTMLDivElement>) {
-    const active = gesture.current
-    if (!active || active.pointerId !== event.pointerId) return
-    const isHorizontal = active.axis === 'horizontal'
-    const dx = event.clientX - active.startX
-    const dy = event.clientY - active.startY
-    // Prevent the synthetic click on the date button after a completed drag.
-    if (isHorizontal) swallowSwipeClick.current = true
-    resetGesture()
-    if (!isHorizontal) return
-    const direction = swipeDirection(dx, dy, active.startX, window.innerWidth)
-    if (direction !== 0) navigate(direction)
-  }
-
-  function pointerCancel() {
-    resetGesture() // iOS vertical scrolling and interrupted touches must not navigate.
+  function goToday() {
+    if (busy) return
+    isPointerDown.current = false
+    isTouchDown.current = false
+    clearScrollTimer()
+    const now = todayWarsaw()
+    setToday(now)
+    setSelectedDate(now)
+    setVisibleStart(mondayOfWeek(now))
+    // Also reset native scroll if the current rolling window is already today's.
+    recenter()
   }
 
   async function complete(entry: ScheduleEntry) {
@@ -286,35 +345,43 @@ export function CleaningSchedule({ ownerId, rooms, onOpenRoom, onChanged, jumpTo
     </section>
   }
 
-  const headerLabel = scheduleDateLabel(currentDate, { month: 'long', year: 'numeric' })
+  const headerLabel = rollingScheduleHeader(windowStart)
 
   return <section className="cleaning-page cleaning-schedule" aria-label="Harmonogram">
     <div className="cleaning-schedule-calendar">
       <div className="cleaning-schedule-period">
-        <button type="button" aria-label="Poprzedni tydzień" disabled={!canPrevious || busy}
+        <button type="button" aria-label="Poprzedni dzień" disabled={!canPrevious || busy}
           onClick={() => navigate(-1)}><KitchenIcon name="chevronLeft" size={20}/></button>
         <div className="cleaning-schedule-period-center">
           <strong>{headerLabel}</strong>
           <button type="button" className="cleaning-schedule-today" aria-label="Przejdź do dzisiaj"
-            onClick={() => { setToday(todayWarsaw()); setSelectedDate(todayWarsaw()) }}>Dzisiaj</button>
+            onClick={goToday}>Dzisiaj</button>
         </div>
-        <button type="button" aria-label="Następny tydzień" disabled={busy}
+        <button type="button" aria-label="Następny dzień" disabled={busy}
           onClick={() => navigate(1)}><KitchenIcon name="chevronRight" size={20}/></button>
       </div>
-      <div className="cleaning-schedule-week-clip" onPointerDown={pointerDown} onPointerMove={pointerMove}
-        onPointerUp={pointerUp} onPointerCancel={pointerCancel} onLostPointerCapture={pointerCancel}
-        onClickCapture={(event) => { if (swallowSwipeClick.current) { event.preventDefault(); event.stopPropagation(); swallowSwipeClick.current = false } }}>
-        <div key={days[0]} className={`cleaning-schedule-weekdays${dragging ? ' is-dragging' : ''}`}
-          style={{ transform: `translate3d(${dragOffset}px,0,0)` }} aria-label="Wybierz dzień tygodnia">
-          {days.map((date, index) => {
+      <div className="cleaning-schedule-week-clip" ref={scroller}
+        onScroll={() => { if (!recentering.current) scheduleScrollFinish() }}
+        onPointerDown={() => { isPointerDown.current = true; clearScrollTimer() }}
+        onPointerUp={() => { isPointerDown.current = false; scheduleScrollFinish() }}
+        onPointerCancel={() => { isPointerDown.current = false; scheduleScrollFinish() }}
+        onTouchStart={() => { isTouchDown.current = true; clearScrollTimer() }}
+        onTouchEnd={() => { isTouchDown.current = false; scheduleScrollFinish() }}
+        onTouchCancel={() => { isTouchDown.current = false; scheduleScrollFinish() }}>
+        <div className="cleaning-schedule-weekdays"
+          aria-label="Przesuń daty w poziomie lub wybierz dzień">
+          {bufferedDays.map((date, index) => {
             const count = entriesOn(entries, date).length
-            return <button key={date} type="button" aria-disabled={date < floor || busy}
-              tabIndex={date < floor ? -1 : undefined}
+            const inView = index >= 7 && index < 14
+            const disabled = date < floor || busy
+            return <button key={date} type="button" disabled={disabled}
+              aria-hidden={!inView}
+              tabIndex={!inView || disabled ? -1 : 0}
               className={`${date === currentDate ? 'is-selected' : ''} ${date === today ? 'is-today' : ''}`.trim()}
               aria-pressed={date === currentDate}
               aria-label={`${scheduleDateLabel(date, { weekday: 'long', day: 'numeric', month: 'long' })}, ${count} zadań`}
               onClick={() => { if (date >= floor && !busy) setSelectedDate(date) }}>
-              <span>{shortWeekdays[index]}</span><strong>{Number(date.slice(8))}</strong>{count > 0 && <i aria-hidden="true"/>}
+              <span>{shortCalendarWeekday(date)}</span><strong>{Number(date.slice(8))}</strong>{count > 0 && <i aria-hidden="true"/>}
             </button>
           })}
         </div>

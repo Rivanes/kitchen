@@ -1,3 +1,7 @@
+### 2026-11-01 — H6.4.4B rolling calendar candidate (LOCAL QA; CI and iPhone pending)
+
+Harmonogram uses native Safari horizontal scroll + per-day CSS snap, seven-day rolling window, date labels from actual civil dates, arrows +/-1 day and a single Today reset. Selected date/agenda do not jump when the strip scrolls. 21 DOM dates provide a buffer around the visible 7. Occurrences are server-projected, with bounded page query caching; no SQL changes. `scripts/test-cleaning-schedule-h6-4-4b.mjs` plus existing regressions must pass before GitHub/iPhone QA. See OUTSIDE_REPO/H6_4_4B_RELEASE_NOTES.md. **Do not close H6.4.4 until actual iPhone Safari QA, CI, SQL/Cron runtime, and owner sign-off.**
+
 ### H6.4.3E — CI boundary corrective (2026-11-01)
 `test-cleaning-h6-4-3d.mjs` no longer tries to load `../OUTSIDE_REPO/SQL/...` in GitHub Actions. The deployable verifier tests frontend behavior; mandatory H64_11/ALL_IN_ONE migration contracts are checked in `OUTSIDE_REPO/QA/H64_SQL_CONTRACT_CHECK.mjs` when the full package is present. No production SQL/code behavior changes. GitHub QA/Deploy still pending. See `OUTSIDE_REPO/H6_4_3E_CI_BOUNDARY_CORRECTIVE.md`.
 

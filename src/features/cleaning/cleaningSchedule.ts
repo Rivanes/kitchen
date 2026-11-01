@@ -37,10 +37,46 @@ export function clampScheduleDay(date: string, today: string): string {
   return date < floor ? floor : date
 }
 
-export function scheduleRange(date: string, today: string) {
-  // Always fetch visible week for dots; a partial historical week is clipped to today-7.
-  const days = daysOfWeek(date)
-  return { from: clampScheduleDay(days[0], today), to: days[6], days }
+/** The first visible date is independent from the selected agenda date. */
+export function rollingScheduleDays(start: string, count = 7): string[] {
+  if (!Number.isInteger(count) || count < 1 || count > 42) throw new Error('Niepoprawny zakres dni.')
+  return Array.from({ length: count }, (_, index) => addCalendarDays(start, index))
+}
+
+export function shortCalendarWeekday(date: string): string {
+  return ['niedz.', 'pon.', 'wt.', 'śr.', 'czw.', 'pt.', 'sob.'][new Date(calendarDateMillis(date)).getUTCDay()]
+}
+
+/** A 35-day request can be reused for many 1-day shifts; RPC accepts <= 42 days. */
+export function scheduleQueryRange(start: string, today: string): { from: string; to: string } {
+  const floor = earliestScheduleDay(today)
+  const index = Math.floor((calendarDateMillis(start) - calendarDateMillis(floor)) / (14 * 86_400_000))
+  const anchor = addCalendarDays(floor, Math.max(0, index) * 14)
+  return { from: clampScheduleDay(addCalendarDays(anchor, -7), today), to: addCalendarDays(anchor, 27) }
+}
+
+export function rollingScheduleHeader(start: string): string {
+  const end = addCalendarDays(start, 6)
+  const a = scheduleDateLabel(start, { month: 'long', year: 'numeric' })
+  if (start.slice(0, 7) === end.slice(0, 7)) return a
+  const b = scheduleDateLabel(end, { month: 'long', year: 'numeric' })
+  if (start.slice(0, 4) === end.slice(0, 4)) {
+    return `${scheduleDateLabel(start, { month: 'long' })} – ${b}`
+  }
+  return `${a} – ${b}`
+}
+
+export function calendarDayDistance(from: string, to: string): number {
+  return Math.round((calendarDateMillis(to) - calendarDateMillis(from)) / 86_400_000)
+}
+
+/** Native scroll position translated into an integer daily shift; 7 extra cells per side. */
+export function rollingScrollShift(scrollLeft: number, width: number, start: string, today: string): number {
+  if (!Number.isFinite(scrollLeft) || !(width > 0)) return 0
+  const offset = Math.round((scrollLeft - width) / (width / 7))
+  const back = Math.min(7, Math.max(0, calendarDayDistance(earliestScheduleDay(today), start)))
+  const shift = Math.max(-back, Math.min(7, offset))
+  return shift === 0 ? 0 : shift
 }
 
 export type ScheduleEntry = { occurrence: CleaningOccurrence; task: CleaningTask }
@@ -76,25 +112,6 @@ export function overdueBacklog(tasks: CleaningTask[], activeRoomIds: ReadonlySet
 export function scheduleDateLabel(date: string, options: Intl.DateTimeFormatOptions): string {
   const format = new Intl.DateTimeFormat('pl-PL', { timeZone: 'UTC', ...options })
   return format.format(new Date(calendarDateMillis(date)))
-}
-
-/** Horizontal drag lock; never intercept a vertical scroll or Safari's edge gestures. */
-export function swipeDragIntent(dx: number, dy: number, startX: number, viewportWidth: number): 'pending' | 'horizontal' | 'vertical' {
-  if (startX < 25 || startX > viewportWidth - 25) return 'vertical'
-  if (Math.abs(dy) > 9 && Math.abs(dy) > Math.abs(dx) * 1.1) return 'vertical'
-  if (Math.abs(dx) > 10 && Math.abs(dx) > Math.abs(dy) * 1.15) return 'horizontal'
-  return 'pending'
-}
-
-export function constrainedDrag(dx: number, width: number): number {
-  const limit = Math.max(0, width * .8)
-  return Math.max(-limit, Math.min(limit, dx))
-}
-
-/** Horizontal intent must exceed vertical movement, so native vertical scrolling remains fluid. */
-export function swipeDirection(deltaX: number, deltaY: number, startX: number, viewportWidth: number): -1 | 0 | 1 {
-  if (startX < 25 || startX > viewportWidth - 25 || Math.abs(deltaX) < 56 || Math.abs(deltaX) < Math.abs(deltaY) * 1.4) return 0
-  return deltaX < 0 ? 1 : -1
 }
 
 /** Strict latest-only undo eligibility; older history rows are never clickable. */
