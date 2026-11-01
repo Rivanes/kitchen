@@ -1,10 +1,14 @@
-# Cleaning H6.4.3D — reconciliation contract
+# Cleaning H6.4.3D → H6.4.3F — current Start/Calendar coherence contract
 
-- SOURCE AUTHORITY: `h64_list_cleaning_occurrences(date,date)` owns recurrence projections, with 7-day completed-history boundary.
-- A pending **overdue** task has exactly one open cursor; no future forecast until it is completed (next cycle is based on completion day). Server filters `future_ordinal` by `t.next_due_date >= v_today`.
-- Start **Do zrobienia** includes the open cursor. Start **Nadchodzące** includes the next **actionable** future cursor only, not blocked projections. Server returns `is_actionable=true` on cursor; this field is not inferred from date alone.
-- Harmonogram shows pending overdue in Zaległe; a projected date from an overdue task must never show 'Na dziś' with 'Najpierw wcześniejszy termin'.
-- On completion today (Europe/Warsaw), the completed occurrence appears today; next cadence shifts by duration from completion as implemented in H64_7. Undo latest restores prior cursor/anchor.
-- Calendar retains future projections for tasks not overdue, including tasks newly created with future first due. No fake duplicates in Start.
-- Explicit regression: as of 2026-11-01 task due 2026-10-31 'Puścić odkurzacz' is overdue; not Na dziś as blocked 1 Nov or Jutro as blocked 2 Nov.
-- SQL runtime, owner/nonowner auth, GitHub TypeScript/Vite, iPhone test pending.
+## Current enforced behavior (H6.4.3F)
+
+- `public.h64_list_cleaning_occurrences(date,date)` is the **only** recurrence projection authority; it is owner-guarded and limited by the seven-day history window.
+- Each task has **one executable cursor** (`is_actionable=true`), including an overdue one. Future projected occurrences are **visible in Harmonogram but not actionable** (`is_actionable=false`).
+- Start **Do zrobienia** shows the open cursor due today or overdue, including obligations older than history retention. Start **Nadchodzące** shows only executable future cursors; blocked projected dates must NEVER be surfaced there as "Jutro"/"Za N dni" to complete.
+- For daily tasks (every_days/1), the calendar projects every next day even if the previous cursor is overdue. For longer cycles, future calendar dates are **tentative** until a delayed completion rebases the schedule.
+- Latest completion appears under its actual `completed_local_date`; strict latest-only undo restores previous cursor and schedule anchor. The SQL production gate and iPhone smoke are required for final PASS.
+- Regression on 2026-11-01: task due 2026-10-31 is overdue and actionable once. Its daily 2026-11-01 and 2026-11-02 previews remain visible in Harmonogram but do not populate Start's actionable Upcoming.
+
+## Historical behavior superseded
+
+H6.4.3D's `H64_11` migration suppressed **all** future projections when `next_due_date < today`. That accidentally emptied the calendar and broke daily recurrence previews. Historical `H64_11` is retained for migration provenance, but `H64_14_FORECAST_WITH_BACKLOG_MIGRATION.sql` replaces the RPC and `ALL_IN_ONE.sql` matches the latest function. Never reintroduce that old filter in the current engine.

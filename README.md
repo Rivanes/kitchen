@@ -814,3 +814,6 @@ Cleaning supports completion-based once/every N days/weeks/months and a due coun
 
 ## H6.3 — Cleaning task UI / safe task lifecycle (PASS / CLOSED)
 H6.3 was accepted by the user on 2026-10-31. Owner-guarded task deletion and latest-only undo were installed and validated. This is a historical milestone; **do not rerun H6.3 SQL** on production. The current H6.4.3 UI uses existing H6.4.1 anchored schedule SQL, with new Start/Schedule shared occurrence completion and a single shared Cleaning H1. Voice remains frozen.
+
+## H6.4.3F — future calendar forecasts during overdue (source QA only)
+The Schedule server RPC now projects future non-actionable occurrences even if the current cursor is overdue. The Start Upcoming view remains executable-only, never showing blocked forecasts as actionable tasks. Calendar badges distinguish tentative rolling future dates from confirmed completed dates. Daily recurrence forecasts all future days. Production SQL migration: `OUTSIDE_REPO/SQL/H64_SCHEDULE_ENGINE/H64_14_FORECAST_WITH_BACKLOG_MIGRATION.sql` (separate, not shipped inside GitHub repo); SQL and phone QA pending.

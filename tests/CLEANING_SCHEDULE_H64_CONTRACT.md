@@ -20,3 +20,11 @@
 - Real calendar-history floor is Warsaw today minus 7 inclusive; do not drop old unresolved overdue task records. `pg_cron` physical retention configured by H6.4.1; no SQL changes in this UI stage.
 - Loading, errors, retry and focus refresh are preserved. Start/Nadchodzące server occurrence parity and unified other headers are H6.4.3. Phone/CI/regressions remain H6.4.4; source tests are not substitute for iPhone Safari drag QA.
 - Never rerun H64_2_MIGRATION.sql or SQL/ALL_IN_ONE.sql on production. Voice/AI frozen and Food untouched.
+
+## H6.4.3F future forecast contract
+
+- An overdue recurring task does **not** erase future calendar dates; server-generated forecast rows remain `is_actionable=false`.
+- An overdue weekly/monthly/every-N-days projection is **tentative**: after actual late completion the cycle is rebased, and the projections refresh.
+- Every-day recurrence (`every_days/1`) always forecasts each next calendar day.
+- The overdue executable cursor is kept separately; Start never lists blocked future forecasts as actionable "Nadchodzące".
+- No client-side date generation; retained history remains seven days; no change to SQL permissions.

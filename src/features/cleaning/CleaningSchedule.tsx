@@ -206,6 +206,8 @@ export function CleaningSchedule({ ownerId, rooms, onOpenRoom, onChanged, jumpTo
     const canUndoHere = canUndoOccurrence(occurrence, task, latest)
     const canComplete = occurrence.isActionable && !occurrence.isDone && !task.isCompleted
     const status = cleaningDueStatus(occurrence.scheduledDueDate, today)
+    const tentative = !occurrence.isActionable && !occurrence.isDone && task.nextDueDate < today
+      && !(task.recurrenceKind === 'every_days' && task.recurrenceInterval === 1)
     const disabledReason = occurrence.isDone
       ? 'Można cofnąć tylko ostatnie wykonanie zadania.'
       : 'Najpierw wykonaj wcześniejszy termin tego zadania.'
@@ -227,7 +229,10 @@ export function CleaningSchedule({ ownerId, rooms, onOpenRoom, onChanged, jumpTo
           <span className={`cleaning-due-status ${occurrence.isDone ? 'is-done' : `is-${status.kind}`}`}>
             {occurrence.isDone ? 'Zrobione' : status.text}
           </span>
-          {!occurrence.isDone && !canComplete && <span className="cleaning-schedule-future-note" title={disabledReason}>Najpierw wcześniejszy termin</span>}
+          {!occurrence.isDone && !canComplete && <span className="cleaning-schedule-future-note"
+            title={tentative ? 'Termin orientacyjny: po wykonaniu zaległego zadania cykl przesunie się na nową datę.' : disabledReason}>
+            {tentative ? 'Termin orientacyjny' : 'Najpierw wcześniejszy termin'}
+          </span>}
         </div>
       </div>
       {room && <button type="button" className="cleaning-schedule-open-room"

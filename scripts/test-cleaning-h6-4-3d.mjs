@@ -26,11 +26,25 @@ assert.deepEqual(groups.upcoming.map((e) => e.task.id), [tomorrow.id],
   'Start must never show a blocked future date as Jutro while the previous due is open')
 assert.deepEqual(overdueBacklog([vacuum, current, tomorrow], rooms, today).map((t) => t.id), [vacuum.id])
 
-// The calendar may show only the current, actionable overdue cursor; fabricated future dates
-// are prohibited by the H64_11 SQL RPC (verified separately in the outside-repo SQL gate).
+// H6.4.3F: Start must filter blocked projections, but the CALENDAR must show them.
+// Overdue daily tasks remain daily; uncompleted longer cycles are tentative previews.
+// The backend marks all future previews non-actionable.
 const actual = event(vacuum.id, '2026-10-31', true)
-const calendar = scheduleEntries([actual], [vacuum], rooms)
+const calendar = scheduleEntries([actual, ...events], [vacuum, current, tomorrow], rooms)
 assert.deepEqual(entriesOn(calendar, '2026-10-31').map((e) => e.task.id), [vacuum.id])
-assert.deepEqual(entriesOn(calendar, '2026-11-01'), [])
+assert.ok(entriesOn(calendar, '2026-11-01').some((e) =>
+  e.task.id === vacuum.id && !e.occurrence.isActionable),
+'Calendar must contain daily recurrence on 1 Nov, though the old overdue cursor is still open')
+assert.ok(entriesOn(calendar, '2026-11-02').some((e) =>
+  e.task.id === vacuum.id && !e.occurrence.isActionable),
+'Calendar must retain daily forecasts, independently of whether overdue was completed')
+// A weekly forecast can shift if the overdue due date was actually completed later.
+const weekly = { ...task('weekly', '2026-10-31'), recurrenceKind: 'every_weeks', recurrenceInterval: 1 }
+const preview = scheduleEntries([event('weekly', '2026-11-07')], [weekly], rooms)
+assert.deepEqual(entriesOn(preview, '2026-11-07').map((e) => e.task.id), ['weekly'])
+const moved = scheduleEntries([event('weekly', '2026-11-08')],
+  [{ ...weekly, nextDueDate: '2026-11-08', scheduleRevision: 1, cycleGeneration: 1 }], rooms)
+assert.deepEqual(entriesOn(moved, '2026-11-08').map((e) => e.task.id), ['weekly'])
+assert.deepEqual(entriesOn(moved, '2026-11-07'), [])
 
-console.log('H6.4.3D frontend/dashboard overdue regression: PASS (SQL checked in OUTSIDE_REPO QA)')
+console.log('H6.4.3F calendar forecasts + H6.4.3D Start regression: PASS (SQL checked separately)')
