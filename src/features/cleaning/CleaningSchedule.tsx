@@ -9,7 +9,7 @@ import { loadCleaningOccurrences, loadRecentCleaningCompletions, type CleaningOc
 import {
   addCalendarDays, canUndoOccurrence, clampScheduleDay, earliestScheduleDay, entriesOn, overdueBacklog,
   scheduleDateLabel, scheduleEntries, rollingScheduleDays, rollingScheduleHeader,
-  scheduleQueryRange, shortCalendarWeekday, rollingScrollShift, mondayOfWeek,
+  scheduleQueryRange, shortCalendarWeekday, rollingScrollShift, mondayOfWeek, scheduleViewAfterCompletion,
   type ScheduleEntry,
 } from './cleaningSchedule'
 import { loadCleaningTasks, todayWarsaw, type CleaningTask } from './cleaningTasks'
@@ -36,9 +36,9 @@ export function CleaningSchedule({ ownerId, rooms, onOpenRoom, onChanged, jumpTo
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [actionError, setActionError] = useState('')
-  const [feedback, setFeedback] = useState('')
+  const [announcement, setAnnouncement] = useState('')
+  const [mutationVersion, setMutationVersion] = useState(0)
   const { run: runCompletion, busyId, inFlight } = useCleaningOccurrenceCompletion()
-  const [lastCompleted, setLastCompleted] = useState<CleaningTask | null>(null)
   const { undo: runUndo, undoBusyId, inFlightUndo } = useCleaningTaskUndo()
   const requestNumber = useRef(0)
   const calendarCache = useRef(new Map<string, CleaningOccurrence[]>())
@@ -108,7 +108,7 @@ export function CleaningSchedule({ ownerId, rooms, onOpenRoom, onChanged, jumpTo
 
   useEffect(() => {
     void refresh(false, true)
-  }, [refresh])
+  }, [refresh, mutationVersion])
 
   useEffect(() => {
     const sync = () => {
@@ -225,34 +225,44 @@ export function CleaningSchedule({ ownerId, rooms, onOpenRoom, onChanged, jumpTo
     recenter()
   }
 
+  // Every successful mutation invalidates both task and occurrence snapshots. In particular,
+  // a completed overdue occurrence leaves its original due date and appears on today's
+  // actual completion date, so the agenda must re-query instead of trusting day cache.
+  function invalidateCalendar() {
+    requestNumber.current += 1 // Discard in-flight reads started before the mutation.
+    calendarCache.current.clear()
+    setMutationVersion((version) => version + 1)
+  }
+
   async function complete(entry: ScheduleEntry) {
     const { task, occurrence } = entry
     if (busy || inFlight.current) return
     setActionError('')
-    setFeedback('')
     try {
       const saved = await runCompletion(occurrence, task)
       if (!saved) return
-      setLastCompleted(saved)
-      setFeedback(`Zrobione: ${task.title}`)
+      const completedToday = todayWarsaw()
+      const target = scheduleViewAfterCompletion(windowStart, completedToday)
+      setToday(completedToday)
+      setSelectedDate(target.selectedDate)
+      setVisibleStart(target.visibleStart)
+      setAnnouncement(`Zrobiono: ${task.title}`)
+      invalidateCalendar()
       onChanged()
-      await refresh()
     } catch (cause: unknown) {
       setActionError(toUserErrorMessage(cause, 'Nie udało się wykonać zadania.'))
     }
   }
 
-  async function undoRecent(taskOverride?: CleaningTask) {
-    const taskToUndo = taskOverride ?? lastCompleted
-    if (!taskToUndo || busy || inFlight.current) return
+  async function undoRecent(task: CleaningTask) {
+    if (busy || inFlight.current) return
     setActionError('')
     try {
-      const saved = await runUndo(taskToUndo)
+      const saved = await runUndo(task)
       if (!saved) return
-      setLastCompleted(null)
-      setFeedback(`Cofnięto: ${saved.title}`)
+      setAnnouncement(`Cofnięto: ${saved.title}`)
+      invalidateCalendar()
       onChanged()
-      await refresh()
     } catch (cause: unknown) {
       setActionError(toUserErrorMessage(cause, 'Nie udało się cofnąć wykonania.'))
     }
@@ -391,9 +401,7 @@ export function CleaningSchedule({ ownerId, rooms, onOpenRoom, onChanged, jumpTo
     {loading && <div className="cleaning-status-message" role="status">Wczytywanie harmonogramu…</div>}
     {error && <div className="cleaning-inline-error" role="alert">{error} <button type="button" className="cleaning-task-link" onClick={() => { void refresh(true) }}>Spróbuj ponownie</button></div>}
     {actionError && <div className="cleaning-inline-error" role="alert">{actionError} <button type="button" className="cleaning-task-link" onClick={() => { void refresh() }}>Odśwież</button></div>}
-    {feedback && <div className="cleaning-schedule-feedback" role="status">{feedback}
-      {lastCompleted && <button type="button" className="cleaning-task-link" disabled={busy} onClick={() => { void undoRecent() }}>Cofnij</button>}
-    </div>}
+    <div className="sr-only" role="status" aria-live="polite">{announcement}</div>
     {!loading && !error && <div className="cleaning-schedule-agenda" key={currentDate}>
       {backlog.length > 0 && <section className="cleaning-schedule-group is-overdue" aria-label="Zaległe">
         <div className="cleaning-section-title cleaning-schedule-day-title"><h2>Zaległe</h2><span className="cleaning-section-note">{backlog.length} do wykonania</span></div>

@@ -4696,8 +4696,6 @@ html:has(.cleaning-shell), body:has(.cleaning-shell) { background: #f5f8fa; }
 .cleaning-due-status.is-done { background: #e7f4ee; color: #286d50; }
 .cleaning-schedule-item.is-done .cleaning-schedule-item-body > strong { color: var(--color-muted); }
 .cleaning-schedule-open-room { align-self: flex-start; display: grid; place-items: center; flex: 0 0 44px; width: 44px; min-height: 44px; padding: 0; border: 0; background: transparent; color: var(--color-muted); }
-.cleaning-schedule-feedback { display: flex; gap: 10px; align-items: center; justify-content: space-between; background: #edf7f1; color: #285e42; border: 1px solid #cfe5d9; padding: 10px 12px; border-radius: 13px; font-size: 13px; }
-.cleaning-schedule-feedback button { color: #285e42; }
 @media (max-width: 370px) {
   .cleaning-schedule-calendar { padding: 9px 6px; }
   .cleaning-schedule-weekdays { gap: 0; }

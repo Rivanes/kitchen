@@ -93,7 +93,7 @@ const [ui, rpc, css, verifier, oldH6] = await Promise.all([
 ])
 for (const marker of ['loadCleaningOccurrences(', 'runCompletion(occurrence, task)',
   'scheduledDueDate', 'isActionable', 'onScroll=', 'onPointerDown=', 'onPointerCancel=',
-  'scrollend', 'scrollLeft', 'rollingScrollShift(', 'earliestScheduleDay(', 'cleaningDueStatus(', 'undoRecent()',
+  'scrollend', 'scrollLeft', 'rollingScrollShift(', 'earliestScheduleDay(', 'cleaningDueStatus(', 'undoRecent(task)',
   'clampScheduleDay(', 'aria-pressed', 'cleaning-schedule-week-clip',
   'rollingScheduleDays(windowStart)', 'shortCalendarWeekday(date)', 'setVisibleStart(', 'setSelectedDate(date)',
   'scheduleQueryRange(windowStart, today)', 'cacheIdentity', 'calendarCache'])

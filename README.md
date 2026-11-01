@@ -1,3 +1,7 @@
+## H6.4.4D — Harmonogram completion visibility (source corrective)
+- Actual completion on 01.11 of an overdue 31.10 task selects 01.11, invalidates local calendar cache and displays the checked `Zrobione` card after pending tasks. Checkbox supports latest-only Undo. Redundant visible success banner removed.
+- New `scripts/test-cleaning-schedule-h6-4-4d.mjs` wired to verification. No SQL migration and canonical `ALL_IN_ONE.sql` unchanged. Requires GitHub build and real iPhone QA before corrective PASS.
+
 ### 2026-11-01 — H6.4.4C final release verification (QA PENDING)
 
 H6.4.4B rolling native calendar/swipe was **user-confirmed PASS on real phone**, and H6.4.3F forecast logic was accepted. Added `scripts/test-cleaning-release-h6-4-4c.mjs` (cross-view source regression, REPO-only) to `scripts/verify-project.mjs`. No change to UI or SQL. Final H6.4 closeout requires external read-only SQL/Cron and security runtime checks, latest GitHub CI/Pages evidence, remaining device/accessibility and Food regression; see OUTSIDE_REPO/H6_4_4C_RELEASE_QA.md in the full release archive. No SQL migration or ALL_IN_ONE replay.

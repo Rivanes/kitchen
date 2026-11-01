@@ -45,7 +45,7 @@ for (const needle of ['rollingScheduleDays(windowStart)', 'rollingScheduleDays(a
   'shortCalendarWeekday(date)', 'rollingScrollShift(', 'onScroll=', "element.addEventListener('scrollend'",
   'scrollLeft', 'useLayoutEffect', 'setSelectedDate(date)', 'setVisibleStart(', 'calendarCache',
   'Przejdź do dzisiaj', 'onPointerCancel=', 'loadCleaningOccurrences(query.from, query.to)',
-  'runCompletion(occurrence, task)', 'undoRecent()']) assert.ok(component.includes(needle),`Missing ${needle}`)
+  'runCompletion(occurrence, task)', 'undoRecent(task)']) assert.ok(component.includes(needle),`Missing ${needle}`)
 assert.match(css, /\.cleaning-schedule-week-clip \{[^}]*overflow-x: auto;[^}]*scroll-snap-type: x mandatory/)
 assert.match(css, /\.cleaning-schedule-weekdays \{[^}]*repeat\(21/)
 assert.match(css, /\.cleaning-schedule-weekdays button \{[^}]*scroll-snap-align: start; scroll-snap-stop: always/)

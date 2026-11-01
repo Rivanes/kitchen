@@ -1837,6 +1837,7 @@ await execFileAsync(process.execPath, ['--experimental-strip-types', 'scripts/te
 await execFileAsync(process.execPath, ['--experimental-strip-types', 'scripts/test-cleaning-schedule-h6-4-2.mjs'])
 await execFileAsync(process.execPath, ['--experimental-strip-types', 'scripts/test-cleaning-schedule-h6-4-4b.mjs'])
 await execFileAsync(process.execPath, ['--experimental-strip-types', 'scripts/test-cleaning-release-h6-4-4c.mjs'])
+await execFileAsync(process.execPath, ['--experimental-strip-types', 'scripts/test-cleaning-schedule-h6-4-4d.mjs'])
 await execFileAsync(process.execPath, ['--experimental-strip-types', 'scripts/test-cleaning-h6-4-3.mjs'])
 await execFileAsync(process.execPath, ['--experimental-strip-types', 'scripts/test-cleaning-rolling-h6-4-3c.mjs'])
 await execFileAsync(process.execPath, ['--experimental-strip-types', 'scripts/test-cleaning-h6-4-3d.mjs'])

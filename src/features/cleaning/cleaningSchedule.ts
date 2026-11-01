@@ -37,6 +37,20 @@ export function clampScheduleDay(date: string, today: string): string {
   return date < floor ? floor : date
 }
 
+/** After completing a past-due occurrence, show the ACTUAL completion day.
+ * Keep the same scrolling window when that day is already visible to avoid a jump.
+ */
+export function scheduleViewAfterCompletion(visibleStart: string, completedLocalDate: string): {
+  selectedDate: string; visibleStart: string
+} {
+  const visibleEnd = addCalendarDays(visibleStart, 6)
+  return {
+    selectedDate: completedLocalDate,
+    visibleStart: completedLocalDate < visibleStart || completedLocalDate > visibleEnd
+      ? mondayOfWeek(completedLocalDate) : visibleStart,
+  }
+}
+
 /** The first visible date is independent from the selected agenda date. */
 export function rollingScheduleDays(start: string, count = 7): string[] {
   if (!Number.isInteger(count) || count < 1 || count > 42) throw new Error('Niepoprawny zakres dni.')
