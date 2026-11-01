@@ -21,10 +21,12 @@ const events = [occ('biweekly','2026-11-01',{isActionable:true}),
 const result = cleaningDashboardGroups(tasks, events, new Set(['room']), date)
 assert.deepEqual(result.due.map((r)=>r.task.id), ['late','biweekly'])
 assert.deepEqual(result.upcoming.map((r)=>`${r.task.id}:${r.occurrence.scheduledDueDate}`), [
-  'once:2026-11-02','late:2026-11-05','biweekly:2026-11-08',
+  'once:2026-11-02',
 ])
 assert.equal(result.upcoming[0].occurrence.isActionable,true)
-assert.equal(result.upcoming[2].occurrence.isActionable,false)
+assert.equal(result.upcoming.every((r)=>r.occurrence.isActionable),true)
+assert.ok(!result.upcoming.some((r)=>r.task.id==='late' || r.task.id==='biweekly'),
+  'blocked projections cannot be advertised as actionable upcoming tasks')
 assert.deepEqual(cleaningDashboardGroups(tasks, [], new Set(['room']), date).upcoming, [],
   'missing server projections must NOT invent dates')
 assert.equal(cleaningDashboardGroups(tasks, [], new Set(['room']), date).due.length,2,

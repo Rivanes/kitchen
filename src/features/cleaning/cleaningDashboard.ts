@@ -5,7 +5,8 @@ import type { CleaningOccurrence } from './cleaningOccurrences'
 /** H6.4.3: the server is the ONLY authority for future dates.
  * The current open cursor is separately retained for overdue obligations that
  * predate the seven-day calendar window. A definition never creates a future
- * occurrence on the client.
+ * occurrence on the client. Upcoming contains only the NEXT executable cursor
+ * for each task; unexecutable forecasts live in the calendar, not in Start.
  */
 export type DashboardOccurrence = { task: CleaningTask; occurrence: CleaningOccurrence }
 
@@ -18,15 +19,16 @@ export function cleaningDashboardGroups(
   const cutoff = addCalendarDays(today, upcomingDays)
   const scheduled = occurrences.flatMap((occurrence) => {
     const task = taskById.get(occurrence.taskId)
-    if (!task || occurrence.isDone || occurrence.scheduledDueDate <= today || occurrence.scheduledDueDate > cutoff
+    if (!task || occurrence.isDone || !occurrence.isActionable
+      || occurrence.scheduledDueDate <= today || occurrence.scheduledDueDate > cutoff
       || occurrence.roomId !== task.roomId || occurrence.scheduleRevision !== task.scheduleRevision
       || occurrence.cycleGeneration !== task.cycleGeneration) return []
     return [{ task, occurrence }]
   })
-  // A network replay could return duplicates; one card per task + scheduled day.
+  // A network replay could return duplicates; one upcoming actionable cursor per task.
   const seen = new Set<string>()
   const upcoming = scheduled.filter(({ task, occurrence }) => {
-    const key = `${task.id}:${occurrence.scheduledDueDate}`
+    const key = task.id
     if (seen.has(key)) return false
     seen.add(key)
     return true
