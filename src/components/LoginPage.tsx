@@ -99,7 +99,7 @@ export function LoginPage({ configurationMissing }: LoginPageProps) {
           </button>
         </form>
 
-        <p className="login-footnote">Dostęp jest ograniczony do właściciela Kitchen.</p>
+        <p className="login-footnote">Dostęp tylko dla zaproszonych użytkowników Kitchen.</p>
       </section>
     </main>
   )

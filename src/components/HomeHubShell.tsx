@@ -7,7 +7,7 @@ import { KitchenIcon } from './KitchenIcon'
 
 type HomeModule = 'hub' | 'food' | 'cleaning'
 
-/** Auth and OwnerGate live above this component. Modules own their own navigation. */
+/** Auth and keyed MembershipGate live above this component. Modules own their own navigation. */
 export function HomeHubShell({ user }: { user: User }) {
   const [module, setModule] = useState<HomeModule>('hub')
 

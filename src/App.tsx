@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { LoginPage } from './components/LoginPage'
-import { OwnerGate } from './components/OwnerGate'
+import { MembershipGate } from './components/MembershipGate'
 import { hasSupabaseConfig, supabase } from './lib/supabase/client'
 
 export default function App() {
@@ -47,5 +47,5 @@ export default function App() {
     return <LoginPage configurationMissing={!hasSupabaseConfig} />
   }
 
-  return <OwnerGate user={session.user} />
+  return <MembershipGate key={session.user.id} user={session.user} />
 }

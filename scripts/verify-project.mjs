@@ -18,7 +18,9 @@ const requiredFiles = [
   'scripts/test-cleaning-rooms-h2.mjs',
   'tests/CLEANING_ROOMS_H2_CONTRACT.md',
   'src/components/LoginPage.tsx',
-  'src/components/OwnerGate.tsx',
+  'src/components/MembershipGate.tsx',
+  'scripts/test-h7-1-membership-source.mjs',
+  'tests/H7_1_MEMBERSHIP_CONTRACT.md',
   'src/components/KitchenIcon.tsx',
   'src/features/home/HomePage.tsx',
   'src/features/inventory/InventoryPage.tsx',
@@ -182,16 +184,16 @@ if (/service_role|SUPABASE_SECRET|DATABASE_PASSWORD/i.test(client)) {
 }
 
 const app = await readFile('src/App.tsx', 'utf8')
-if (!app.includes('<OwnerGate user={session.user} />')) {
-  throw new Error('Authenticated sessions must pass through OwnerGate before AppShell.')
+if (!app.includes('<MembershipGate key={session.user.id} user={session.user} />')) {
+  throw new Error('Authenticated sessions must pass through keyed MembershipGate before AppShell.')
 }
 
-const ownerGate = await readFile('src/components/OwnerGate.tsx', 'utf8')
-if (!/\.rpc\(\s*['"]is_kitchen_owner['"]\s*\)/.test(ownerGate)) {
-  throw new Error('OwnerGate must verify access through the is_kitchen_owner RPC.')
+const memberGate = await readFile('src/components/MembershipGate.tsx', 'utf8')
+if (!/\.rpc\(\s*['"]kitchen_my_access['"]\s*\)/.test(memberGate)) {
+  throw new Error('MembershipGate must verify caller-only role/status using kitchen_my_access RPC.')
 }
-if (!ownerGate.includes("data === true ? 'allowed' : 'denied'")) {
-  throw new Error('OwnerGate must fail closed unless the owner RPC returns true.')
+if (!memberGate.includes("status === 'active'") || !memberGate.includes("setStatus('checking')")) {
+  throw new Error('MembershipGate must fail closed and reset on session changes.')
 }
 
 const viteConfig = await readFile('vite.config.ts', 'utf8')
@@ -1847,4 +1849,5 @@ await execFileAsync(process.execPath, ['--experimental-strip-types', 'scripts/te
 await execFileAsync(process.execPath, ['--experimental-strip-types', 'scripts/test-cleaning-h6-3.mjs'])
 await execFileAsync(process.execPath, ['scripts/test-cleaning-h6-4-3e.mjs'])
 
+await execFileAsync(process.execPath, ['scripts/test-h7-1-membership-source.mjs'])
 console.log('Kitchen project contract verification: PASS')

@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises'
 
 const file = (name) => readFile(name, 'utf8')
 const [gate, hub, food, cleaning, flags, css, testContract] = await Promise.all([
-  file('src/components/OwnerGate.tsx'),
+  file('src/components/MembershipGate.tsx'),
   file('src/components/HomeHubShell.tsx'),
   file('src/components/AppShell.tsx'),
   file('src/features/cleaning/CleaningShell.tsx'),
@@ -12,9 +12,9 @@ const [gate, hub, food, cleaning, flags, css, testContract] = await Promise.all(
   file('tests/HOME_HUB_H1_CONTRACT.md'),
 ])
 
-// Existing auth/owner authority stays ABOVE both module shells.
-assert.match(gate, /supabase\.rpc\('is_kitchen_owner'\)/)
-assert.match(gate, /status === 'allowed'[\s\S]*<HomeHubShell user=\{user\}/)
+// Active membership authority stays ABOVE both module shells.
+assert.match(gate, /supabase\.rpc\('kitchen_my_access'\)/)
+assert.match(gate, /status === 'active'[\s\S]*<HomeHubShell user=\{user\}/)
 assert.doesNotMatch(hub, /from ['"]\.{1,2}\/features\/inventory\/|from ['"]\.{1,2}\/features\/shopping\/|from ['"]\.{1,2}\/features\/recipes\//)
 assert.match(hub, /useState<HomeModule>\('hub'\)/)
 assert.match(hub, /module === 'food'[\s\S]*<AppShell user=\{user\} onExit=\{returnHome\}/)

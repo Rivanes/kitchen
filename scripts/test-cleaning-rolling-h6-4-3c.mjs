@@ -30,7 +30,7 @@ if (old && incremental && fresh && canonical) {
   assert.match(incremental,/e\.completed_local_date between p_from and p_to/)
   assert.doesNotMatch(incremental,/cron\.schedule\(/)
   assert.match(incremental,/if exists \(select 1 from information_schema.columns/)
-  assert.ok(canonical.endsWith(fresh))
+  assert.ok(canonical.includes(fresh), 'H6.4 clean-install SQL remains in cumulative authority; H7 may append later blocks')
   assert.equal((fresh.match(/create or replace function public\.h4_complete_cleaning_task\(/g)||[]).length,1)
   assert.match(fresh,/alter table public\.cleaning_task_completions add column schedule_anchor_date_before date/)
 }
