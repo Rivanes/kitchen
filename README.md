@@ -1,6 +1,10 @@
+## H7.3 — Invite-only Registration (candidate)
+
+W repo jest nowy frontend odbiorcy zaproszeń, minimalny przycisk dla administratora i Supabase Edge Function `supabase/functions/kitchen-invites/index.ts`. Funkcje serwerowe wymagają oddzielnego deploy Edge/sekretów/SMTP i migracji H7.3. **Samo wdrożenie GitHub Pages nie uruchomi zaproszeń.** Publiczny `signUp` pozostaje OFF, `service_role` nigdy w przeglądarce. Instrukcja i etapowy QA w `OUTSIDE_REPO/H7_3_RUNBOOK.md`.
+
 # Kitchen — Home Hub
 
-Prywatna aplikacja mobilna PWA (React / TypeScript / Vite / Supabase) na GitHub Pages pod `/kitchen/`. Baza produkcyjna w zweryfikowanym prechecku 2026-11-16 miała jednego właściciela. Kandydat źródłowy H7.1 przygotowuje obsługę wielu niezależnych użytkowników; **nie ma publicznej rejestracji ani potwierdzonej migracji SQL**.
+Prywatna aplikacja mobilna PWA (React / TypeScript / Vite / Supabase) na GitHub Pages pod `/kitchen/`. Precheck z 2026-11-16 wykazał jeden stary owner PRZED migracją. Użytkownik następnie przekazał **H7.1 SQL POSTCHECK PASS** (nowy rejestr `kitchen_members`, 1 admin, stary gate usunięty) i **GitHub Deploy PASS**; użytkownik potwierdził już drugie konto z 5 lokalizacjami i oddzielny UI, natomiast negatywna izolacja RLS/RPC/Storage nadal czeka na testy. Brak publicznej rejestracji i jednorazowych zaproszeń.
 
 ## Moduły
 
@@ -23,7 +27,7 @@ Pełny build jest wymagany w GitHub Actions, nawet jeżeli same testy źródłow
 
 ## Architektura i bezpieczeństwo
 
-- Autorytet danych Supabase. Produkcja przed H7.1 SQL: `is_kitchen_owner()` i owner-only RLS. Kandydat frontendu H7.1: `MembershipGate` wywołuje `kitchen_my_access()` po serwerowej migracji, z zachowaniem izolacji `owner_id = auth.uid()`. **Nie wdrażać niezgodnej pary frontend/SQL.** Nie używaj service-role w przeglądarce.
+- Autorytet danych Supabase. Obecny model po H7.1 SQL postcheck: `kitchen_members`, `is_kitchen_member()` i `MembershipGate` wywołujący `kitchen_my_access()`; izolacja `owner_id=auth.uid()` pozostaje obowiązkowa. Wymaga realnego QA A/B i Storage. **Nie uruchamiać migracji SQL ponownie.** Nie używaj service-role w przeglądarce.
 - Cykle Porządków projektowane tylko po stronie serwera: `h64_list_cleaning_occurrences`. Jeden aktywny kursor; przyszłe prognozy mogą być niewykonalne; nie przeliczaj dat cykli w frontendzie. Po spóźnionym wykonaniu niecodzienny cykl przesuwa się od rzeczywistej daty.
 - `cleaning_task_completions`: historia 7 dni z retencją `pg_cron`; zaległe zadania nie są usuwane. Cofanie ostatniego wykonania przez zaznaczony checkbox.
 - Górny shell Porządków ma jeden tytuł dla zakładki, nie dubluj nagłówków. Harmonogram: 7 widocznych dat, natywne przewijanie/snap po 1 dniu, strzałki ±1 i jeden przycisk `Dzisiaj`.
@@ -41,15 +45,18 @@ Pełny build jest wymagany w GitHub Actions, nawet jeżeli same testy źródłow
 
 W pełnej paczce projektu: `OUTSIDE_REPO/AGENTS.md`, `CONTINUE_IN_NEW_CHAT.md`, `ROADMAP.md`, `QA_CURRENT.md`, `DATA_MODEL.md`, `CHANGELOG.md` i `SQL/ALL_IN_ONE.sql`. **Nie przesyłaj `OUTSIDE_REPO` na GitHub.** ALL_IN_ONE to schemat do *nowych instalacji*, nie migracja bieżącej produkcji.
 
-## Stan wydania
+## Stan wydania (2026-11-16)
 
-H6.4 został zaakceptowany przez właściciela jako PASS/CLOSED; końcowy read-only SQL H64_17 przeszedł. Po tym zaakceptowano przygotowanie H6.4.4D (zrobione zadanie ma być widoczne pod rzeczywistą datą); jego odrębny final GitHub/iPhone QA nie został jeszcze w rozmowie potwierdzony. H6.5 porządkuje dokumentację i pozostaje SOURCE CANDIDATE. **H7.0 pełny produkcyjny read-only precheck A–H PASS; H7.1A źródła przygotowane.** Użytkownik raportuje GitHub Deploy PASS, ale brak potwierdzonego H7.1 SQL i testów staging A/B. **Najbliższy etap to H7.1B — audyt legacy RPC i poprawa migracji**, potem H7.1C produkcyjne wdrożenie. Aktualny stan: `OUTSIDE_REPO/QA_CURRENT.md` i `ROADMAP.md`.
+H6.4 główne funkcje zaakceptowane; H6.4.4D osobny final iPhone/CI QA niepotwierdzony. H6.5 cleanup formalnie OPEN. **H7.0 live precheck A–H PASS przed migracją. H7.1 SQL POSTCHECK PASS po migracji (dane użytkownika); GitHub Deploy PASS zgłoszony przez użytkownika.** W postchecku 1 aktywny admin, brak starej bramki, 0 stale RLS/RPC, H3/H4 direct denies, H64 allowed. Nie ma jeszcze potwierdzonego testu dwóch realnych kont ani Storage API, staging restore, urządzenia i bieżącego commit SHA. H7.1 nie jest CLOSED. Aktualne dowody: `OUTSIDE_REPO/QA_CURRENT.md` i `ROADMAP.md` w pełnej paczce.
 
-## H7.1 membership foundation (candidate, not production-deployed)
+## H7.1 — uwagi bezpieczeństwa
 
-Source branch includes `MembershipGate` to support isolated active accounts after a controlled Supabase SQL cutover. **Do not deploy this frontend before H7.1 migration and live/staging security checks pass.** No public signup or invitation flow has been added. Operational staging checklist: `OUTSIDE_REPO/H7_1_IMPLEMENTATION_AND_DEPLOYMENT.md` in the full release package.
+`MembershipGate` zastąpił `OwnerGate` w kodzie. Kontrola membership musi łączyć się z RLS po właścicielu; admin nie dziedziczy dostępu do prywatnych danych innych kont. `h3_archive_cleaning_task` i `h4_complete_cleaning_task` nie mają bezpośrednich grantów dla klienta zgodnie z wynikiem postcheck; definicja H4 pozostaje konieczna wewnętrznie dla H64. **Nie używaj `SQL/ALL_IN_ONE.sql` na istniejącej bazie i nie ponawiaj wykonanej migracji H7.1.** Brak publicznego signup i jednorazowych zaproszeń (H7.3). QA dwóch kont jest następnym warunkiem zamknięcia.
 
+## H7.1C — bezpieczeństwo dwóch kont (STAGING ONLY)
 
-### H7.1B — security corrective candidate (2026-11-16)
+`node scripts/test-h7-1c-api-isolation.mjs --self-test` uruchamia wyłącznie lokalny test zabezpieczeń skryptu (bez sieci). Realne testy wymagają dwóch sesji testowych i odrębnego staging; nie uruchamiać na produkcyjnym Supabase. Zasady i konfiguracja w `OUTSIDE_REPO/H7_1C_RUNBOOK.md` w pełnej paczce projektu. Tester nie tworzy użytkowników ani nie wymaga klucza service-role. Pełny QA A/B i Storage pozostaje OPEN.
 
-Historical `h3_archive_cleaning_task` is no longer called from the browser; the legacy `h4_complete_cleaning_task` remains an internal dependency of current H6.4 but loses direct browser EXECUTE in the H7.1 SQL candidate. No client onboarding/signup was added. **The candidate SQL is not deployed.** Consult external `OUTSIDE_REPO/H7_1B_RUNBOOK.md` before attempting SQL or multi-user testing; stage/restore, A/B/anon and Storage QA are mandatory.
+## H7.2 — Account Initialization (bez nowego backendu)
+
+Seed pięciu lokalizacji nowego aktywnego konta jest już produkcyjną częścią H7.1 i został potwierdzony przez użytkownika na drugim koncie. W H7.2 **nie dodajemy** drugiego inicjalizatora ani publicznej rejestracji. Kontrakt offline: `node scripts/test-h7-2-account-initialization.mjs`; test SQL i read-only postcheck w paczce `OUTSIDE_REPO/QA/` i `OUTSIDE_REPO/SQL/H7_MULTI_USER/`. Testy negatywne A/B/RPC/Storage pozostają OPEN (H7.1C).
