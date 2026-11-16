@@ -10,10 +10,12 @@ type MemberAccess = { kitchen_role: 'admin' | 'member'; kitchen_status: 'active'
 /** Keyed by user.id in App: old account state is unmounted BEFORE this renders. */
 export function MembershipGate({ user }: { user: User }) {
   const [status, setStatus] = useState<MemberStatus>('checking')
+  const [role, setRole] = useState<MemberAccess['kitchen_role'] | null>(null)
 
   useEffect(() => {
     let current = true
     setStatus('checking')
+    setRole(null)
 
     async function verifyMembership() {
       if (!supabase) {
@@ -32,6 +34,7 @@ export function MembershipGate({ user }: { user: User }) {
         if (!account || !['admin', 'member'].includes(account.kitchen_role)) {
           setStatus('denied')
         } else if (account.kitchen_status === 'active') {
+          setRole(account.kitchen_role)
           setStatus('active')
         } else if (account.kitchen_status === 'suspended') {
           setStatus('suspended')
@@ -46,7 +49,7 @@ export function MembershipGate({ user }: { user: User }) {
     return () => { current = false }
   }, [user.id])
 
-  if (status === 'active') return <HomeHubShell user={user} />
+  if (status === 'active') return <HomeHubShell user={user} isAdmin={role === 'admin'} />
   if (status === 'checking') {
     return <main className="loading-layout" aria-live="polite">
       <div className="loading-mark" aria-hidden="true">K</div>

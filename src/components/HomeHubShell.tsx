@@ -4,11 +4,12 @@ import { supabase } from '../lib/supabase/client'
 import { AppShell } from './AppShell'
 import { CleaningShell } from '../features/cleaning/CleaningShell'
 import { KitchenIcon } from './KitchenIcon'
+import { AdminInvitePanel } from './AdminInvitePanel'
 
 type HomeModule = 'hub' | 'food' | 'cleaning'
 
 /** Auth and keyed MembershipGate live above this component. Modules own their own navigation. */
-export function HomeHubShell({ user }: { user: User }) {
+export function HomeHubShell({ user, isAdmin = false }: { user: User; isAdmin?: boolean }) {
   const [module, setModule] = useState<HomeModule>('hub')
 
   function openModule(nextModule: Exclude<HomeModule, 'hub'>) {
@@ -65,6 +66,7 @@ export function HomeHubShell({ user }: { user: User }) {
             <span className="home-hub-module-arrow" aria-hidden="true"><KitchenIcon name="chevronRight" size={18} /></span>
           </button>
         </div>
+        {isAdmin ? <AdminInvitePanel /> : null}
       </section>
     </main>
   )
