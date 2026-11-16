@@ -1,4 +1,0 @@
-# H7.3 includes a token-bearing public claim route.
-# Every privileged route validates the user JWT in the handler itself.
-[functions.kitchen-invites]
-verify_jwt = false
