@@ -25,9 +25,11 @@ assert.doesNotMatch(board, /Ukryj historię|>Historia</)
 for (const marker of ['loadCleaningTasks(ownerId)', 'onOpenRoom(room)', 'runCompletion(entry.occurrence, entry.task)']) {
   assert.ok(start.includes(marker), `H3/H6.4 Start missing marker: ${marker}`)
 }
-for (const marker of [".from('cleaning_tasks')", ".from('cleaning_task_completions')", 'h4_create_cleaning_task', 'h4_update_cleaning_task', 'h3_archive_cleaning_task', 'p_expected_generation', 'p_operation_id', 'validateCleaningTask', 'Europe/Warsaw']) {
+for (const marker of [".from('cleaning_tasks')", ".from('cleaning_task_completions')", 'h4_create_cleaning_task', 'h4_update_cleaning_task', 'p_expected_generation', 'p_operation_id', 'validateCleaningTask', 'Europe/Warsaw']) {
   assert.ok(api.includes(marker), `H3 missing data-layer marker: ${marker}`)
 }
+// H7.1B: UI no longer uses the archived-task action; legacy SQL is retained without browser EXECUTE.
+assert.doesNotMatch(api, /h3_archive_cleaning_task|archiveCleaningTask/)
 assert.doesNotMatch(api, /\.from\('cleaning_tasks'\)[\s\S]{0,120}\.(insert|update|delete)\(/)
 assert.doesNotMatch(api, /\.from\('cleaning_task_completions'\)[\s\S]{0,120}\.(insert|update|delete)\(/)
 for (const marker of ['.cleaning-tasks', '.cleaning-catalog-card', '.cleaning-catalog-edit', '.cleaning-room-editor textarea']) {

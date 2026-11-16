@@ -20,6 +20,7 @@ const requiredFiles = [
   'src/components/LoginPage.tsx',
   'src/components/MembershipGate.tsx',
   'scripts/test-h7-1-membership-source.mjs',
+  'scripts/test-h7-1b-security-corrective.mjs',
   'tests/H7_1_MEMBERSHIP_CONTRACT.md',
   'src/components/KitchenIcon.tsx',
   'src/features/home/HomePage.tsx',
@@ -1850,4 +1851,5 @@ await execFileAsync(process.execPath, ['--experimental-strip-types', 'scripts/te
 await execFileAsync(process.execPath, ['scripts/test-cleaning-h6-4-3e.mjs'])
 
 await execFileAsync(process.execPath, ['scripts/test-h7-1-membership-source.mjs'])
+await execFileAsync(process.execPath, ['scripts/test-h7-1b-security-corrective.mjs'])
 console.log('Kitchen project contract verification: PASS')

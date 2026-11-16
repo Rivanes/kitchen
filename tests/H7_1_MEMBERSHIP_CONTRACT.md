@@ -10,3 +10,10 @@
 - Initial account seed creates five own system `storage_locations` in one SQL transaction; H7.2 will test this flow using a second account in staging, not create accounts in production.
 - SQL cutover is atomic (BEGIN/COMMIT); migration requires verified live baseline, staging and backup. Do not execute from an old or unverified snapshot.
 - `ALL_IN_ONE.sql` is for clean install only. No production user setup via this file.
+
+## H7.1B — Legacy RPC security corrective
+
+- `archiveCleaningTask()` is removed from browser code after a repo-wide caller audit: it had no callers. Historic H3 SQL remains for compatibility but its `authenticated` EXECUTE is revoked in the H7.1 cutover.
+- `h4_complete_cleaning_task` remains **installed** and callable internally by `h64_complete_cleaning_occurrence` (SECURITY DEFINER); browser `authenticated` EXECUTE is revoked.
+- Only `h64_complete_cleaning_occurrence` is the browser completion authority; H4 task create/update, H63 delete/undo remain legitimately callable.
+- Both legacy direct grants must be false in the H7.1 postcheck. SQL staging A/B, anon and Storage runtime QA remain mandatory; static source tests alone do not authorize production cutover.

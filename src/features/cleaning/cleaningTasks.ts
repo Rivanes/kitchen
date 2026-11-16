@@ -145,10 +145,6 @@ export async function updateCleaningTask(taskId: string, expectedGeneration: num
   })
 }
 
-export async function archiveCleaningTask(taskId: string, archived: boolean) {
-  return taskRpc('h3_archive_cleaning_task', { p_task_id: taskId, p_archive: archived })
-}
-
 export async function loadCleaningCompletions(ownerId: string, taskId: string): Promise<CleaningCompletion[]> {
   const { data, error } = await requireClient().from('cleaning_task_completions')
     .select(completionColumns).eq('owner_id', ownerId).eq('task_id', taskId)
