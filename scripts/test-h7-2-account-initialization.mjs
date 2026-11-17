@@ -1,3 +1,4 @@
+import { assertKeyedMembershipGate } from './contracts/assert-keyed-membership-gate.mjs'
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 
@@ -10,7 +11,7 @@ const [gate, app, inventory, contract, login] = await Promise.all([
   readRepo('src/components/LoginPage.tsx'),
 ])
 
-assert.match(app, /<MembershipGate key=\{session\.user\.id\} user=\{session\.user\} adminRoute=\{adminRoute\} onNavigateAdmin=\{navigateAdmin\} \/>/)
+assertKeyedMembershipGate(app)
 assert.match(gate, /\.rpc\('kitchen_my_access'\)/)
 assert.match(gate, /if \(!current\) return/)
 assert.match(gate, /if \(status === 'active'\) \{[\s\S]*return <HomeHubShell user=\{user\}/)

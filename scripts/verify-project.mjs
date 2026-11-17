@@ -2,6 +2,7 @@ import { readFile, access } from 'node:fs/promises'
 import { constants } from 'node:fs'
 import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
+import { assertKeyedMembershipGate } from './contracts/assert-keyed-membership-gate.mjs'
 
 const execFileAsync = promisify(execFile)
 
@@ -191,9 +192,7 @@ if (/service_role|SUPABASE_SECRET|DATABASE_PASSWORD/i.test(client)) {
 }
 
 const app = await readFile('src/App.tsx', 'utf8')
-if (!app.includes('<MembershipGate key={session.user.id} user={session.user} adminRoute={adminRoute} onNavigateAdmin={navigateAdmin} />')) {
-  throw new Error('Authenticated sessions must pass through keyed MembershipGate before AppShell.')
-}
+assertKeyedMembershipGate(app)
 
 const memberGate = await readFile('src/components/MembershipGate.tsx', 'utf8')
 if (!/\.rpc\(\s*['"]kitchen_my_access['"]\s*\)/.test(memberGate)) {
