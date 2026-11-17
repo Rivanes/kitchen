@@ -2,9 +2,9 @@
 
 Administrator generuje 24-godzinny link; osoba otwiera go, wpisuje e-mail, hasło oraz potwierdzenie hasła. Weryfikacja tokena i utworzenie konta przez `auth.admin.createUser` zachodzą tylko w `supabase/functions/kitchen-invites/index.ts` — brak publicznego `signUp`, brak SMTP w tej fazie. GitHub Pages musi dostać zmieniony formularz, a Supabase Edge Function musi zostać **osobno zaktualizowana przez Dashboard → Code → Deploy updates**. SQL H7.3 jest już wdrożony, nie uruchamiać go ponownie. Brak weryfikacji własności e-maila (`email_confirm: true`) jest świadomym **ryzykiem tylko dla środowiska testowego**. Szczegóły `OUTSIDE_REPO/H7_3_RUNBOOK.md`.
 
-## H7.3C — zaproszenia administratora (kandydat źródłowy)
+## H7.3C — zaproszenia administratora (SQL 8/8 PASS, GitHub CI corrective OPEN)
 
-Panel `https://rivanes.github.io/kitchen/admin` (tylko admin) zarządza aktywnymi jednorazowymi zaproszeniami. Backend: istniejąca Edge Function `kitchen-invites` i nowe serwerowe RPC H7.3C z retencją `pg_cron`, AES-GCM w Edge Secret. Po udanej rejestracji lub unieważnieniu zaproszenie jest usuwane z DB; wygasłe zaproszenia sprząta Cron. H7.3C source candidate nie oznacza wdrożenia produkcyjnego ani E2E PASS. Migrację/instrukcje trzymaj poza repo w `OUTSIDE_REPO/H7_3_RUNBOOK.md`. Nie uruchamiaj ALL_IN_ONE na istniejącej bazie.
+Panel `https://rivanes.github.io/kitchen/admin` (tylko admin) zarządza aktywnymi jednorazowymi zaproszeniami. Backend: istniejąca Edge Function `kitchen-invites` i nowe serwerowe RPC H7.3C z retencją `pg_cron`, AES-GCM w Edge Secret. Po udanej rejestracji lub unieważnieniu zaproszenie jest usuwane z DB; wygasłe zaproszenia sprząta Cron. Postcheck SQL H7.3C 8/8 PASS i sekret AES zapisany (wyniki użytkownika). GitHub CI FAILED przez testy odwołujące się do OUTSIDE_REPO; nowa korekta testów do wgrania, E2E nadal OPEN. Migrację/instrukcje trzymaj poza repo w `OUTSIDE_REPO/H7_3_RUNBOOK.md`. Nie uruchamiaj ALL_IN_ONE na istniejącej bazie.
 
 ## Moduły
 
@@ -45,13 +45,13 @@ Pełny build jest wymagany w GitHub Actions, nawet jeżeli same testy źródłow
 
 W pełnej paczce projektu: `OUTSIDE_REPO/AGENTS.md`, `CONTINUE_IN_NEW_CHAT.md`, `ROADMAP.md`, `QA_CURRENT.md`, `DATA_MODEL.md`, `CHANGELOG.md` i `SQL/ALL_IN_ONE.sql`. **Nie przesyłaj `OUTSIDE_REPO` na GitHub.** ALL_IN_ONE to schemat do *nowych instalacji*, nie migracja bieżącej produkcji.
 
-## Stan wydania (2026-11-16)
+## Stan wydania (2026-11-17)
 
-H6.4 główne funkcje zaakceptowane; H6.4.4D osobny final iPhone/CI QA niepotwierdzony. H6.5 cleanup formalnie OPEN. **H7.0 live precheck A–H PASS przed migracją. H7.1 SQL POSTCHECK PASS po migracji (dane użytkownika); GitHub Deploy PASS zgłoszony przez użytkownika.** W postchecku 1 aktywny admin, brak starej bramki, 0 stale RLS/RPC, H3/H4 direct denies, H64 allowed. Nie ma jeszcze potwierdzonego testu dwóch realnych kont ani Storage API, staging restore, urządzenia i bieżącego commit SHA. H7.1 nie jest CLOSED. Aktualne dowody: `OUTSIDE_REPO/QA_CURRENT.md` i `ROADMAP.md` w pełnej paczce.
+H6.4 główne funkcje zaakceptowane; H6.4.4D osobny final iPhone/CI QA niepotwierdzony. H6.5 cleanup formalnie OPEN. **H7.0 live precheck A–H PASS przed migracją. H7.1 SQL POSTCHECK PASS po migracji (dane użytkownika); GitHub Deploy PASS zgłoszony przez użytkownika.** W postchecku 1 aktywny admin, brak starej bramki, 0 stale RLS/RPC, H3/H4 direct denies, H64 allowed. Potwierdzone dwa realne konta i oddzielne UI, H7.2 SQL 6/6 PASS; nadal nie ma negatywnych testów API/Storage ani bieżącego commit SHA CI PASS. H7.1 nie jest CLOSED. Aktualne dowody: `OUTSIDE_REPO/QA_CURRENT.md` i `ROADMAP.md` w pełnej paczce.
 
 ## H7.1 — uwagi bezpieczeństwa
 
-`MembershipGate` zastąpił `OwnerGate` w kodzie. Kontrola membership musi łączyć się z RLS po właścicielu; admin nie dziedziczy dostępu do prywatnych danych innych kont. `h3_archive_cleaning_task` i `h4_complete_cleaning_task` nie mają bezpośrednich grantów dla klienta zgodnie z wynikiem postcheck; definicja H4 pozostaje konieczna wewnętrznie dla H64. **Nie używaj `SQL/ALL_IN_ONE.sql` na istniejącej bazie i nie ponawiaj wykonanej migracji H7.1.** Brak publicznego signup i jednorazowych zaproszeń (H7.3). QA dwóch kont jest następnym warunkiem zamknięcia.
+`MembershipGate` zastąpił `OwnerGate` w kodzie. Kontrola membership musi łączyć się z RLS po właścicielu; admin nie dziedziczy dostępu do prywatnych danych innych kont. `h3_archive_cleaning_task` i `h4_complete_cleaning_task` nie mają bezpośrednich grantów dla klienta zgodnie z wynikiem postcheck; definicja H4 pozostaje konieczna wewnętrznie dla H64. **Nie używaj `SQL/ALL_IN_ONE.sql` na istniejącej bazie i nie ponawiaj wykonanej migracji H7.1.** Publiczny signup pozostaje wyłączony; system zaproszeń H7.3C jest wdrażany, ale wymaga CI i E2E PASS. Negatywne RLS/RPC/Storage dwóch kont pozostają otwarte.
 
 ## H7.1C — bezpieczeństwo dwóch kont (STAGING ONLY)
 
@@ -60,3 +60,7 @@ H6.4 główne funkcje zaakceptowane; H6.4.4D osobny final iPhone/CI QA niepotwie
 ## H7.2 — Account Initialization (bez nowego backendu)
 
 Seed pięciu lokalizacji nowego aktywnego konta jest już produkcyjną częścią H7.1 i został potwierdzony przez użytkownika na drugim koncie. W H7.2 **nie dodajemy** drugiego inicjalizatora ani publicznej rejestracji. Kontrakt offline: `node scripts/test-h7-2-account-initialization.mjs`; test SQL i read-only postcheck w paczce `OUTSIDE_REPO/QA/` i `OUTSIDE_REPO/SQL/H7_MULTI_USER/`. Testy negatywne A/B/RPC/Storage pozostają OPEN (H7.1C).
+
+## CI H7.3C — granica REPO / OUTSIDE_REPO (2026-11-17)
+
+`node scripts/verify-project.mjs` uruchamia testy **wyłącznie na zawartości REPO**. `scripts/test-h7-3-invites.mjs` oraz `scripts/test-h7-3c-admin.mjs` czytają pliki REPO i parser `typescript` z `npm ci`; żadna migracja z `../OUTSIDE_REPO` nie może być wymagana przez GitHub Actions. Osobne kontrakty SQL uruchamiamy w pełnej paczce: `OUTSIDE_REPO/QA/H7_3_SQL_CONTRACT_CHECK.mjs` i `H7_3C_SQL_CONTRACT_CHECK.mjs`. Po GitHub Commit & Push sprawdź QA i Deploy Pages; ostatni pokazany GitHub build FAIL (ENOENT).

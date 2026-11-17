@@ -11,3 +11,10 @@ Status: **SOURCE PREPARED, LIVE SQL/EDGE/GITHUB/E2E NOT YET CONFIRMED**.
 - No SMTP or public signUp. Server creates email/password Auth with `email_confirm:true` — unverified ownership, **test-only**. Existing H7.1C cross-owner negative API/Storage still OPEN.
 - No repeated H7.1/H7.3 migrations, never run `ALL_IN_ONE.sql` on existing test database. Only H7.3C incremental migration once.
 - Test: precheck, migration, corrected postcheck 8/8; Edge update with secret; GitHub deploy; issue, copy after reload, revoke, successful signup, replay denial, expiry, member access denied, H6.4 Cron preserved.
+
+## CI boundary regression (2026-11-17)
+
+- GitHub Actions checkout contains **REPO only**, not `../OUTSIDE_REPO`. `scripts/test-h7-3-invites.mjs` and `scripts/test-h7-3c-admin.mjs` must not read SQL migration paths outside repo.
+- Local `typescript` must be resolved from project `devDependencies` installed by `npm ci`, never a global NVM installation path.
+- SQL migration, pre/postcheck, and clean-install parity remain separate in `OUTSIDE_REPO/QA/H7_3_SQL_CONTRACT_CHECK.mjs` and `H7_3C_SQL_CONTRACT_CHECK.mjs`, not deployable GitHub source.
+- Live H7.3C SQL 8/8 PASS, Secrets present; latest GitHub build screenshot showed ENOENT, so commit QA/Pages PASS is still required.
