@@ -3,8 +3,14 @@ import { constants } from 'node:fs'
 import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
 import { assertKeyedMembershipGate } from './contracts/assert-keyed-membership-gate.mjs'
+import { auditFrontendBoundaries } from './contracts/audit-frontend-boundaries.mjs'
+
+// Check the *actual* GitHub source tree, not only files shipped in a ZIP.
+// This catches orphaned TSX files left behind by upload-only deployments.
+await auditFrontendBoundaries()
 
 const execFileAsync = promisify(execFile)
+await execFileAsync(process.execPath, ['scripts/test-h7-5-2-ui-boundaries.mjs'])
 
 const requiredFiles = [
   '.env.example',
@@ -20,6 +26,8 @@ const requiredFiles = [
   'tests/CLEANING_ROOMS_H2_CONTRACT.md',
   'src/components/LoginPage.tsx',
   'src/components/MembershipGate.tsx',
+  'scripts/contracts/audit-frontend-boundaries.mjs',
+  'scripts/test-h7-5-2-ui-boundaries.mjs',
   'scripts/test-h7-1-membership-source.mjs',
   'scripts/test-h7-1b-security-corrective.mjs',
   'scripts/test-h7-3c-admin.mjs',
