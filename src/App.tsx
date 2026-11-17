@@ -2,13 +2,11 @@ import { useEffect, useState } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { LoginPage } from './components/LoginPage'
 import { InvitationPage } from './components/InvitationPage'
-import { InviteSetupPage } from './components/InviteSetupPage'
 import { MembershipGate } from './components/MembershipGate'
 import { hasSupabaseConfig, supabase } from './lib/supabase/client'
 
 // H7.3: token is kept in component memory, then removed from the URL on mount.
 const initialInviteToken = new URLSearchParams(window.location.search).get('invite')
-const initialOnboarding = new URLSearchParams(window.location.search).get('onboarding') === '1'
 
 export default function App() {
   const [session, setSession] = useState<Session | null>(null)
@@ -55,7 +53,6 @@ export default function App() {
   }
 
   if (initialInviteToken) return <InvitationPage token={initialInviteToken} />
-  if (initialOnboarding) return <InviteSetupPage userId={session?.user?.id ?? null} />
 
   if (!session?.user) {
     return <LoginPage configurationMissing={!hasSupabaseConfig} />

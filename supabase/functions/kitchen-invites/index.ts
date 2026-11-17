@@ -72,7 +72,10 @@ Deno.serve(async (req) => {
     if (action === 'claim') {
       const email = normalizedEmail(payload.email)
       const token = asText(payload.token)
-      if (!email || !/^[a-zA-Z0-9_-]{43}$/.test(token)) {
+      const password = asText(payload.password)
+      // Server-side validation is mandatory; browser controls are advisory.
+      if (!email || !/^[a-zA-Z0-9_-]{43}$/.test(token)
+        || password.length < 12 || password.length > 128 || new TextEncoder().encode(password).length > 128) {
         return reply(400, { error: 'Link invalid or expired' })
       }
       const { data: inviteId, error } = await privilegedRpc('h73_claim_invite', {
@@ -80,23 +83,34 @@ Deno.serve(async (req) => {
       })
       if (error || !inviteId) return reply(410, { error: 'Zaproszenie wygasło lub zostało wykorzystane.' })
 
-      const redirectTo = new URL(canonicalAppUrl.href)
-      redirectTo.searchParams.set('onboarding', '1')
-      const { data: invited, error: mailError } = await admin.auth.admin.inviteUserByEmail(email, {
-        redirectTo: redirectTo.toString(),
+      // The one-time invitation is the only authorization to create an account.
+      // No public signUp and no SMTP are used for this test-only flow.
+      // email_confirm=true means email ownership is NOT verified. Do not ship
+      // this flow to untrusted users without adding email verification.
+      const { data: created, error: authError } = await admin.auth.admin.createUser({
+        email, password, email_confirm: true,
       })
-      if (mailError || !invited?.user?.id) {
+      if (authError || !created?.user?.id) {
         await privilegedRpc('h73_mark_failed', { p_invite_id: inviteId })
-        return reply(422, { error: 'Nie udało się wysłać zaproszenia. Poproś administratora o nowy link.' })
+        return reply(422, { error: 'Nie udało się utworzyć konta. Poproś administratora o nowy link.' })
       }
+      // The historical SQL RPC name/state `mark_sent`/`sent` remains a private
+      // compatibility marker: Auth identity bound, not proof that email was sent.
       const { data: bound, error: bindingError } = await privilegedRpc('h73_mark_sent', {
-        p_invite_id: inviteId, p_auth_id: invited.user.id, p_email: email,
+        p_invite_id: inviteId, p_auth_id: created.user.id, p_email: email,
       })
       if (bindingError || !bound) {
-        // Fail closed: an Auth account may exist but has no Kitchen membership.
-        return reply(500, { error: 'Aktywacja zaproszenia wymaga pomocy administratora.' })
+        // Fail closed: identity may exist, but has no Kitchen membership.
+        return reply(500, { error: 'Nie można dokończyć rejestracji. Skontaktuj się z administratorem.' })
       }
-      return reply(200, { ok: true })
+      const { data: activated, error: activationError } = await privilegedRpc('h73_activate_member', {
+        p_user_id: created.user.id, p_email: email,
+      })
+      if (activationError || activated !== true) {
+        // Fail closed: never grant access merely because Auth creation succeeded.
+        return reply(500, { error: 'Nie można aktywować konta. Skontaktuj się z administratorem.' })
+      }
+      return reply(200, { registered: true })
     }
 
     const user = await signedInUser(req)
@@ -123,22 +137,6 @@ Deno.serve(async (req) => {
       return reply(200, { revoked: data === true })
     }
 
-    if (action === 'status') {
-      const { data, error } = await privilegedRpc('h73_pending_for_user', {
-        p_user_id: user.id, p_email: user.email,
-      })
-      return error ? reply(500, { error: 'Nie udało się potwierdzić zaproszenia.' })
-        : reply(200, { pending: data === true })
-    }
-
-    if (action === 'activate') {
-      if (!user.email_confirmed_at) return reply(403, { error: 'Potwierdź adres e-mail.' })
-      const { data, error } = await privilegedRpc('h73_activate_member', {
-        p_user_id: user.id, p_email: user.email,
-      })
-      return error || data !== true ? reply(403, { error: 'Nie można aktywować tego zaproszenia.' })
-        : reply(200, { activated: true })
-    }
     return reply(400, { error: 'Nieznana operacja.' })
   } catch {
     return reply(500, { error: 'Nie udało się obsłużyć zaproszenia.' })

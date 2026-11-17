@@ -1,11 +1,12 @@
-# H7.3 — Invite-only Registration contract
+# H7.3B — Invitation-only registration without SMTP (TEST PHASE)
 
-- Public `signUp` remains disabled at Supabase Auth. Kitchen frontend never calls `signUp`; invitation links only.
-- Admin controls may be shown only after caller-only `kitchen_my_access()` reports `admin/active`; the Edge Function independently authenticates JWT and DB membership.
-- Each 256-bit random invitation token is returned to the admin only once. The database stores SHA-256 `token_hash` only. TTL 24 hours, one atomic `issued -> claimed` transition on actual email submit; opening/previewing the URL does not consume it.
-- Edge Function is deployed with `verify_jwt=false` **only because public claim needs to work**; all privileged actions validate an Auth user JWT in the function, with RPC EXECUTE grants limited to `service_role`.
-- Claim invokes native server-side Supabase `inviteUserByEmail` with a trusted hardcoded-from-secret redirect. No password is stored in Kitchen data or submitted to the claim endpoint. Native Auth email verifies ownership.
-- On returning from the email invite, the recipient sets a password with `auth.updateUser`. Activation checks verified Auth email, same invited Auth UUID/email and an actual Auth password before atomically creating `member/active` (the existing H7.2 trigger creates five locations).
-- Invalid/reused/revoked/expired link and repeated/parallel claims fail closed; `failed` invite cannot be reused; operational reissue is a new invitation.
-- Admin cannot access private owner records of another user. No invitation token, email/password, or service-role key in logs, localStorage, source repository, or client bundle.
-- H7.3 cannot be released externally until SQL pre/postcheck, Edge deploy, SMTP/redirect/Auth settings, A/B/RLS/RPC/Storage negative security QA and real email invite flow PASS on the designated test database.
+- Public Supabase Auth `signUp` stays disabled. The only account-creation path is `kitchen-invites` Edge Function using server-side `auth.admin.createUser`.
+- Admin with verified JWT and active `admin` membership can issue/revoke a 256-bit invitation. SHA-256 token hash is held only in private DB. 24h TTL; `issued -> claimed` atomic; viewing the link does not claim it.
+- Recipient sees **email, password, repeat password** on the link. Browser checks 12–128 chars and match; Edge independently checks password length and token format.
+- Edge calls `h73_claim_invite` BEFORE admin Auth creation, then `auth.admin.createUser({ email, password, email_confirm: true })`, binds new Auth UUID with historical `h73_mark_sent` RPC and calls `h73_activate_member`. Its name/state `sent` is a retained compatibility marker, NOT evidence of sending an email. H7.2 existing trigger creates five independent storage locations.
+- Edge's service-role secret must never be in frontend / browser. Password is delivered to Edge then Supabase Auth; do not log, persist or echo it. Function gateway `verify_jwt = false` permits public token claims; admin `issue/revoke` always authenticate bearer JWT and verify admin role via DB. RPC functions remain service_role-only.
+- On success, browser signs in with `auth.signInWithPassword`; if auto login fails, existing Kitchen login works. No email is sent in this test version.
+- **SECURITY LIMITATION:** `email_confirm: true` marks the address confirmed WITHOUT proving the registrant owns it. The high-entropy invitation only proves permission to register; it does not prove email ownership. Restrict to trusted TEST users. Never present as verified Gmail or release to public without true email confirmation, abuse controls and recovery review.
+- Invalid/reused/revoked/expired token, existing email, denied role, authentication failures or unsuccessful activation fail closed. Auth and DB are not a single ACID transaction: partial registration can leave a denied Auth identity requiring manual recovery; no invitation token is reused.
+- No new SQL migrations. Deployed H7.3 8/8 postcheck is still valid. Do not rerun H7.1/H7.2/H7.3 migrations or ALL_IN_ONE.sql.
+- H7.3B is not CLOSED until Edge and GitHub browser deployments, real registration, A/B isolation, replay test and pending H7.1C negative RLS/RPC/Storage tests PASS.

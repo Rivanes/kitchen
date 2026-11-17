@@ -1,10 +1,6 @@
-## H7.3 — Invite-only Registration (candidate)
+## H7.3B — Jednorazowy link + e-mail i hasło (test-only corrective)
 
-W repo jest nowy frontend odbiorcy zaproszeń, minimalny przycisk dla administratora i Supabase Edge Function `supabase/functions/kitchen-invites/index.ts`. Funkcje serwerowe wymagają oddzielnego deploy Edge/sekretów/SMTP i migracji H7.3. **Samo wdrożenie GitHub Pages nie uruchomi zaproszeń.** Publiczny `signUp` pozostaje OFF, `service_role` nigdy w przeglądarce. Instrukcja i etapowy QA w `OUTSIDE_REPO/H7_3_RUNBOOK.md`.
-
-# Kitchen — Home Hub
-
-Prywatna aplikacja mobilna PWA (React / TypeScript / Vite / Supabase) na GitHub Pages pod `/kitchen/`. Precheck z 2026-11-16 wykazał jeden stary owner PRZED migracją. Użytkownik następnie przekazał **H7.1 SQL POSTCHECK PASS** (nowy rejestr `kitchen_members`, 1 admin, stary gate usunięty) i **GitHub Deploy PASS**; użytkownik potwierdził już drugie konto z 5 lokalizacjami i oddzielny UI, natomiast negatywna izolacja RLS/RPC/Storage nadal czeka na testy. Brak publicznej rejestracji i jednorazowych zaproszeń.
+Administrator generuje 24-godzinny link; osoba otwiera go, wpisuje e-mail, hasło oraz potwierdzenie hasła. Weryfikacja tokena i utworzenie konta przez `auth.admin.createUser` zachodzą tylko w `supabase/functions/kitchen-invites/index.ts` — brak publicznego `signUp`, brak SMTP w tej fazie. GitHub Pages musi dostać zmieniony formularz, a Supabase Edge Function musi zostać **osobno zaktualizowana przez Dashboard → Code → Deploy updates**. SQL H7.3 jest już wdrożony, nie uruchamiać go ponownie. Brak weryfikacji własności e-maila (`email_confirm: true`) jest świadomym **ryzykiem tylko dla środowiska testowego**. Szczegóły `OUTSIDE_REPO/H7_3_RUNBOOK.md`.
 
 ## Moduły
 

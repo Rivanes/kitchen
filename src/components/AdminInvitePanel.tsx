@@ -36,7 +36,7 @@ export function AdminInvitePanel() {
   return <section className="admin-invites" aria-labelledby="invite-admin-title">
     <div className="admin-invites-heading">
       <div><p className="eyebrow">ADMINISTRATOR</p><h2 id="invite-admin-title">Zaproś użytkownika</h2>
-        <p>Jednorazowy link, ważny 24 godziny. Konto zostanie utworzone po potwierdzeniu adresu e-mail.</p>
+        <p>Jednorazowy link, ważny 24 godziny. Odbiorca utworzy konto, podając e-mail i własne hasło. Bez wysyłania wiadomości.</p>
       </div>
       <button className="secondary-button" type="button" onClick={generate} disabled={busy}>
         {busy ? 'Przetwarzanie…' : 'Generuj link'}
