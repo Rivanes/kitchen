@@ -15,6 +15,7 @@ import { assertRecipeCategoryCode, type RecipeCategoryCode } from './recipeCateg
 import { parseOptionalRecipeDuration } from './recipeDuration'
 import type { ProcessedRecipeImage } from './recipeImageProcessor'
 import { validateRecipeSections } from './recipeSections'
+import { SharedPublicationAfterSaveError, publishAfterSuccessfulSave } from '../products/sharedProductCatalog'
 
 export type RecipeCoverChange =
   | { kind: 'keep' }
@@ -30,6 +31,8 @@ export type RecipeSectionDraftInput = {
 export type RecipeIngredientDraftInput = {
   id: string
   productId: string | null
+  sharedCatalogId?: string | null
+  publishToSharedCatalog?: boolean
   productName: string
   quantity: number
   unitCode: string
@@ -113,6 +116,7 @@ export async function saveRecipeSnapshot(input: SaveRecipeSnapshotInput) {
   const cleanedSections = validateRecipeSections(input.sections)
   const sectionIds = new Set(cleanedSections.map((section) => section.id))
   const createdProductIds: string[] = []
+  const productsToPublish = new Set<string>()
   let uploadedCoverPath: string | null = null
 
   try {
@@ -146,6 +150,7 @@ export async function saveRecipeSnapshot(input: SaveRecipeSnapshotInput) {
         ownerId: input.ownerId,
         name: ingredient.productName,
         existingProductId: ingredient.productId,
+        sharedCatalogId: ingredient.sharedCatalogId,
         defaultUnitCode: ingredient.unitCode,
       })
 
@@ -155,6 +160,7 @@ export async function saveRecipeSnapshot(input: SaveRecipeSnapshotInput) {
       }
 
       if (product.created) createdProductIds.push(product.id)
+      if (product.created && ingredient.publishToSharedCatalog) productsToPublish.add(product.id)
 
       const hasPackageContentValue = ingredient.packageContentValue !== null
       const hasPackageContentUnit = Boolean(ingredient.packageContentUnitCode)
@@ -219,8 +225,13 @@ export async function saveRecipeSnapshot(input: SaveRecipeSnapshotInput) {
     }
 
     void flushRecipeImageCleanupQueue(input.ownerId)
+    for (const productId of productsToPublish) {
+      await publishAfterSuccessfulSave(productId, true, true, recipeId)
+    }
     return recipeId
   } catch (error) {
+    // The recipe already committed; never delete its products or retry the save.
+    if (error instanceof SharedPublicationAfterSaveError) throw error
     let cleanupFailed = false
 
     try {

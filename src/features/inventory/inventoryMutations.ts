@@ -4,6 +4,7 @@ import {
   resolveOrCreateCanonicalProduct,
 } from '../products/productCatalogMutations'
 import type { ProductResourceRole } from '../products/productResourceSemantics'
+import { publishAfterSuccessfulSave } from '../products/sharedProductCatalog'
 import {
   assertValidQuantity,
   readStoredQuantity,
@@ -16,6 +17,8 @@ export type CreateInventoryLotInput = {
   productName: string
   existingProductId: string | null
   resourceRole?: ProductResourceRole
+  sharedCatalogId?: string | null
+  publishToSharedCatalog?: boolean
   storageLocationId: string
   quantity: number
   unitCode: string
@@ -120,8 +123,10 @@ export async function createInventoryLot(input: CreateInventoryLotInput) {
     existingProductId: input.existingProductId,
     defaultUnitCode: input.unitCode,
     resourceRole: input.resourceRole,
+    sharedCatalogId: input.sharedCatalogId,
   })
 
+  let savedLotId: string
   try {
     const result = await supabase
       .rpc('add_inventory_lot', {
@@ -141,7 +146,7 @@ export async function createInventoryLot(input: CreateInventoryLotInput) {
       throw new Error(`Nie udało się dodać zapasu: ${result.error.message}`)
     }
 
-    return requireInventoryItemId(
+    savedLotId = requireInventoryItemId(
       result.data,
       'Nie udało się potwierdzić dodania zapasu.',
     )
@@ -151,6 +156,10 @@ export async function createInventoryLot(input: CreateInventoryLotInput) {
     }
     throw error
   }
+
+  // Publication is opt-in and happens AFTER the inventory RPC committed.
+  await publishAfterSuccessfulSave(product.id, Boolean(input.publishToSharedCatalog), product.created)
+  return savedLotId
 }
 
 export async function updateInventoryLot(input: UpdateInventoryLotInput) {

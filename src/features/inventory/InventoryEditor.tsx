@@ -1,6 +1,8 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react'
 import { KitchenIcon } from '../../components/KitchenIcon'
-import { ProductAutocompleteField, useProductAutocomplete } from '../products/ProductAutocomplete'
+import { ProductAutocompleteField, useProductAutocomplete, useSharedProductSuggestions } from '../products/ProductAutocomplete'
+import { SharedCatalogVisibilityChoice } from '../products/SharedCatalogVisibilityChoice'
+import { SharedPublicationAfterSaveError, type SharedProductSuggestion } from '../products/sharedProductCatalog'
 import { getDefaultUnitCode } from '../measurements/measurementUnits'
 import {
   getPackageContentFromDefaults,
@@ -22,7 +24,7 @@ import {
   roleForInventoryLocationKind,
   type ProductResourceRole,
 } from '../products/productResourceSemantics'
-import { findExactProduct } from '../products/productIdentity'
+import { findExactProduct, normalizeProductName } from '../products/productIdentity'
 import { QuantityStepperInput } from '../quantity/QuantityStepperInput'
 import { formatQuantityInput, parseQuantityInput, QUANTITY_INPUT_ERROR } from '../quantity/quantity'
 import { formatDateOnly, isValidDateOnly } from './expiry'
@@ -129,6 +131,9 @@ export function InventoryEditor({
   const [removing, setRemoving] = useState(false)
   const [confirmingRemove, setConfirmingRemove] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
+  const [selectedShared, setSelectedShared] = useState<SharedProductSuggestion | null>(null)
+  const [shareNewProduct, setShareNewProduct] = useState(false)
+  const [savedWithPublicationWarning, setSavedWithPublicationWarning] = useState(false)
   const firstInputRef = useRef<HTMLInputElement>(null)
   const busy = saving || removing || settingsSaving || roleConverting
 
@@ -143,6 +148,17 @@ export function InventoryEditor({
     && initialProduct.packageContentValue === null
     && initialProduct.packageContentUnitCode === null
 
+  const requestedCreateRole = roleForInventoryLocationKind(
+    model.locations.find((location) => location.id === initialLocationId)?.kind ?? 'custom',
+  )
+  const { sharedSuggestions, sharedLoading, sharedError } = useSharedProductSuggestions(
+    mode.kind === 'create' && !createSeed ? productName : '',
+    model.products,
+    [requestedCreateRole],
+  )
+  const activeShared = selectedShared && selectedShared.resourceRole === requestedCreateRole
+    && normalizeProductName(selectedShared.name) === normalizeProductName(productName)
+    ? selectedShared : null
   const productAutocomplete = useProductAutocomplete(
     model.products,
     mode.kind === 'create' && !createSeed ? productName : '',
@@ -155,9 +171,6 @@ export function InventoryEditor({
     : createSeed
       ? initialProduct
       : catalogCreateProduct
-  const requestedCreateRole = roleForInventoryLocationKind(
-    model.locations.find((location) => location.id === initialLocationId)?.kind ?? 'custom',
-  )
   const createIntent = resolveInventoryCreateIntent(requestedCreateRole, catalogCreateProduct)
   const activeRole = mode.kind === 'create' && !createSeed
     ? createIntent.targetRole
@@ -239,12 +252,29 @@ export function InventoryEditor({
   }
 
   function chooseProduct(product: (typeof model.products)[number]) {
+    setSelectedShared(null)
+    setShareNewProduct(false)
     setProductName(product.name)
     setCreateProductOverride(null)
     setUnitTouched(false)
     setPackageContentTouched(false)
     setUnitCode(product.defaultUnitCode)
     const draft = getPackageDraft(product, product.defaultUnitCode, model)
+    setPackageContentValue(draft.value)
+    setPackageContentUnitCode(draft.unitCode)
+    setErrorMessage('')
+  }
+
+  function chooseSharedProduct(product: SharedProductSuggestion) {
+    if (product.resourceRole !== requestedCreateRole) return
+    setSelectedShared(product)
+    setShareNewProduct(false)
+    setProductName(product.name)
+    setCreateProductOverride(null)
+    setUnitCode(product.suggestedUnitCode)
+    setUnitTouched(true)
+    setPackageContentTouched(false)
+    const draft = getPackageDraft(null, product.suggestedUnitCode, model)
     setPackageContentValue(draft.value)
     setPackageContentUnitCode(draft.unitCode)
     setErrorMessage('')
@@ -406,6 +436,7 @@ export function InventoryEditor({
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
+    if (savedWithPublicationWarning) { onSaved(); return }
     if (busy) return
 
     if (mode.kind === 'edit' && isPresenceMode) {
@@ -498,7 +529,9 @@ export function InventoryEditor({
         await createHandler({
           ownerId,
           productName,
-          existingProductId: createSeed?.productId ?? exactProduct?.id ?? null,
+          existingProductId: activeShared ? null : (createSeed?.productId ?? exactProduct?.id ?? null),
+          sharedCatalogId: activeShared?.id ?? null,
+          publishToSharedCatalog: shareNewProduct && !createSeed && !exactProduct && !activeShared,
           resourceRole: mode.kind === 'create' && !createSeed ? requestedCreateRole : (activeProduct ? productResourceRoleFromSemantics(activeProduct) : requestedCreateRole),
           storageLocationId: locationId,
           quantity: effectiveQuantity,
@@ -534,8 +567,13 @@ export function InventoryEditor({
       }
       onSaved()
     } catch (error: unknown) {
-      console.error('Kitchen Inventory save failed.', error)
-      setErrorMessage(toUserErrorMessage(error, 'Nie udało się zapisać zmian.'))
+      if (error instanceof SharedPublicationAfterSaveError) {
+        setSavedWithPublicationWarning(true)
+        setErrorMessage(error.message)
+      } else {
+        console.error('Kitchen Inventory save failed.', error)
+        setErrorMessage(toUserErrorMessage(error, 'Nie udało się zapisać zmian.'))
+      }
       setSaving(false)
     }
   }
@@ -735,18 +773,31 @@ export function InventoryEditor({
                   value={productName}
                   exactProduct={exactProduct}
                   suggestions={suggestions}
+                  sharedSuggestions={sharedSuggestions}
+                  sharedLoading={sharedLoading}
+                  sharedError={sharedError}
+                  onChooseShared={chooseSharedProduct}
                   exactHint="Użyję istniejącego produktu."
                   unmatchedHint="Powstanie nowy produkt."
                   placeholder="np. Mleko"
                   disabled={busy}
                   onChange={(nextName) => {
                     setProductName(nextName)
+                    setSelectedShared(null)
+                    setShareNewProduct(false)
                     setCreateProductOverride(null)
                     setPackageContentTouched(false)
                     setErrorMessage('')
                   }}
                   onChoose={chooseProduct}
                 />
+              )}
+
+              {mode.kind === 'create' && !createSeed && activeShared && (
+                <p className="field-hint">Katalog Kitchen — produkt zostanie dodany tylko do Twoich prywatnych zapasów.</p>
+              )}
+              {mode.kind === 'create' && !createSeed && !exactProduct && !activeShared && productName.trim() && (
+                <SharedCatalogVisibilityChoice inputId="inventory-new-product" share={shareNewProduct} disabled={busy} onChange={setShareNewProduct} />
               )}
 
               {mode.kind === 'create' && createSeed && (
@@ -973,7 +1024,7 @@ export function InventoryEditor({
               <div className="sheet-actions">
                 <button className="secondary-button" type="button" onClick={onClose} disabled={busy}>Anuluj</button>
                 <button className="primary-button" type="submit" disabled={busy || createRoleMismatch}>
-                  {saving ? 'Zapisuję…' : mode.kind === 'edit' && isPresenceMode ? 'Gotowe' : mode.kind === 'create' && isPresenceMode ? 'Dodaj' : 'Zapisz'}
+                  {saving ? 'Zapisuję…' : savedWithPublicationWarning ? 'Zakończ' : mode.kind === 'edit' && isPresenceMode ? 'Gotowe' : mode.kind === 'create' && isPresenceMode ? 'Dodaj' : 'Zapisz'}
                 </button>
               </div>
             </form>

@@ -66,6 +66,10 @@ const requiredFiles = [
   'src/features/shopping/shoppingMutations.ts',
   'src/features/shopping/types.ts',
   'src/features/products/ProductAutocomplete.tsx',
+  'src/features/products/sharedProductCatalog.ts',
+  'src/features/products/SharedCatalogVisibilityChoice.tsx',
+  'scripts/test-h7-4c-shared-catalog.mjs',
+  'tests/H7_4C_SHARED_PRODUCT_CATALOG_CONTRACT.md',
   'src/features/products/ProductResourceRolePicker.tsx',
   'src/features/products/productResourceSemantics.ts',
   'src/features/products/productIdentity.ts',
@@ -1858,3 +1862,6 @@ await execFileAsync(process.execPath, ['scripts/test-h7-1b-security-corrective.m
 await execFileAsync(process.execPath, ['scripts/test-h7-3-invites.mjs'])
 await execFileAsync(process.execPath, ['scripts/test-h7-3c-admin.mjs'])
 console.log('Kitchen project contract verification: PASS')
+
+// H7.4C: global definitions are optional, owner identities and history stay private.
+await execFileAsync(process.execPath, ['scripts/test-h7-4c-shared-catalog.mjs'])

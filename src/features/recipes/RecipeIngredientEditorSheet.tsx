@@ -13,7 +13,10 @@ import {
 import {
   ProductAutocompleteField,
   useProductAutocomplete,
+  useSharedProductSuggestions,
 } from '../products/ProductAutocomplete'
+import { SharedCatalogVisibilityChoice } from '../products/SharedCatalogVisibilityChoice'
+import { type SharedProductSuggestion } from '../products/sharedProductCatalog'
 import {
   cleanCanonicalProductName,
   type CanonicalProductIdentity,
@@ -35,6 +38,8 @@ export type RecipeIngredientEditorSection = {
 export type RecipeIngredientEditorRow = {
   id: string
   productId: string | null
+  sharedCatalogId: string | null
+  publishToSharedCatalog: boolean
   productName: string
   quantity: number
   unitCode: string
@@ -65,6 +70,8 @@ type RecipeIngredientEditorSheetProps = {
 type Draft = {
   id: string
   productId: string | null
+  sharedCatalogId: string | null
+  publishToSharedCatalog: boolean
   productName: string
   quantity: string
   unitCode: string
@@ -83,6 +90,8 @@ function createDraft(
     return {
       id: ingredient.id,
       productId: ingredient.productId,
+      sharedCatalogId: ingredient.sharedCatalogId,
+      publishToSharedCatalog: ingredient.publishToSharedCatalog,
       productName: ingredient.productName,
       quantity: formatQuantityInput(ingredient.quantity),
       unitCode: ingredient.unitCode,
@@ -96,6 +105,8 @@ function createDraft(
   return {
     id: crypto.randomUUID(),
     productId: null,
+    sharedCatalogId: null,
+    publishToSharedCatalog: false,
     productName: '',
     quantity: '1',
     unitCode: getDefaultUnitCode(units),
@@ -139,6 +150,9 @@ export function RecipeIngredientEditorSheet({
   const productInputRef = useRef<HTMLInputElement>(null)
 
   const autocomplete = useProductAutocomplete(products, draft.productName)
+  const { sharedSuggestions, sharedLoading, sharedError } = useSharedProductSuggestions(
+    draft.productName, products, ['food', 'spice'],
+  )
   const packageContentUnits = useMemo(() => getPackageContentUnits(units), [units])
   const ingredientUnit = units.find((unit) => unit.code === draft.unitCode) ?? null
   const packageContentUnit = units.find((unit) => unit.code === draft.packageContentUnitCode) ?? null
@@ -183,8 +197,9 @@ export function RecipeIngredientEditorSheet({
 
   function chooseProduct(product: CanonicalProductIdentity) {
     setDraft((current) => {
+      const base = { ...current, sharedCatalogId: null, publishToSharedCatalog: false }
       if (current.productId === product.id) {
-        return { ...current, productName: product.name }
+        return { ...base, productName: product.name }
       }
 
       const reselectsOriginalProduct = ingredient?.productId === product.id
@@ -201,7 +216,7 @@ export function RecipeIngredientEditorSheet({
         )
 
         return {
-          ...current,
+          ...base,
           productId: product.id,
           productName: product.name,
           packageContentValue: canRestoreOriginalSnapshot && originalPackageContentValue !== null
@@ -220,7 +235,7 @@ export function RecipeIngredientEditorSheet({
         : null
 
       return {
-        ...current,
+        ...base,
         productId: product.id,
         productName: product.name,
         unitCode,
@@ -228,6 +243,22 @@ export function RecipeIngredientEditorSheet({
         packageContentUnitCode: defaultContent?.unitCode ?? packageContentUnits[0]?.code ?? '',
       }
     })
+    setErrorMessage('')
+  }
+
+  function chooseSharedProduct(product: SharedProductSuggestion) {
+    if (product.resourceRole === 'household') return
+    const unitCode = getDefaultUnitCode(units, product.suggestedUnitCode)
+    setDraft((current) => ({
+      ...current,
+      productId: null,
+      sharedCatalogId: product.id,
+      publishToSharedCatalog: false,
+      productName: product.name,
+      unitCode,
+      packageContentValue: '',
+      packageContentUnitCode: packageContentUnits[0]?.code ?? '',
+    }))
     setErrorMessage('')
   }
 
@@ -255,7 +286,7 @@ export function RecipeIngredientEditorSheet({
       const unit = units.find((item) => item.code === draft.unitCode)
       if (!unit) throw new Error('Wybierz jednostkę.')
 
-      const exactProductId = autocomplete.exactProduct?.id ?? draft.productId
+      const exactProductId = draft.sharedCatalogId ? null : (autocomplete.exactProduct?.id ?? draft.productId)
       const exactProduct = exactProductId
         ? products.find((product) => product.id === exactProductId) ?? null
         : null
@@ -304,6 +335,8 @@ export function RecipeIngredientEditorSheet({
         ingredient: {
           id: draft.id,
           productId: exactProductId,
+          sharedCatalogId: draft.sharedCatalogId,
+          publishToSharedCatalog: draft.publishToSharedCatalog && !exactProductId && !draft.sharedCatalogId,
           productName,
           quantity,
           unitCode: unit.code,
@@ -355,6 +388,10 @@ export function RecipeIngredientEditorSheet({
             value={draft.productName}
             exactProduct={autocomplete.exactProduct}
             suggestions={autocomplete.suggestions}
+            sharedSuggestions={sharedSuggestions}
+            sharedLoading={sharedLoading}
+            sharedError={sharedError}
+            onChooseShared={chooseSharedProduct}
             placeholder="np. Mleko"
             inputRef={productInputRef}
             onChange={(value) => {
@@ -378,6 +415,8 @@ export function RecipeIngredientEditorSheet({
                   ...current,
                   productName: value,
                   productId: null,
+                  sharedCatalogId: null,
+                  publishToSharedCatalog: false,
                   packageContentValue: returnsToOriginalProduct
                     ? formatQuantityInput(ingredient!.packageContentValue!)
                     : detachesProductIdentity ? '' : current.packageContentValue,
@@ -392,6 +431,16 @@ export function RecipeIngredientEditorSheet({
             }}
             onChoose={chooseProduct}
           />
+          {draft.sharedCatalogId && (
+            <p className="field-hint">Katalog Kitchen — składnik będzie miał Twój prywatny identyfikator.</p>
+          )}
+          {!autocomplete.exactProduct && !draft.sharedCatalogId && draft.productName.trim() && (
+            <SharedCatalogVisibilityChoice
+              inputId="recipe-new-ingredient"
+              share={draft.publishToSharedCatalog}
+              onChange={(share) => setDraft((current) => ({ ...current, publishToSharedCatalog: share }))}
+            />
+          )}
 
           <div className="recipe-ingredient-quantity-unit">
             <div className="form-field">

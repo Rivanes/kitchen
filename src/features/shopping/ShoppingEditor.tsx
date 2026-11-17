@@ -1,7 +1,9 @@
 import { FormEvent, useEffect, useRef, useState } from 'react'
 import { KitchenIcon } from '../../components/KitchenIcon'
 import { getDefaultUnitCode } from '../measurements/measurementUnits'
-import { ProductAutocompleteField, useProductAutocomplete } from '../products/ProductAutocomplete'
+import { ProductAutocompleteField, useProductAutocomplete, useSharedProductSuggestions } from '../products/ProductAutocomplete'
+import { SharedCatalogVisibilityChoice } from '../products/SharedCatalogVisibilityChoice'
+import { SharedPublicationAfterSaveError, type SharedProductSuggestion } from '../products/sharedProductCatalog'
 import { normalizeProductName } from '../products/productIdentity'
 import { cleanCanonicalProductName } from '../products/productCatalogMutations'
 import { ProductResourceRolePicker } from '../products/ProductResourceRolePicker'
@@ -49,12 +51,18 @@ export function ShoppingEditor({ ownerId, model, mode, onClose, onSaved }: Shopp
   const [busy, setBusy] = useState(false)
   const [confirmingRemove, setConfirmingRemove] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
+  const [selectedShared, setSelectedShared] = useState<SharedProductSuggestion | null>(null)
+  const [shareNewProduct, setShareNewProduct] = useState(false)
+  const [savedWithPublicationWarning, setSavedWithPublicationWarning] = useState(false)
 
   const productAutocomplete = useProductAutocomplete(model.products, name)
   const exactProduct = productAutocomplete.exactProduct
   const suggestions = productAutocomplete.suggestions
+  const { sharedSuggestions, sharedLoading, sharedError } = useSharedProductSuggestions(name, model.products)
+  const activeShared = selectedShared && normalizeProductName(selectedShared.name) === normalizeProductName(name)
+    ? selectedShared : null
   const exactProductRole = exactProduct ? productResourceRoleFromSemantics(exactProduct) : null
-  const lockHouseholdUnit = exactProductRole === 'household'
+  const lockHouseholdUnit = exactProductRole === 'household' || activeShared?.resourceRole === 'household'
 
   useEffect(() => {
     const previousOverflow = document.body.style.overflow
@@ -79,14 +87,28 @@ export function ShoppingEditor({ ownerId, model, mode, onClose, onSaved }: Shopp
 
   function handleNameChange(nextName: string) {
     setName(nextName)
+    setSelectedShared(null)
+    setShareNewProduct(false)
     setErrorMessage('')
   }
 
   function chooseProduct(product: (typeof model.products)[number]) {
+    setSelectedShared(null)
+    setShareNewProduct(false)
     setName(product.name)
     setResourceRole(productResourceRoleFromSemantics(product))
     setUnitCode(product.defaultUnitCode)
     setUnitTouched(false)
+    setErrorMessage('')
+  }
+
+  function chooseSharedProduct(product: SharedProductSuggestion) {
+    setSelectedShared(product)
+    setShareNewProduct(false)
+    setName(product.name)
+    setResourceRole(product.resourceRole)
+    setUnitCode(product.suggestedUnitCode)
+    setUnitTouched(true)
     setErrorMessage('')
   }
 
@@ -98,6 +120,7 @@ export function ShoppingEditor({ ownerId, model, mode, onClose, onSaved }: Shopp
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
+    if (savedWithPublicationWarning) { onSaved(); return }
     setErrorMessage('')
 
     try {
@@ -128,7 +151,9 @@ export function ShoppingEditor({ ownerId, model, mode, onClose, onSaved }: Shopp
         await createShoppingItem({
           ownerId,
           name,
-          existingProductId: exactProduct?.id ?? seededProductId,
+          existingProductId: activeShared ? null : (exactProduct?.id ?? seededProductId),
+          sharedCatalogId: activeShared?.id ?? null,
+          publishToSharedCatalog: shareNewProduct && !exactProduct && !activeShared && !seededProductId,
           quantity: parsedQuantity,
           unitCode,
           resourceRole,
@@ -139,14 +164,20 @@ export function ShoppingEditor({ ownerId, model, mode, onClose, onSaved }: Shopp
           itemId: mode.item.id,
           name,
           currentProductId: mode.item.productId,
-          existingProductId: exactProduct?.id ?? null,
+          existingProductId: activeShared ? null : exactProduct?.id ?? null,
+          sharedCatalogId: activeShared?.id ?? null,
           quantity: parsedQuantity,
           unitCode,
         })
       }
       onSaved()
     } catch (error) {
-      setErrorMessage(toUserErrorMessage(error, 'Nie udało się zapisać listy zakupów.'))
+      if (error instanceof SharedPublicationAfterSaveError) {
+        setSavedWithPublicationWarning(true)
+        setErrorMessage(error.message)
+      } else {
+        setErrorMessage(toUserErrorMessage(error, 'Nie udało się zapisać listy zakupów.'))
+      }
     } finally {
       setBusy(false)
     }
@@ -190,6 +221,10 @@ export function ShoppingEditor({ ownerId, model, mode, onClose, onSaved }: Shopp
             value={name}
             exactProduct={exactProduct}
             suggestions={suggestions}
+            sharedSuggestions={sharedSuggestions}
+            sharedLoading={sharedLoading}
+            sharedError={sharedError}
+            onChooseShared={chooseSharedProduct}
             exactHint="Użyję istniejącego produktu."
             unmatchedHint={
               mode.kind === 'edit' && mode.item.productId
@@ -202,7 +237,12 @@ export function ShoppingEditor({ ownerId, model, mode, onClose, onSaved }: Shopp
             onChoose={chooseProduct}
           />
 
-          {mode.kind === 'create' && !exactProduct ? (
+          {activeShared && <p className="field-hint">Katalog Kitchen — zapis użyje Twojego prywatnego produktu, nie danych innych osób.</p>}
+          {mode.kind === 'create' && !exactProduct && !activeShared && name.trim() && !initialSeed?.productId && (
+            <SharedCatalogVisibilityChoice inputId="shopping-new-product" share={shareNewProduct} disabled={busy} onChange={setShareNewProduct} />
+          )}
+
+          {mode.kind === 'create' && !exactProduct && !activeShared ? (
             <ProductResourceRolePicker
               value={resourceRole}
               onChange={(nextRole) => {
@@ -211,10 +251,10 @@ export function ShoppingEditor({ ownerId, model, mode, onClose, onSaved }: Shopp
               }}
               disabled={busy}
             />
-          ) : exactProduct ? (
+          ) : exactProduct || activeShared ? (
             <div className="product-role-readonly">
               <span>Rodzaj produktu</span>
-              <strong>{productResourceRoleLabel(productResourceRoleFromSemantics(exactProduct))}</strong>
+              <strong>{productResourceRoleLabel(activeShared?.resourceRole ?? productResourceRoleFromSemantics(exactProduct!))}</strong>
             </div>
           ) : null}
 
@@ -257,7 +297,7 @@ export function ShoppingEditor({ ownerId, model, mode, onClose, onSaved }: Shopp
           <div className="sheet-actions">
             <button className="secondary-button" type="button" onClick={onClose} disabled={busy}>Anuluj</button>
             <button className="primary-button" type="submit" disabled={busy}>
-              {busy ? 'Zapisuję…' : mode.kind === 'create' ? 'Dodaj' : 'Zapisz'}
+              {busy ? 'Zapisuję…' : savedWithPublicationWarning ? 'Zakończ' : mode.kind === 'create' ? 'Dodaj' : 'Zapisz'}
             </button>
           </div>
         </form>

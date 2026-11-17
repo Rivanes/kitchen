@@ -9,6 +9,7 @@ import {
 } from '../products/productCatalogMutations'
 import { normalizeProductName } from '../products/productIdentity'
 import type { ProductResourceRole } from '../products/productResourceSemantics'
+import { publishAfterSuccessfulSave } from '../products/sharedProductCatalog'
 import { requireInventoryItemId } from '../inventory/inventoryRpcResults'
 import {
   addQuantities,
@@ -24,6 +25,8 @@ export type CreateShoppingItemInput = {
   quantity: number
   unitCode: string
   resourceRole?: ProductResourceRole
+  sharedCatalogId?: string | null
+  publishToSharedCatalog?: boolean
 }
 
 export type UpdateShoppingItemInput = {
@@ -32,6 +35,7 @@ export type UpdateShoppingItemInput = {
   name: string
   currentProductId: string | null
   existingProductId: string | null
+  sharedCatalogId?: string | null
   quantity: number
   unitCode: string
 }
@@ -87,12 +91,14 @@ export async function createShoppingItem(input: CreateShoppingItemInput) {
     existingProductId: input.existingProductId,
     defaultUnitCode: input.unitCode,
     resourceRole: input.resourceRole,
+    sharedCatalogId: input.sharedCatalogId,
   })
 
   if (!product.recipeEligible && product.inventoryTrackingMode === 'quantity' && input.unitCode !== product.defaultUnitCode) {
     throw new Error('Produkty Domowe używają na liście swojej stałej jednostki zapasu.')
   }
 
+  let savedItemId: string
   try {
     const activeItems = await loadActiveShoppingItems(input.ownerId)
     const mergeTarget = activeItems.find((item) =>
@@ -128,34 +134,37 @@ export async function createShoppingItem(input: CreateShoppingItemInput) {
         throw new Error(`Nie udało się połączyć wpisu na liście: ${mergeResult.error?.message ?? 'brak zapisu'}`)
       }
 
-      return mergeResult.data.id as string
+      savedItemId = mergeResult.data.id as string
+    } else {
+      const insertResult = await supabase
+        .from('shopping_items')
+        .insert({
+          owner_id: input.ownerId,
+          product_id: product.id,
+          custom_name: null,
+          quantity: input.quantity,
+          unit_code: input.unitCode,
+          is_purchased: false,
+          purchased_at: null,
+        })
+        .select('id')
+        .single()
+
+      if (insertResult.error) {
+        throw new Error(`Nie udało się dodać do listy: ${insertResult.error.message}`)
+      }
+
+      savedItemId = insertResult.data.id as string
     }
-
-    const insertResult = await supabase
-      .from('shopping_items')
-      .insert({
-        owner_id: input.ownerId,
-        product_id: product.id,
-        custom_name: null,
-        quantity: input.quantity,
-        unit_code: input.unitCode,
-        is_purchased: false,
-        purchased_at: null,
-      })
-      .select('id')
-      .single()
-
-    if (insertResult.error) {
-      throw new Error(`Nie udało się dodać do listy: ${insertResult.error.message}`)
-    }
-
-    return insertResult.data.id as string
   } catch (error) {
     if (product.created) {
       await cleanupCreatedCanonicalProduct(input.ownerId, product.id)
     }
     throw error
   }
+
+  await publishAfterSuccessfulSave(product.id, Boolean(input.publishToSharedCatalog), product.created)
+  return savedItemId
 }
 
 export type CreateCanonicalShoppingItemInput = Omit<CreateShoppingItemInput, 'existingProductId'> & {
@@ -281,6 +290,7 @@ export async function updateShoppingItem(input: UpdateShoppingItemInput) {
     name: cleanName,
     currentProductId: input.currentProductId,
     selectedProductId: input.existingProductId,
+    sharedCatalogId: input.sharedCatalogId,
     defaultUnitCode: input.unitCode,
   })
 

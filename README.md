@@ -1,3 +1,13 @@
+## H7.4C — Shared Product Catalog Frontend (SOURCE CANDIDATE; deploy not verified)
+
+H7.4B SQL foundation is already installed in the user's test Supabase project (PRE 10/10, migration succeeded, POST 12/12). Do **not** rerun H7.4B or the aggregate `ALL_IN_ONE.sql` on an existing database.
+
+Frontend H7.4C adds `Moje` / `Katalog Kitchen` autocomplete, owner-scoped adoption using `h74_adopt_shared_product`, and opt-in publication of newly created owner products **only after** inventory/shopping/recipe saves succeed. Shared global records never contain stock, quantities or owner metadata. The default for manually entered new names is `Tylko dla mnie`.
+
+Structural/mocked-RPC source regression: `scripts/test-h7-4c-shared-catalog.mjs` is registered in `scripts/verify-project.mjs`. GitHub same-commit QA/Deploy, full TypeScript 7 typecheck and browser A/B smoke are **not confirmed**. This source package is based on a historical local H7.3D snapshot; reconcile with the current GitHub `main` prior to uploading changes. Read `OUTSIDE_REPO/H7_4C_RUNBOOK.md` from the full delivery bundle.
+
+---
+
 ## H7.3B — Jednorazowy link + e-mail i hasło (test-only corrective)
 
 Administrator generuje 24-godzinny link; osoba otwiera go, wpisuje e-mail, hasło oraz potwierdzenie hasła. Weryfikacja tokena i utworzenie konta przez `auth.admin.createUser` zachodzą tylko w `supabase/functions/kitchen-invites/index.ts` — brak publicznego `signUp`, brak SMTP w tej fazie. GitHub Pages musi dostać zmieniony formularz, a Supabase Edge Function musi zostać **osobno zaktualizowana przez Dashboard → Code → Deploy updates**. SQL H7.3 jest już wdrożony, nie uruchamiać go ponownie. Brak weryfikacji własności e-maila (`email_confirm: true`) jest świadomym **ryzykiem tylko dla środowiska testowego**. Szczegóły `OUTSIDE_REPO/H7_3_RUNBOOK.md`.

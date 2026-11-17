@@ -1,6 +1,7 @@
 import { supabase } from '../../lib/supabase/client'
 import { assertValidQuantity, readStoredQuantity } from '../quantity/quantity'
 import { normalizeProductName, ProductIdentityOption } from './productIdentity'
+import { adoptSharedProduct } from './sharedProductCatalog'
 import {
   productResourceRoleFromSemantics,
   semanticsForProductResourceRole,
@@ -15,6 +16,7 @@ export type ResolveCanonicalProductInput = {
   existingProductId: string | null
   defaultUnitCode: string
   resourceRole?: ProductResourceRole
+  sharedCatalogId?: string | null
 }
 
 export type ResolveCanonicalProductForEditInput = {
@@ -24,6 +26,7 @@ export type ResolveCanonicalProductForEditInput = {
   selectedProductId: string | null
   defaultUnitCode: string
   resourceRole?: ProductResourceRole
+  sharedCatalogId?: string | null
 }
 
 export type RenameCanonicalProductInput = {
@@ -197,6 +200,17 @@ export async function resolveOrCreateCanonicalProduct(
   const normalized = normalizeProductName(cleanName)
   const products = await loadOwnerProductCatalog(input.ownerId)
 
+  if (input.sharedCatalogId) {
+    // Adoption only resolves to an auth.uid()-owned product; never use a foreign owner product ID.
+    const adoptedId = await adoptSharedProduct(input.sharedCatalogId)
+    const ownerProducts = await loadOwnerProductCatalog(input.ownerId)
+    const adopted = ownerProducts.find((product) => product.id === adoptedId)
+    if (!adopted || normalizeProductName(adopted.name) !== normalized) {
+      throw new Error('Wybrany produkt z Katalogu Kitchen nie pasuje do wpisanej nazwy.')
+    }
+    return { ...adopted, created: !products.some((item) => item.id === adoptedId) }
+  }
+
   if (input.existingProductId) {
     const selected = products.find((product) => product.id === input.existingProductId) ?? null
     if (selected && normalizeProductName(selected.name) === normalized) {
@@ -242,6 +256,18 @@ export async function resolveCanonicalProductForEdit(
   const cleanName = cleanCanonicalProductName(input.name)
   const normalized = normalizeProductName(cleanName)
   const products = await loadOwnerProductCatalog(input.ownerId)
+
+  if (input.sharedCatalogId) {
+    // Selecting a shared definition during edit changes the item's product association,
+    // not the name of the former owner-local product.
+    return resolveOrCreateCanonicalProduct({
+      ownerId: input.ownerId,
+      name: cleanName,
+      existingProductId: null,
+      defaultUnitCode: input.defaultUnitCode,
+      sharedCatalogId: input.sharedCatalogId,
+    })
+  }
 
   if (input.selectedProductId) {
     const selected = products.find((product) => product.id === input.selectedProductId) ?? null
