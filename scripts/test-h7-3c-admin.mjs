@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import { webcrypto } from 'node:crypto'
-import ts from 'typescript'
+import { assertTsSyntax } from './assert-ts-syntax.mjs'
 const read = p => readFile(new URL(`../${p}`, import.meta.url), 'utf8')
 // REPO-only contract for GitHub CI. SQL migration/postcheck/parity live exclusively
 // in OUTSIDE_REPO/QA/H7_3C_SQL_CONTRACT_CHECK.mjs.
@@ -34,9 +34,7 @@ assert.match(fallback, /\/kitchen\/\?kitchen_admin_route=1/)
 assert.match(css, /\.admin-invites-list/)
 assert.match(contract, /H7\.3C/)
 for (const file of ['src/App.tsx','src/components/HomeHubShell.tsx','src/components/MembershipGate.tsx','src/components/AdminInvitePanel.tsx','src/components/KitchenIcon.tsx','supabase/functions/kitchen-invites/index.ts']) {
-  const r=ts.transpileModule(await read(file),{fileName:file,reportDiagnostics:true,
-    compilerOptions:{jsx:ts.JsxEmit.ReactJSX,target:ts.ScriptTarget.ES2022}})
-  assert.equal((r.diagnostics??[]).filter(d=>d.category===ts.DiagnosticCategory.Error).length,0,`TS syntax ${file}`)
+  assertTsSyntax(file, await read(file))
 }
 // Cryptographic round-trip representative of the Edge-only AES-GCM storage design.
 const token=Buffer.from(webcrypto.getRandomValues(new Uint8Array(32))).toString('base64url')

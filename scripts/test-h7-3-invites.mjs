@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
-import ts from 'typescript'
+import { assertTsSyntax } from './assert-ts-syntax.mjs'
 const read = (p) => readFile(new URL(`../${p}`, import.meta.url), 'utf8')
 // GitHub CI must be self-contained: migration/ALL_IN_ONE parity is checked separately
 // in OUTSIDE_REPO/QA/H7_3_SQL_CONTRACT_CHECK.mjs (never committed to GitHub).
@@ -43,6 +43,8 @@ assert.match(adminUI, /action: 'issue'/)
 assert.match(adminUI, /action: 'revoke'/)
 assert.doesNotMatch(adminUI, /service_role|SUPABASE_SECRET_KEY|\.signUp\(/)
 assert.match(contract, /H7\.3B/)
+// Regression: the parser must reject invalid TSX instead of silently accepting it.
+assert.throws(() => assertTsSyntax('invalid.tsx', 'const Broken = <div>'), /TS\/TSX syntax error/)
 const targets = [
   'src/App.tsx', 'src/components/InvitationPage.tsx',
   'src/components/AdminInvitePanel.tsx', 'src/components/HomeHubShell.tsx',
@@ -50,12 +52,6 @@ const targets = [
 ]
 for (const path of targets) {
   const source = await read(path)
-  const result = ts.transpileModule(source, {
-    fileName: path, reportDiagnostics: true,
-    compilerOptions: { jsx: ts.JsxEmit.ReactJSX, target: ts.ScriptTarget.ES2022 },
-  })
-  const errors = (result.diagnostics ?? []).filter(d => d.category === ts.DiagnosticCategory.Error)
-  assert.equal(errors.length, 0,
-    `${path}: ${errors.map(e => ts.flattenDiagnosticMessageText(e.messageText, ' ')).join('; ')}`)
+  assertTsSyntax(path, source)
 }
 console.log('H7.3B token-gated email/password REPO-only source + TS/TSX: PASS')
