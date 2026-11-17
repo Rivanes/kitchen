@@ -3,15 +3,19 @@ import type { User } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase/client'
 import { HomeHubShell } from './HomeHubShell'
 import { KitchenIcon } from './KitchenIcon'
+import type { PwaInstallState } from '../features/pwa/usePwaInstall'
 
 type MemberStatus = 'checking' | 'active' | 'suspended' | 'denied' | 'error'
 type MemberAccess = { kitchen_role: 'admin' | 'member'; kitchen_status: 'active' | 'suspended' }
 
 /** Keyed by user.id in App: old account state is unmounted BEFORE this renders. */
-export function MembershipGate({ user, adminRoute = false, onNavigateAdmin }: {
+export function MembershipGate({ user, adminRoute = false, onNavigateAdmin, install, needPwaRefresh, updatePwa }: {
   user: User
   adminRoute?: boolean
   onNavigateAdmin?: (active: boolean) => void
+  install: PwaInstallState
+  needPwaRefresh: boolean
+  updatePwa: (reloadPage?: boolean) => Promise<void>
 }) {
   const [status, setStatus] = useState<MemberStatus>('checking')
   const [role, setRole] = useState<MemberAccess['kitchen_role'] | null>(null)
@@ -62,7 +66,8 @@ export function MembershipGate({ user, adminRoute = false, onNavigateAdmin }: {
         <button type="button" className="secondary-button" onClick={() => onNavigateAdmin?.(false)}>Wróć do Kitchen</button>
       </section>
     </main>
-    return <HomeHubShell user={user} isAdmin={role === 'admin'} adminRoute={adminRoute} onNavigateAdmin={onNavigateAdmin} />
+    return <HomeHubShell user={user} isAdmin={role === 'admin'} adminRoute={adminRoute} onNavigateAdmin={onNavigateAdmin}
+      install={install} needPwaRefresh={needPwaRefresh} updatePwa={updatePwa} />
   }
   if (status === 'checking') {
     return <main className="loading-layout" aria-live="polite">

@@ -7,9 +7,11 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
-      registerType: 'autoUpdate',
+      registerType: 'prompt',
       includeAssets: ['icons/kitchen-192.png', 'icons/kitchen-512.png'],
       workbox: {
+        // Never runtime-cache Supabase/API/Auth responses or client data.
+        runtimeCaching: [],
         globIgnores: ['**/*localStt.worker*.js', '**/*local-stt-worker*.js', '**/*.wasm'],
       },
       manifest: {

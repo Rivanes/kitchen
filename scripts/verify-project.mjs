@@ -1864,3 +1864,4 @@ console.log('Kitchen project contract verification: PASS')
 
 // H7.4C.1: shared names auto-indexed server-side; owner identities and histories remain private.
 await execFileAsync(process.execPath, ['scripts/test-h7-4c-shared-catalog.mjs'])
+await execFileAsync(process.execPath, ['scripts/test-h7-5-pwa.mjs'])

@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react'
+import { useRegisterSW } from 'virtual:pwa-register/react'
+import { usePwaInstall } from './features/pwa/usePwaInstall'
 import type { Session } from '@supabase/supabase-js'
 import { LoginPage } from './components/LoginPage'
 import { InvitationPage } from './components/InvitationPage'
@@ -14,6 +16,8 @@ function isAdminLocation(): boolean {
 }
 
 export default function App() {
+  const install = usePwaInstall()
+  const { needRefresh: [needRefresh], updateServiceWorker } = useRegisterSW()
   const [session, setSession] = useState<Session | null>(null)
   const [checkingSession, setCheckingSession] = useState(hasSupabaseConfig)
   const [adminRoute, setAdminRoute] = useState(isAdminLocation)
@@ -79,5 +83,6 @@ export default function App() {
     return <LoginPage configurationMissing={!hasSupabaseConfig} />
   }
 
-  return <MembershipGate key={session.user.id} user={session.user} adminRoute={adminRoute} onNavigateAdmin={navigateAdmin} />
+  return <MembershipGate key={session.user.id} user={session.user} adminRoute={adminRoute} onNavigateAdmin={navigateAdmin} install={install}
+    needPwaRefresh={needRefresh} updatePwa={updateServiceWorker} />
 }

@@ -4834,3 +4834,34 @@ html:has(.cleaning-shell), body:has(.cleaning-shell) { background: #f5f8fa; }
   font-size: 10px;
   opacity: 0.8;
 }
+
+
+/* H7.5 — non-intrusive installation help and deferred Service Worker updates. */
+.pwa-hub-help { display: grid; justify-items: center; margin-top: -12px; }
+.pwa-hub-help-trigger, .pwa-close-help {
+  background: transparent; border: 0; color: var(--color-accent-strong);
+  min-height: 44px; padding: 8px 12px; text-decoration: underline;
+  text-underline-offset: 4px; font-size: 13px; font-weight: 740;
+}
+.pwa-install-panel { width: 100%; padding: 18px; border: 1px solid var(--color-border);
+  border-radius: 18px; background: #fff; box-shadow: var(--shadow-soft); }
+.pwa-install-panel h2 { margin: 0 0 10px; font-size: 18px; }
+.pwa-install-panel p { color: var(--color-muted); font-size: 13px; line-height: 1.55; margin-bottom: 12px; }
+.pwa-install-panel .pwa-install-note { font-size: 12px; margin-top: 12px; }
+.pwa-install-panel .pwa-install-feedback { color: var(--color-accent-strong); font-weight: 700; }
+.pwa-install-panel .primary-button { min-height: 48px; }
+.pwa-update-notice { width: 100%; display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; padding: 13px; border: 1px solid var(--color-border); border-radius: 16px;
+  background: var(--color-surface-soft); }
+.pwa-update-notice strong { font-size: 13px; }
+.pwa-update-notice p { margin: 4px 0 0; font-size: 12px; color: var(--color-muted); }
+.pwa-update-notice .secondary-button { flex-shrink: 0; min-height: 44px; }
+.pwa-offline-banner { position: fixed; top: env(safe-area-inset-top); left: 50%; transform: translateX(-50%);
+  z-index: 100; width: min(calc(100% - 20px), 500px); padding: 10px 14px;
+  background: #fff4d9; border: 1px solid #e4bc64; border-radius: 12px;
+  box-shadow: var(--shadow-soft); color: #5b4217; text-align: center; font-size: 12px; font-weight: 680;
+  pointer-events: none; }
+@media (max-width: 400px) {
+  .pwa-update-notice { align-items: stretch; flex-direction: column; }
+  .pwa-update-notice .secondary-button { width: 100%; }
+}

@@ -5,15 +5,21 @@ import { AppShell } from './AppShell'
 import { CleaningShell } from '../features/cleaning/CleaningShell'
 import { KitchenIcon } from './KitchenIcon'
 import { AdminInvitePanel } from './AdminInvitePanel'
+import type { PwaInstallState } from '../features/pwa/usePwaInstall'
+import { PwaInstallPanel } from '../features/pwa/PwaInstallPanel'
+import { PwaUpdateNotice } from '../features/pwa/PwaUpdateNotice'
 
 type HomeModule = 'hub' | 'food' | 'cleaning'
 
 /** Auth and keyed MembershipGate live above this component. Modules own their own navigation. */
-export function HomeHubShell({ user, isAdmin = false, adminRoute = false, onNavigateAdmin }: {
+export function HomeHubShell({ user, isAdmin = false, adminRoute = false, onNavigateAdmin, install, needPwaRefresh, updatePwa }: {
   user: User
   isAdmin?: boolean
   adminRoute?: boolean
   onNavigateAdmin?: (active: boolean) => void
+  install: PwaInstallState
+  needPwaRefresh: boolean
+  updatePwa: (reloadPage?: boolean) => Promise<void>
 }) {
   const [module, setModule] = useState<HomeModule>('hub')
 
@@ -84,6 +90,8 @@ export function HomeHubShell({ user, isAdmin = false, adminRoute = false, onNavi
             <span className="home-hub-module-arrow" aria-hidden="true"><KitchenIcon name="chevronRight" size={18} /></span>
           </button>
         </div>
+        <PwaInstallPanel install={install} />
+        <PwaUpdateNotice needRefresh={needPwaRefresh} updateServiceWorker={updatePwa} />
       </section>
     </main>
   )
