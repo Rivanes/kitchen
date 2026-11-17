@@ -2,8 +2,7 @@ import { FormEvent, useEffect, useRef, useState } from 'react'
 import { KitchenIcon } from '../../components/KitchenIcon'
 import { getDefaultUnitCode } from '../measurements/measurementUnits'
 import { ProductAutocompleteField, useProductAutocomplete, useSharedProductSuggestions } from '../products/ProductAutocomplete'
-import { SharedCatalogVisibilityChoice } from '../products/SharedCatalogVisibilityChoice'
-import { SharedPublicationAfterSaveError, type SharedProductSuggestion } from '../products/sharedProductCatalog'
+import { type SharedProductSuggestion } from '../products/sharedProductCatalog'
 import { normalizeProductName } from '../products/productIdentity'
 import { cleanCanonicalProductName } from '../products/productCatalogMutations'
 import { ProductResourceRolePicker } from '../products/ProductResourceRolePicker'
@@ -52,8 +51,6 @@ export function ShoppingEditor({ ownerId, model, mode, onClose, onSaved }: Shopp
   const [confirmingRemove, setConfirmingRemove] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
   const [selectedShared, setSelectedShared] = useState<SharedProductSuggestion | null>(null)
-  const [shareNewProduct, setShareNewProduct] = useState(false)
-  const [savedWithPublicationWarning, setSavedWithPublicationWarning] = useState(false)
 
   const productAutocomplete = useProductAutocomplete(model.products, name)
   const exactProduct = productAutocomplete.exactProduct
@@ -88,13 +85,11 @@ export function ShoppingEditor({ ownerId, model, mode, onClose, onSaved }: Shopp
   function handleNameChange(nextName: string) {
     setName(nextName)
     setSelectedShared(null)
-    setShareNewProduct(false)
     setErrorMessage('')
   }
 
   function chooseProduct(product: (typeof model.products)[number]) {
     setSelectedShared(null)
-    setShareNewProduct(false)
     setName(product.name)
     setResourceRole(productResourceRoleFromSemantics(product))
     setUnitCode(product.defaultUnitCode)
@@ -104,7 +99,6 @@ export function ShoppingEditor({ ownerId, model, mode, onClose, onSaved }: Shopp
 
   function chooseSharedProduct(product: SharedProductSuggestion) {
     setSelectedShared(product)
-    setShareNewProduct(false)
     setName(product.name)
     setResourceRole(product.resourceRole)
     setUnitCode(product.suggestedUnitCode)
@@ -120,7 +114,6 @@ export function ShoppingEditor({ ownerId, model, mode, onClose, onSaved }: Shopp
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    if (savedWithPublicationWarning) { onSaved(); return }
     setErrorMessage('')
 
     try {
@@ -153,7 +146,6 @@ export function ShoppingEditor({ ownerId, model, mode, onClose, onSaved }: Shopp
           name,
           existingProductId: activeShared ? null : (exactProduct?.id ?? seededProductId),
           sharedCatalogId: activeShared?.id ?? null,
-          publishToSharedCatalog: shareNewProduct && !exactProduct && !activeShared && !seededProductId,
           quantity: parsedQuantity,
           unitCode,
           resourceRole,
@@ -172,12 +164,7 @@ export function ShoppingEditor({ ownerId, model, mode, onClose, onSaved }: Shopp
       }
       onSaved()
     } catch (error) {
-      if (error instanceof SharedPublicationAfterSaveError) {
-        setSavedWithPublicationWarning(true)
-        setErrorMessage(error.message)
-      } else {
-        setErrorMessage(toUserErrorMessage(error, 'Nie udało się zapisać listy zakupów.'))
-      }
+      setErrorMessage(toUserErrorMessage(error, 'Nie udało się zapisać listy zakupów.'))
     } finally {
       setBusy(false)
     }
@@ -229,7 +216,7 @@ export function ShoppingEditor({ ownerId, model, mode, onClose, onSaved }: Shopp
             unmatchedHint={
               mode.kind === 'edit' && mode.item.productId
                 ? 'Zmiana nazwy zaktualizuje ten produkt wszędzie.'
-                : 'Powstanie nowy produkt.'
+                : 'Wybierz z podpowiedzi lub wpisz nową nazwę.'
             }
             placeholder="np. Mleko"
             disabled={busy}
@@ -237,10 +224,6 @@ export function ShoppingEditor({ ownerId, model, mode, onClose, onSaved }: Shopp
             onChoose={chooseProduct}
           />
 
-          {activeShared && <p className="field-hint">Katalog Kitchen — zapis użyje Twojego prywatnego produktu, nie danych innych osób.</p>}
-          {mode.kind === 'create' && !exactProduct && !activeShared && name.trim() && !initialSeed?.productId && (
-            <SharedCatalogVisibilityChoice inputId="shopping-new-product" share={shareNewProduct} disabled={busy} onChange={setShareNewProduct} />
-          )}
 
           {mode.kind === 'create' && !exactProduct && !activeShared ? (
             <ProductResourceRolePicker
@@ -297,7 +280,7 @@ export function ShoppingEditor({ ownerId, model, mode, onClose, onSaved }: Shopp
           <div className="sheet-actions">
             <button className="secondary-button" type="button" onClick={onClose} disabled={busy}>Anuluj</button>
             <button className="primary-button" type="submit" disabled={busy}>
-              {busy ? 'Zapisuję…' : savedWithPublicationWarning ? 'Zakończ' : mode.kind === 'create' ? 'Dodaj' : 'Zapisz'}
+              {busy ? 'Zapisuję…' : mode.kind === 'create' ? 'Dodaj' : 'Zapisz'}
             </button>
           </div>
         </form>

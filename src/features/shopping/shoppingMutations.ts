@@ -9,7 +9,6 @@ import {
 } from '../products/productCatalogMutations'
 import { normalizeProductName } from '../products/productIdentity'
 import type { ProductResourceRole } from '../products/productResourceSemantics'
-import { publishAfterSuccessfulSave } from '../products/sharedProductCatalog'
 import { requireInventoryItemId } from '../inventory/inventoryRpcResults'
 import {
   addQuantities,
@@ -26,7 +25,6 @@ export type CreateShoppingItemInput = {
   unitCode: string
   resourceRole?: ProductResourceRole
   sharedCatalogId?: string | null
-  publishToSharedCatalog?: boolean
 }
 
 export type UpdateShoppingItemInput = {
@@ -163,7 +161,6 @@ export async function createShoppingItem(input: CreateShoppingItemInput) {
     throw error
   }
 
-  await publishAfterSuccessfulSave(product.id, Boolean(input.publishToSharedCatalog), product.created)
   return savedItemId
 }
 

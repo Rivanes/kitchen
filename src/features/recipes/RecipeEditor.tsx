@@ -3,7 +3,6 @@ import { KitchenIcon } from '../../components/KitchenIcon'
 import { toUserErrorMessage } from '../../lib/userError'
 import { loadMeasurementUnits, type MeasurementUnit } from '../measurements/measurementUnits'
 import { loadOwnerProductCatalog, type CanonicalProductIdentity } from '../products/productCatalogMutations'
-import { SharedPublicationAfterSaveError } from '../products/sharedProductCatalog'
 import { formatQuantity } from '../quantity/quantity'
 import { RecipeCoverFocusEditor } from './RecipeCoverFocusEditor'
 import {
@@ -68,7 +67,6 @@ function rowFromRead(ingredient: RecipeIngredientRead): IngredientDraftRow {
     id: ingredient.id,
     productId: ingredient.productId,
     sharedCatalogId: null,
-    publishToSharedCatalog: false,
     productName: ingredient.productName,
     quantity: ingredient.quantity,
     unitCode: ingredient.unitCode,
@@ -116,7 +114,6 @@ export function RecipeEditor({ ownerId, mode, onClose, onSaved }: RecipeEditorPr
   const [saving, setSaving] = useState(false)
   const [confirmingDelete, setConfirmingDelete] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
-  const [savedWithPublicationWarning, setSavedWithPublicationWarning] = useState<string | null>(null)
   const [sectionErrorMessage, setSectionErrorMessage] = useState('')
 
   const busy = imageBusy || saving
@@ -299,7 +296,6 @@ export function RecipeEditor({ ownerId, mode, onClose, onSaved }: RecipeEditorPr
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    if (savedWithPublicationWarning) { onSaved(savedWithPublicationWarning); return }
     if (busy) return
 
     if (ingredientEditor) return
@@ -336,7 +332,6 @@ export function RecipeEditor({ ownerId, mode, onClose, onSaved }: RecipeEditorPr
         id: ingredient.id,
         productId: ingredient.productId,
         sharedCatalogId: ingredient.sharedCatalogId,
-        publishToSharedCatalog: ingredient.publishToSharedCatalog,
         productName: ingredient.productName,
         quantity: ingredient.quantity,
         unitCode: ingredient.unitCode,
@@ -367,12 +362,7 @@ export function RecipeEditor({ ownerId, mode, onClose, onSaved }: RecipeEditorPr
 
       onSaved(recipeId)
     } catch (error) {
-      if (error instanceof SharedPublicationAfterSaveError && error.savedRecipeId) {
-        setSavedWithPublicationWarning(error.savedRecipeId)
-        setErrorMessage(error.message)
-      } else {
-        setErrorMessage(toUserErrorMessage(error, 'Nie udało się zapisać przepisu.'))
-      }
+      setErrorMessage(toUserErrorMessage(error, 'Nie udało się zapisać przepisu.'))
       setSaving(false)
     }
   }
@@ -709,7 +699,7 @@ export function RecipeEditor({ ownerId, mode, onClose, onSaved }: RecipeEditorPr
           <div className="sheet-actions recipe-authoring-save-actions">
             <button className="secondary-button" type="button" onClick={onClose} disabled={busy}>Anuluj</button>
             <button className="primary-button" type="submit" disabled={busy || sectionEditor !== null}>
-              {imageBusy ? 'Przygotowuję zdjęcie…' : saving ? 'Zapisuję…' : savedWithPublicationWarning ? 'Zakończ' : 'Zapisz'}
+              {imageBusy ? 'Przygotowuję zdjęcie…' : saving ? 'Zapisuję…' : 'Zapisz'}
             </button>
           </div>
         </form>

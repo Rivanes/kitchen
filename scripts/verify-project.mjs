@@ -67,7 +67,6 @@ const requiredFiles = [
   'src/features/shopping/types.ts',
   'src/features/products/ProductAutocomplete.tsx',
   'src/features/products/sharedProductCatalog.ts',
-  'src/features/products/SharedCatalogVisibilityChoice.tsx',
   'scripts/test-h7-4c-shared-catalog.mjs',
   'tests/H7_4C_SHARED_PRODUCT_CATALOG_CONTRACT.md',
   'src/features/products/ProductResourceRolePicker.tsx',
@@ -620,7 +619,7 @@ if (!shoppingEditor.includes("matchMedia('(hover: hover) and (pointer: fine)')")
 if (shoppingEditor.includes('products={model.products}')) {
   throw new Error('V2.3.2 must not pass unsupported props to ProductAutocompleteField.')
 }
-if (!shoppingEditor.includes("'Zmiana nazwy zaktualizuje ten produkt wszędzie.'") || !shoppingEditor.includes("'Powstanie nowy produkt.'")) {
+if (!shoppingEditor.includes("'Zmiana nazwy zaktualizuje ten produkt wszędzie.'") || !shoppingEditor.includes("'Wybierz z podpowiedzi lub wpisz nową nazwę.'")) {
   throw new Error('V2.3.3 Shopping must distinguish shared Product rename from new Product creation.')
 }
 if (shoppingEditor.includes("unit.code === 'szt'")) {
@@ -1863,5 +1862,5 @@ await execFileAsync(process.execPath, ['scripts/test-h7-3-invites.mjs'])
 await execFileAsync(process.execPath, ['scripts/test-h7-3c-admin.mjs'])
 console.log('Kitchen project contract verification: PASS')
 
-// H7.4C: global definitions are optional, owner identities and history stay private.
+// H7.4C.1: shared names auto-indexed server-side; owner identities and histories remain private.
 await execFileAsync(process.execPath, ['scripts/test-h7-4c-shared-catalog.mjs'])

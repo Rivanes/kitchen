@@ -4826,48 +4826,11 @@ html:has(.cleaning-shell), body:has(.cleaning-shell) { background: #f5f8fa; }
   .admin-invites-actions > button { flex: 1; }
 }
 
-/* H7.4C — shared product dictionary stays visually separate from private products. */
-.product-suggestions-group {
-  flex-basis: 100%;
-  margin: 5px 0 1px;
-  padding: 0 2px;
-  color: var(--color-muted);
-  font-size: 11px;
-  font-weight: 700;
-}
+/* H7.4C.1 — one visual product dictionary; label indicates resource role, not data source. */
 .product-suggestions button small {
   display: block;
   margin-top: 3px;
   font-weight: 500;
   font-size: 10px;
   opacity: 0.8;
-}
-.shared-catalog-visibility {
-  border: 1px solid var(--color-border);
-  border-radius: 12px;
-  padding: 10px 12px;
-  margin: 0;
-  min-width: 0;
-}
-.shared-catalog-visibility legend {
-  padding: 0 4px;
-  font-size: 12px;
-  font-weight: 700;
-}
-.shared-catalog-visibility label {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  padding: 6px 0;
-  font-size: 13px;
-}
-.shared-catalog-visibility label input {
-  width: 17px;
-  height: 17px;
-  margin: 0;
-  flex-shrink: 0;
-}
-.shared-catalog-visibility .field-hint {
-  margin: 5px 0 0;
-  line-height: 1.35;
 }

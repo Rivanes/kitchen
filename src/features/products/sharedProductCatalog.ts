@@ -55,37 +55,3 @@ export async function adoptSharedProduct(catalogId: string): Promise<string> {
   if (typeof data !== 'string' || !data) throw new Error('Katalog Kitchen nie zwrócił identyfikatora prywatnego produktu.')
   return data
 }
-
-export async function publishLocalProduct(productId: string): Promise<void> {
-  if (!supabase) throw new Error('Supabase is not configured.')
-  const { data, error } = await supabase.rpc('h74_publish_local_product', {
-    p_product_id: productId,
-  })
-  if (error || typeof data !== 'string' || !data) {
-    throw new Error(error?.message ?? 'Serwer nie potwierdził publikacji produktu.')
-  }
-}
-
-/** The business save already committed. Never let publication failure trigger a second save. */
-export class SharedPublicationAfterSaveError extends Error {
-  constructor(cause: unknown, readonly savedRecipeId: string | null = null) {
-    const details = cause instanceof Error ? ` (${cause.message})` : ''
-    super(`Zapisano dane prywatne, ale produkt nie trafił do Katalogu Kitchen${details}. Nie zapisuj ponownie tej pozycji — wybierz „Zakończ”.`)
-    this.name = 'SharedPublicationAfterSaveError'
-  }
-}
-
-export async function publishAfterSuccessfulSave(
-  productId: string,
-  enabled: boolean,
-  created: boolean,
-  savedRecipeId: string | null = null,
-) {
-  // Never auto-publish a historical/reused owner product.
-  if (!enabled || !created) return
-  try {
-    await publishLocalProduct(productId)
-  } catch (error) {
-    throw new SharedPublicationAfterSaveError(error, savedRecipeId)
-  }
-}

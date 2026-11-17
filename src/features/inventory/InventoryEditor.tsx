@@ -1,8 +1,7 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react'
 import { KitchenIcon } from '../../components/KitchenIcon'
 import { ProductAutocompleteField, useProductAutocomplete, useSharedProductSuggestions } from '../products/ProductAutocomplete'
-import { SharedCatalogVisibilityChoice } from '../products/SharedCatalogVisibilityChoice'
-import { SharedPublicationAfterSaveError, type SharedProductSuggestion } from '../products/sharedProductCatalog'
+import { type SharedProductSuggestion } from '../products/sharedProductCatalog'
 import { getDefaultUnitCode } from '../measurements/measurementUnits'
 import {
   getPackageContentFromDefaults,
@@ -132,8 +131,6 @@ export function InventoryEditor({
   const [confirmingRemove, setConfirmingRemove] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
   const [selectedShared, setSelectedShared] = useState<SharedProductSuggestion | null>(null)
-  const [shareNewProduct, setShareNewProduct] = useState(false)
-  const [savedWithPublicationWarning, setSavedWithPublicationWarning] = useState(false)
   const firstInputRef = useRef<HTMLInputElement>(null)
   const busy = saving || removing || settingsSaving || roleConverting
 
@@ -253,7 +250,6 @@ export function InventoryEditor({
 
   function chooseProduct(product: (typeof model.products)[number]) {
     setSelectedShared(null)
-    setShareNewProduct(false)
     setProductName(product.name)
     setCreateProductOverride(null)
     setUnitTouched(false)
@@ -268,7 +264,6 @@ export function InventoryEditor({
   function chooseSharedProduct(product: SharedProductSuggestion) {
     if (product.resourceRole !== requestedCreateRole) return
     setSelectedShared(product)
-    setShareNewProduct(false)
     setProductName(product.name)
     setCreateProductOverride(null)
     setUnitCode(product.suggestedUnitCode)
@@ -436,7 +431,6 @@ export function InventoryEditor({
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    if (savedWithPublicationWarning) { onSaved(); return }
     if (busy) return
 
     if (mode.kind === 'edit' && isPresenceMode) {
@@ -531,7 +525,6 @@ export function InventoryEditor({
           productName,
           existingProductId: activeShared ? null : (createSeed?.productId ?? exactProduct?.id ?? null),
           sharedCatalogId: activeShared?.id ?? null,
-          publishToSharedCatalog: shareNewProduct && !createSeed && !exactProduct && !activeShared,
           resourceRole: mode.kind === 'create' && !createSeed ? requestedCreateRole : (activeProduct ? productResourceRoleFromSemantics(activeProduct) : requestedCreateRole),
           storageLocationId: locationId,
           quantity: effectiveQuantity,
@@ -567,13 +560,8 @@ export function InventoryEditor({
       }
       onSaved()
     } catch (error: unknown) {
-      if (error instanceof SharedPublicationAfterSaveError) {
-        setSavedWithPublicationWarning(true)
-        setErrorMessage(error.message)
-      } else {
-        console.error('Kitchen Inventory save failed.', error)
-        setErrorMessage(toUserErrorMessage(error, 'Nie udało się zapisać zmian.'))
-      }
+      console.error('Kitchen Inventory save failed.', error)
+      setErrorMessage(toUserErrorMessage(error, 'Nie udało się zapisać zmian.'))
       setSaving(false)
     }
   }
@@ -778,13 +766,12 @@ export function InventoryEditor({
                   sharedError={sharedError}
                   onChooseShared={chooseSharedProduct}
                   exactHint="Użyję istniejącego produktu."
-                  unmatchedHint="Powstanie nowy produkt."
+                  unmatchedHint="Wybierz z podpowiedzi lub wpisz nową nazwę."
                   placeholder="np. Mleko"
                   disabled={busy}
                   onChange={(nextName) => {
                     setProductName(nextName)
                     setSelectedShared(null)
-                    setShareNewProduct(false)
                     setCreateProductOverride(null)
                     setPackageContentTouched(false)
                     setErrorMessage('')
@@ -793,12 +780,6 @@ export function InventoryEditor({
                 />
               )}
 
-              {mode.kind === 'create' && !createSeed && activeShared && (
-                <p className="field-hint">Katalog Kitchen — produkt zostanie dodany tylko do Twoich prywatnych zapasów.</p>
-              )}
-              {mode.kind === 'create' && !createSeed && !exactProduct && !activeShared && productName.trim() && (
-                <SharedCatalogVisibilityChoice inputId="inventory-new-product" share={shareNewProduct} disabled={busy} onChange={setShareNewProduct} />
-              )}
 
               {mode.kind === 'create' && createSeed && (
                 <div className="inventory-create-seed-summary" aria-label="Kupiony produkt przenoszony do zapasów">
@@ -1024,7 +1005,7 @@ export function InventoryEditor({
               <div className="sheet-actions">
                 <button className="secondary-button" type="button" onClick={onClose} disabled={busy}>Anuluj</button>
                 <button className="primary-button" type="submit" disabled={busy || createRoleMismatch}>
-                  {saving ? 'Zapisuję…' : savedWithPublicationWarning ? 'Zakończ' : mode.kind === 'edit' && isPresenceMode ? 'Gotowe' : mode.kind === 'create' && isPresenceMode ? 'Dodaj' : 'Zapisz'}
+                  {saving ? 'Zapisuję…' : mode.kind === 'edit' && isPresenceMode ? 'Gotowe' : mode.kind === 'create' && isPresenceMode ? 'Dodaj' : 'Zapisz'}
                 </button>
               </div>
             </form>

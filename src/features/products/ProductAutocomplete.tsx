@@ -1,6 +1,6 @@
 import { RefObject, useEffect, useMemo, useState } from 'react'
 import { findExactProduct, findProductSuggestions, normalizeProductName, ProductIdentityOption } from './productIdentity'
-import { productResourceRoleLabel, type ProductResourceRole } from './productResourceSemantics'
+import { productResourceRoleFromSemantics, productResourceRoleLabel, type ProductResourceRole } from './productResourceSemantics'
 import { searchSharedProductCatalog, type SharedProductSuggestion } from './sharedProductCatalog'
 
 export type ProductAutocompleteState<T extends ProductIdentityOption = ProductIdentityOption> = {
@@ -45,7 +45,7 @@ export function useSharedProductSuggestions(
       void searchSharedProductCatalog(value).then((items) => {
         if (active) setResponse({ key, items, error: null })
       }).catch(() => {
-        if (active) setResponse({ key, items: [], error: 'Katalog Kitchen jest chwilowo niedostępny. Moje produkty nadal działają.' })
+        if (active) setResponse({ key, items: [], error: 'Nie udało się pobrać wszystkich podpowiedzi produktów. Spróbuj ponownie.' })
       })
     }, 250)
     return () => { active = false; window.clearTimeout(timer) }
@@ -102,7 +102,16 @@ export function ProductAutocompleteField<T extends ProductIdentityOption>({
   onChooseShared,
 }: ProductAutocompleteFieldProps<T>) {
   const hasValue = value.trim().length > 0
-  const hasSuggestions = suggestions.length > 0 || (onChooseShared && sharedSuggestions.length > 0)
+  // One visually unified dictionary. The owner-local ID is still used when one
+  // exists; a global suggestion is adopted through the verified server RPC.
+  const combinedSuggestions: Array<
+    | { kind: 'owner'; product: T }
+    | { kind: 'shared'; product: SharedProductSuggestion }
+  > = [
+    ...suggestions.map((product) => ({ kind: 'owner' as const, product })),
+    ...(onChooseShared ? sharedSuggestions.map((product) => ({ kind: 'shared' as const, product })) : []),
+  ].sort((a, b) => a.product.name.localeCompare(b.product.name, 'pl'))
+  const hasSuggestions = combinedSuggestions.length > 0
 
   return (
     <div className="form-field product-autocomplete">
@@ -127,27 +136,28 @@ export function ProductAutocompleteField<T extends ProductIdentityOption>({
 
       {hasSuggestions && (
         <div id={`${inputId}-suggestions`} className="product-suggestions" aria-label="Pasujące produkty">
-          {suggestions.length > 0 && <p className="product-suggestions-group">Moje</p>}
-          {suggestions.map((product) => (
-            <button type="button" key={`owner-${product.id}`} onClick={() => onChoose(product)} disabled={disabled}>
-              {product.name}
-            </button>
-          ))}
-          {onChooseShared && sharedSuggestions.length > 0 && <p className="product-suggestions-group">Katalog Kitchen</p>}
-          {onChooseShared && sharedSuggestions.map((product) => (
-            <button
-              type="button"
-              key={`shared-${product.id}`}
-              onClick={() => onChooseShared(product)}
-              disabled={disabled}
-            >
-              <span>{product.name}</span>
-              <small>{productResourceRoleLabel(product.resourceRole)}</small>
-            </button>
-          ))}
+          {combinedSuggestions.map((option) => {
+            const role = option.kind === 'owner'
+              ? productResourceRoleFromSemantics(option.product)
+              : option.product.resourceRole
+            return (
+              <button
+                type="button"
+                key={`${option.kind}-${option.product.id}`}
+                onClick={() => {
+                  if (option.kind === 'owner') onChoose(option.product)
+                  else onChooseShared?.(option.product)
+                }}
+                disabled={disabled}
+              >
+                <span>{option.product.name}</span>
+                <small>{productResourceRoleLabel(role)}</small>
+              </button>
+            )
+          })}
         </div>
       )}
-      {onChooseShared && sharedLoading && <p className="field-hint" role="status">Szukam w Katalogu Kitchen…</p>}
+      {onChooseShared && sharedLoading && <p className="field-hint" role="status">Szukam produktów…</p>}
       {onChooseShared && sharedError && <p className="field-hint" role="status">{sharedError}</p>}
     </div>
   )

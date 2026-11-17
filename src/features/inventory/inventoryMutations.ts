@@ -4,7 +4,6 @@ import {
   resolveOrCreateCanonicalProduct,
 } from '../products/productCatalogMutations'
 import type { ProductResourceRole } from '../products/productResourceSemantics'
-import { publishAfterSuccessfulSave } from '../products/sharedProductCatalog'
 import {
   assertValidQuantity,
   readStoredQuantity,
@@ -18,7 +17,6 @@ export type CreateInventoryLotInput = {
   existingProductId: string | null
   resourceRole?: ProductResourceRole
   sharedCatalogId?: string | null
-  publishToSharedCatalog?: boolean
   storageLocationId: string
   quantity: number
   unitCode: string
@@ -157,8 +155,6 @@ export async function createInventoryLot(input: CreateInventoryLotInput) {
     throw error
   }
 
-  // Publication is opt-in and happens AFTER the inventory RPC committed.
-  await publishAfterSuccessfulSave(product.id, Boolean(input.publishToSharedCatalog), product.created)
   return savedLotId
 }
 
