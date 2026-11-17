@@ -57,14 +57,14 @@ export function AdminInvitePanel() {
         body: { action: 'issue' },
       })
       if (error || typeof data?.inviteUrl !== 'string' || typeof data?.id !== 'string') throw Error('issue')
-      setMessage('Wygenerowano nowe zaproszenie. Możesz je skopiować z listy.')
+      setMessage('Nowy link jest gotowy do skopiowania.')
       await refresh()
     } catch { setErrorMessage('Nie udało się wygenerować linku. Sprawdź wdrożenie H7.3C i uprawnienia.') }
     finally { setBusy(false) }
   }
 
   async function revoke(id: string) {
-    if (!supabase || busy || !window.confirm('Unieważnić i trwale usunąć to zaproszenie?')) return
+    if (!supabase || busy || !window.confirm('Usunąć ten link? Nie będzie można go ponownie użyć.')) return
     setBusy(true); setMessage(''); setErrorMessage('')
     try {
       const { data, error } = await supabase.functions.invoke('kitchen-invites', {
@@ -72,7 +72,7 @@ export function AdminInvitePanel() {
       })
       if (error || data?.revoked !== true) throw Error('revoke')
       setInvites(current => current.filter(invite => invite.id !== id))
-      setMessage('Zaproszenie zostało unieważnione i usunięte.')
+      setMessage('Link usunięty.')
       await refresh()
     } catch { setErrorMessage('Nie udało się usunąć zaproszenia. Odśwież listę.') }
     finally { setBusy(false) }
@@ -81,7 +81,7 @@ export function AdminInvitePanel() {
   async function copy(link: string) {
     try {
       await navigator.clipboard.writeText(link)
-      setMessage('Link skopiowany. Przekaż go wybranej osobie.')
+      setMessage('Link skopiowany.')
       setErrorMessage('')
     } catch { setErrorMessage('Kopiowanie nie powiodło się. Spróbuj ponownie w przeglądarce z HTTPS.') }
   }
@@ -91,17 +91,13 @@ export function AdminInvitePanel() {
 
   return <section className="admin-invites" aria-labelledby="invite-admin-title">
     <div className="admin-invites-heading">
-      <div>
-        <p className="eyebrow">DOSTĘP DO KITCHEN</p>
-        <h1 id="invite-admin-title">Zaproszenia</h1>
-        <p>Jednorazowe linki ważne przez 24 godziny. Wykorzystane zaproszenia są usuwane automatycznie, a wygasłe czyści serwer.</p>
-      </div>
+      <h1 id="invite-admin-title">Zaproszenia</h1>
       <button className="primary-button" type="button" onClick={generate} disabled={busy}>
         <KitchenIcon name="plus" size={18} /> {busy ? 'Przetwarzanie…' : 'Generuj link'}
       </button>
     </div>
     <div className="admin-invites-list-heading">
-      <h2>Aktywne linki <span aria-label={`${active.length} aktywnych`}>({active.length})</span></h2>
+      <h2>Aktywne <span aria-label={`${active.length} aktywnych linków`}>({active.length})</span></h2>
       <button type="button" className="secondary-button" onClick={() => { void refresh(true) }} disabled={busy || loading}>
         <KitchenIcon name="refresh" size={17} /> Odśwież
       </button>
@@ -110,19 +106,18 @@ export function AdminInvitePanel() {
       active.length === 0 ? <div className="admin-invites-empty">
         <KitchenIcon name="link" size={25} />
         <strong>Brak aktywnych zaproszeń</strong>
-        <p>Wygeneruj nowy link, kiedy chcesz zaprosić kolejną osobę.</p>
       </div> : <ul className="admin-invites-list">
         {active.map(item => <li className="admin-invites-row" key={item.id}>
           <div className="admin-invites-row-details">
-            <strong>Zaproszenie {item.id.slice(0, 8).toUpperCase()}</strong>
+            <strong>Link {item.id.slice(0, 8).toUpperCase()}</strong>
             <span>Wygasa: {dateFmt.format(new Date(item.expiresAt))}</span>
-            {!item.inviteUrl ? <small>Starszy link — nie można odzyskać adresu; możesz go unieważnić.</small> : null}
           </div>
           <div className="admin-invites-actions">
             <button type="button" className="secondary-button" disabled={!item.inviteUrl || busy}
-              onClick={() => { if (item.inviteUrl) void copy(item.inviteUrl) }}>Kopiuj</button>
+              title={!item.inviteUrl ? 'Starszy link bez zapisanego adresu. Usuń go i wygeneruj nowy.' : undefined}
+              onClick={() => { if (item.inviteUrl) void copy(item.inviteUrl) }}>{item.inviteUrl ? 'Kopiuj' : 'Brak adresu'}</button>
             <button type="button" className="secondary-button admin-invites-revoke" disabled={busy}
-              onClick={() => { void revoke(item.id) }}>Unieważnij</button>
+              onClick={() => { void revoke(item.id) }}>Usuń</button>
           </div>
         </li>)}
       </ul>}

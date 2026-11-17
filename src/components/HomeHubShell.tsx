@@ -84,9 +84,6 @@ export function HomeHubShell({ user, isAdmin = false, adminRoute = false, onNavi
             <span className="home-hub-module-arrow" aria-hidden="true"><KitchenIcon name="chevronRight" size={18} /></span>
           </button>
         </div>
-        {isAdmin ? <button type="button" className="home-hub-admin-link" onClick={() => onNavigateAdmin?.(true)}>
-          <KitchenIcon name="lock" size={18} /> Administracja — zaproszenia <KitchenIcon name="chevronRight" size={18}/>
-        </button> : null}
       </section>
     </main>
   )

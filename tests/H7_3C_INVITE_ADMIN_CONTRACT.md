@@ -1,10 +1,10 @@
 # H7.3C — Admin Invitations and Retention Contract
 
-Status: **SOURCE PREPARED, LIVE SQL/EDGE/GITHUB/E2E NOT YET CONFIRMED**.
+Status: **H7.3C SQL 8/8 PASS, Edge Secrets PASS, GitHub Deploy PASS zgłoszony (2026-11-17); H7.3D UI corrective przygotowany, jego CI/E2E nadal OPEN**.
 
-- Admin route: `https://rivanes.github.io/kitchen/admin`; direct refresh on GitHub Pages via `public/404.html` route fallback. Only active `admin` from `kitchen_my_access` may see it; Edge always rechecks JWT and active admin in private SQL.
-- Admin sees only `issued`/nonexpired invitations, refreshed server-side. After issue, Copy works on any device/browser after relogin. Raw token is encrypted AES-256-GCM with `KITCHEN_INVITE_ENCRYPTION_KEY` only in Edge Secrets; database has ciphertext and nonce plus SHA-256 hash, never plaintext URL.
-- Previously issued H7.3 hashes do not have decryptable URLs; they may be revoked but cannot be recovered.
+- Admin route: `https://rivanes.github.io/kitchen/admin`; **no shortcut/entry on ordinary Home Hub**. Direct refresh on GitHub Pages via `public/404.html` route fallback. Only active `admin` from `kitchen_my_access` may see it; Edge always rechecks JWT and active admin in private SQL.
+- Admin UI displays only `Zaproszenia` heading, `Generuj link`, compact `Aktywne (count)` list with **one expiry date per item**, `Kopiuj`/`Usuń`, and `Odśwież`; no repetitive eyebrow/TTL/retention paragraph. Layout must stay top-aligned, never vertically centered by Home Hub. Admin sees only `issued`/nonexpired invitations, refreshed server-side. After issue, Copy works on any device/browser after relogin. Raw token is encrypted AES-256-GCM with `KITCHEN_INVITE_ENCRYPTION_KEY` only in Edge Secrets; database has ciphertext and nonce plus SHA-256 hash, never plaintext URL.
+- Previously issued H7.3 hashes do not have decryptable URLs; Copy shows `Brak adresu` and `Usuń` remains usable. Server `revoke` physically deletes only `issued` invitations.
 - On complete registration, `h73_activate_member` atomically inserts member (5 location trigger) and DELETES invitation row. `h73_revoke_invite` deletes only `issued` invitations. Failed claims are removed, expired issued rows removed by list/issue and `pg_cron` every 5 minutes. In-flight claimed/sent rows are hidden and kept up to 30 minutes after expiry for crash/grace recovery.
 - Link expires immediately at `expires_at`: only `h73_claim_invite` with `state='issued' AND expires_at>now()` grants a claim; delayed physical deletion cannot reopen it. Opening the link never consumes it.
 - Direct API `anon/authenticated` grants forbidden for h73c_* RPC; private table RLS. Member does not have admin route and cannot list, revoke or issue invitations through Edge.
@@ -17,4 +17,4 @@ Status: **SOURCE PREPARED, LIVE SQL/EDGE/GITHUB/E2E NOT YET CONFIRMED**.
 - GitHub Actions checkout contains **REPO only**, not `../OUTSIDE_REPO`. `scripts/test-h7-3-invites.mjs` and `scripts/test-h7-3c-admin.mjs` must not read SQL migration paths outside repo.
 - Local `typescript` must be resolved from project `devDependencies` installed by `npm ci`, never a global NVM installation path.
 - SQL migration, pre/postcheck, and clean-install parity remain separate in `OUTSIDE_REPO/QA/H7_3_SQL_CONTRACT_CHECK.mjs` and `H7_3C_SQL_CONTRACT_CHECK.mjs`, not deployable GitHub source.
-- Live H7.3C SQL 8/8 PASS, Secrets present; latest GitHub build screenshot showed ENOENT, so commit QA/Pages PASS is still required.
+- Live H7.3C SQL 8/8 PASS, Secrets present. Poprzednie ENOENT i TypeScript 7 `ReactJSX` zostały naprawione w kodzie źródłowym; użytkownik zgłosił GitHub Deploy PASS 2026-11-17 (bez SHA i niezależnego wyniku QA). H7.3D zmiany UI wymagają osobnego GitHub QA+Pages oraz testu telefonu.

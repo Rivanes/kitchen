@@ -4797,23 +4797,20 @@ html:has(.cleaning-shell), body:has(.cleaning-shell) { background: #f5f8fa; }
 
 /* H7.3C — standalone admin route, active invitations only */
 /* H7.3C admin — same light Kitchen visual language, no dashboard clutter. */
-.admin-route-layout .home-hub-main { padding-bottom: max(28px, env(safe-area-inset-bottom)); }
-.home-hub-admin-link { width: 100%; margin-top: 18px; padding: 14px 16px; border: 1px solid var(--color-border); border-radius: 14px; background: #fff; color: var(--color-text); display: flex; align-items: center; gap: 10px; font-weight: 650; text-align: left; }
-.home-hub-admin-link svg:last-child { margin-left: auto; }
-.admin-invites { padding: 20px 0; }
+/* The admin route is a working page, not the vertically centered Home Hub. */
+.admin-route-layout .home-hub-main { flex: 0 0 auto; justify-content: flex-start; gap: 0; padding: 0 0 max(28px, env(safe-area-inset-bottom)); }
+.admin-invites { padding: 8px 0 24px; }
 .admin-invites-heading { display: flex; gap: 16px; justify-content: space-between; align-items: center; flex-wrap: wrap; }
-.admin-invites-heading > div { max-width: 490px; }
-.admin-invites-heading h1 { margin: 5px 0 8px; font-size: clamp(24px, 4vw, 30px); letter-spacing: -.03em; }
-.admin-invites-heading p { margin: 0; line-height: 1.5; font-size: 13px; color: var(--color-muted); }
+.admin-invites-heading h1 { margin: 0; font-size: clamp(24px, 4vw, 30px); letter-spacing: -.03em; }
 .admin-invites-heading .primary-button, .admin-invites-list-heading button { display: inline-flex; gap: 8px; align-items: center; justify-content: center; }
-.admin-invites-list-heading { margin: 30px 0 12px; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.admin-invites-list-heading { margin: 22px 0 12px; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .admin-invites-list-heading h2 { margin: 0; font-size: 17px; }
 .admin-invites-list-heading h2 span { font-weight: 500; color: var(--color-muted); }
 .admin-invites-list { display: grid; list-style: none; margin: 0; padding: 0; gap: 10px; }
 .admin-invites-row { background: #fff; border: 1px solid var(--color-border); border-radius: 15px; padding: 14px 16px; display: flex; gap: 14px; align-items: center; justify-content: space-between; }
 .admin-invites-row-details { display: grid; gap: 3px; min-width: 0; overflow-wrap: anywhere; }
 .admin-invites-row-details strong { font-size: 14px; }
-.admin-invites-row-details span, .admin-invites-row-details small { font-size: 12px; color: var(--color-muted); }
+.admin-invites-row-details span { font-size: 12px; color: var(--color-muted); }
 .admin-invites-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .admin-invites-actions .secondary-button { min-height: 42px; padding: 0 12px; }
 .admin-invites-revoke { color: var(--color-danger); }
