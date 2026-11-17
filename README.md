@@ -1,6 +1,6 @@
-## H7.5 PWA — źródła gotowe do QA (2026-11-17)
+## H7.5.3 — instalacja PWA widoczna w każdej przeglądarce (SOURCE READY, 2026-11-17)
 
-Istniejący manifest/SW rozwinięto o instalację w Dom, instrukcje iOS, warunkowy prompt Android oraz aktualizację na żądanie (nie przerywa edytora). W razie offline pojawia się informacja o braku połączenia; API/Auth nie są zapisywane w Cache API. `npm run verify:project` uruchamia nowy `scripts/test-h7-5-pwa.mjs`.
+Opcja `Zainstaluj Kitchen` znajduje się bezpośrednio pod nagłówkiem Dom, a nie pod kafelkami. Zawsze można otworzyć instrukcję (iPhone/Android); natywny prompt jest dostępny tylko tam, gdzie przeglądarka go udostępnia. W trybie standalone widoczny jest status, nie kolejna instalacja. Istniejący manifest/SW nadal obsługuje aktualizację na żądanie (nie przerywa edytora). W razie offline pojawia się informacja o braku połączenia; API/Auth nie są zapisywane w Cache API. `npm run verify:project` uruchamia nowy `scripts/test-h7-5-pwa.mjs`.
 
 **UWAGA bezpieczeństwa:** wynik live H7.4C.1 POSTCHECK = 6/7 (`H74C1_PRIVATE_AUTHORITY=false`), więc H7.4 nie jest jeszcze w pełni zamknięty. Dodatkowe diagnozy w `OUTSIDE_REPO/H7_5_RUNBOOK.md` (poza repo). Przed zwiększeniem grona testerów wymagane rozstrzygnięcie brakującego testu; na tym etapie nie dodawać nowego SQL migracji.
 

@@ -28,6 +28,32 @@ assert.match(lifecycle, /display-mode: standalone/)
 assert.match(lifecycle, /navigator.*standalone/)
 assert.match(panel, /Dodaj do ekranu początkowego/)
 assert.match(panel, /install\.canPrompt/)
+// H7.5.3: install discoverability is unconditional. The panel is no longer
+// below the tall module tiles where it could leave the mobile viewport.
+const headerEnd = hub.indexOf('</header>', hub.indexOf('return ('))
+const installEntry = hub.indexOf('<PwaInstallPanel install={install} />')
+const mainStart = hub.indexOf('<section className="home-hub-main"')
+const moduleTiles = hub.indexOf('<div className="home-hub-modules"')
+assert.ok(headerEnd >= 0 && installEntry > headerEnd && installEntry < mainStart && installEntry < moduleTiles,
+  'PWA entry must be placed directly below Home header, before centered module tiles')
+assert.equal(hub.split('<PwaInstallPanel install={install} />').length - 1, 1,
+  'Home must have exactly one installation entry')
+assert.doesNotMatch(panel, /if\s*\(\s*install\.installed\s*\)\s*return\s+null/,
+  'Installed status must not hide the installation/help entry entirely')
+assert.match(panel, /Zainstaluj Kitchen/)
+assert.match(panel, /install\.installed/)
+assert.match(panel, /Kitchen jest zainstalowany/)
+assert.match(panel, /iPhone \/ iPad/)
+assert.match(panel, /Android \/ inne urządzenia/)
+assert.match(panel, /w Safari/)
+assert.doesNotMatch(panel, /install\.ios|navigator\.userAgent/,
+  'Browser identification must not control help visibility')
+assert.doesNotMatch(lifecycle, /detectIos|navigator\.userAgent/,
+  'PWA install hook should use capability detection instead of UA sniffing')
+assert.match(lifecycle, /typeof window\.matchMedia/)
+assert.match(lifecycle, /mode\.addListener/)
+assert.match(lifecycle, /pageshow/)
+
 assert.match(update, /updateServiceWorker\(true\)/)
 assert.match(network, /Brak połączenia z internetem/)
 assert.doesNotMatch(network+panel+update, /localStorage|sessionStorage|supabase|fetch\(/i)

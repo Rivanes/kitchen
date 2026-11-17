@@ -1,45 +1,56 @@
 import { useEffect, useState } from 'react'
 
-/** Browser event is intentionally optional; Safari/iOS has no JS install prompt. */
+/** The native prompt is an optional browser capability, not a condition for showing help. */
 type InstallPromptEvent = Event & {
   prompt: () => Promise<void>
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed'; platform: string }>
 }
 
 export function isStandaloneApp(): boolean {
-  return window.matchMedia('(display-mode: standalone)').matches ||
+  if (typeof window === 'undefined') return false
+  const displayMode = typeof window.matchMedia === 'function' &&
+    window.matchMedia('(display-mode: standalone)').matches
+  const iosStandalone = typeof navigator !== 'undefined' &&
     Boolean((navigator as Navigator & { standalone?: boolean }).standalone)
-}
-
-function detectIos(): boolean {
-  return /iPhone|iPad|iPod/i.test(navigator.userAgent) ||
-    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+  return Boolean(displayMode || iosStandalone)
 }
 
 export function usePwaInstall() {
   const [installed, setInstalled] = useState(isStandaloneApp)
   const [promptEvent, setPromptEvent] = useState<InstallPromptEvent | null>(null)
   const [installing, setInstalling] = useState(false)
-  const ios = detectIos()
 
   useEffect(() => {
     const onPrompt = (event: Event) => {
+      const candidate = event as InstallPromptEvent
+      if (typeof candidate.prompt !== 'function' || !candidate.userChoice) return
       event.preventDefault()
-      setPromptEvent(event as InstallPromptEvent)
+      setPromptEvent(candidate)
     }
     const onInstalled = () => {
       setInstalled(true)
       setPromptEvent(null)
     }
-    const mode = window.matchMedia('(display-mode: standalone)')
     const onModeChange = () => setInstalled(isStandaloneApp())
+    const mode = typeof window.matchMedia === 'function'
+      ? window.matchMedia('(display-mode: standalone)') : null
+
     window.addEventListener('beforeinstallprompt', onPrompt)
     window.addEventListener('appinstalled', onInstalled)
-    mode.addEventListener('change', onModeChange)
+    window.addEventListener('pageshow', onModeChange)
+    if (mode) {
+      if (typeof mode.addEventListener === 'function') mode.addEventListener('change', onModeChange)
+      else mode.addListener(onModeChange)
+    }
+
     return () => {
       window.removeEventListener('beforeinstallprompt', onPrompt)
       window.removeEventListener('appinstalled', onInstalled)
-      mode.removeEventListener('change', onModeChange)
+      window.removeEventListener('pageshow', onModeChange)
+      if (mode) {
+        if (typeof mode.removeEventListener === 'function') mode.removeEventListener('change', onModeChange)
+        else mode.removeListener(onModeChange)
+      }
     }
   }, [])
 
@@ -51,7 +62,7 @@ export function usePwaInstall() {
     try {
       await event.prompt()
       const choice = await event.userChoice
-      // 'accepted' is not the same as installation completed; appinstalled signals that.
+      // Accepted is not synonymous with installed; appinstalled confirms it.
       return choice.outcome
     } catch {
       return 'unavailable'
@@ -60,7 +71,7 @@ export function usePwaInstall() {
     }
   }
 
-  return { installed, ios, canPrompt: Boolean(promptEvent) && !installed, installing, requestInstall }
+  return { installed, canPrompt: Boolean(promptEvent) && !installed, installing, requestInstall }
 }
 
 export type PwaInstallState = ReturnType<typeof usePwaInstall>

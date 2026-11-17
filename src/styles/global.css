@@ -4837,19 +4837,36 @@ html:has(.cleaning-shell), body:has(.cleaning-shell) { background: #f5f8fa; }
 
 
 /* H7.5 — non-intrusive installation help and deferred Service Worker updates. */
-.pwa-hub-help { display: grid; justify-items: center; margin-top: -12px; }
-.pwa-hub-help-trigger, .pwa-close-help {
-  background: transparent; border: 0; color: var(--color-accent-strong);
-  min-height: 44px; padding: 8px 12px; text-decoration: underline;
-  text-underline-offset: 4px; font-size: 13px; font-weight: 740;
+/* H7.5.3 — installation entry stays above the vertically centered module tiles. */
+.pwa-home-install-access { align-self: stretch; display: flex; justify-content: flex-end; min-width: 0; margin: -12px 0 8px; }
+.pwa-hub-help { display: flex; flex-direction: column; align-items: flex-end; width: 100%; min-width: 0; gap: 10px; }
+.pwa-hub-help-trigger {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  min-height: 44px; max-width: 100%; padding: 9px 13px;
+  color: var(--color-accent-strong); background: var(--color-surface);
+  border: 1px solid var(--color-border); border-radius: 14px;
+  font-size: 13px; font-weight: 760; line-height: 1.35; text-align: left;
 }
-.pwa-install-panel { width: 100%; padding: 18px; border: 1px solid var(--color-border);
+.pwa-hub-help-trigger span { min-width: 0; overflow-wrap: anywhere; }
+.pwa-hub-help-trigger svg { flex-shrink: 0; }
+.pwa-install-panel { width: min(100%, 470px); padding: 17px; border: 1px solid var(--color-border);
   border-radius: 18px; background: #fff; box-shadow: var(--shadow-soft); }
-.pwa-install-panel h2 { margin: 0 0 10px; font-size: 18px; }
-.pwa-install-panel p { color: var(--color-muted); font-size: 13px; line-height: 1.55; margin-bottom: 12px; }
-.pwa-install-panel .pwa-install-note { font-size: 12px; margin-top: 12px; }
+.pwa-install-panel h2 { margin: 0 0 9px; font-size: 18px; }
+.pwa-install-panel h3 { margin: 0 0 6px; font-size: 13px; color: var(--color-text); }
+.pwa-install-panel p { color: var(--color-muted); font-size: 13px; line-height: 1.5; margin: 0 0 12px; }
+.pwa-install-guides { display: grid; gap: 10px; margin: 13px 0; }
+.pwa-install-guides > div { padding: 11px 12px; border-radius: 12px; background: var(--color-surface-soft); }
+.pwa-install-guides p { margin-bottom: 0; }
+.pwa-install-panel .pwa-install-note { font-size: 12px; margin-top: 10px; }
 .pwa-install-panel .pwa-install-feedback { color: var(--color-accent-strong); font-weight: 700; }
 .pwa-install-panel .primary-button { min-height: 48px; }
+.pwa-close-help { background: transparent; border: 0; color: var(--color-accent-strong);
+  min-height: 44px; padding: 8px 8px; text-decoration: underline;
+  text-underline-offset: 4px; font-size: 13px; font-weight: 730; }
+@media (max-width: 359px) {
+  .pwa-home-install-access { margin-top: -7px; }
+  .pwa-install-panel { padding: 13px; }
+}
 .pwa-update-notice { width: 100%; display: flex; align-items: center; justify-content: space-between;
   gap: 12px; padding: 13px; border: 1px solid var(--color-border); border-radius: 16px;
   background: var(--color-surface-soft); }
