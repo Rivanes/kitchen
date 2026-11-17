@@ -8,7 +8,11 @@ type MemberStatus = 'checking' | 'active' | 'suspended' | 'denied' | 'error'
 type MemberAccess = { kitchen_role: 'admin' | 'member'; kitchen_status: 'active' | 'suspended' }
 
 /** Keyed by user.id in App: old account state is unmounted BEFORE this renders. */
-export function MembershipGate({ user }: { user: User }) {
+export function MembershipGate({ user, adminRoute = false, onNavigateAdmin }: {
+  user: User
+  adminRoute?: boolean
+  onNavigateAdmin?: (active: boolean) => void
+}) {
   const [status, setStatus] = useState<MemberStatus>('checking')
   const [role, setRole] = useState<MemberAccess['kitchen_role'] | null>(null)
 
@@ -49,7 +53,17 @@ export function MembershipGate({ user }: { user: User }) {
     return () => { current = false }
   }, [user.id])
 
-  if (status === 'active') return <HomeHubShell user={user} isAdmin={role === 'admin'} />
+  if (status === 'active') {
+    if (adminRoute && role !== 'admin') return <main className="auth-layout">
+      <section className="login-card access-card" aria-labelledby="admin-rejected">
+        <p className="eyebrow">Kitchen</p>
+        <h1 id="admin-rejected">Brak dostępu do administratora</h1>
+        <p className="login-intro">Panel zaproszeń jest dostępny wyłącznie dla administratora.</p>
+        <button type="button" className="secondary-button" onClick={() => onNavigateAdmin?.(false)}>Wróć do Kitchen</button>
+      </section>
+    </main>
+    return <HomeHubShell user={user} isAdmin={role === 'admin'} adminRoute={adminRoute} onNavigateAdmin={onNavigateAdmin} />
+  }
   if (status === 'checking') {
     return <main className="loading-layout" aria-live="polite">
       <div className="loading-mark" aria-hidden="true">K</div>

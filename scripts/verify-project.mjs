@@ -21,6 +21,9 @@ const requiredFiles = [
   'src/components/MembershipGate.tsx',
   'scripts/test-h7-1-membership-source.mjs',
   'scripts/test-h7-1b-security-corrective.mjs',
+  'scripts/test-h7-3c-admin.mjs',
+  'tests/H7_3C_INVITE_ADMIN_CONTRACT.md',
+  'public/404.html',
   'tests/H7_1_MEMBERSHIP_CONTRACT.md',
   'src/components/KitchenIcon.tsx',
   'src/features/home/HomePage.tsx',
@@ -185,7 +188,7 @@ if (/service_role|SUPABASE_SECRET|DATABASE_PASSWORD/i.test(client)) {
 }
 
 const app = await readFile('src/App.tsx', 'utf8')
-if (!app.includes('<MembershipGate key={session.user.id} user={session.user} />')) {
+if (!app.includes('<MembershipGate key={session.user.id} user={session.user} adminRoute={adminRoute} onNavigateAdmin={navigateAdmin} />')) {
   throw new Error('Authenticated sessions must pass through keyed MembershipGate before AppShell.')
 }
 
@@ -1852,4 +1855,6 @@ await execFileAsync(process.execPath, ['scripts/test-cleaning-h6-4-3e.mjs'])
 
 await execFileAsync(process.execPath, ['scripts/test-h7-1-membership-source.mjs'])
 await execFileAsync(process.execPath, ['scripts/test-h7-1b-security-corrective.mjs'])
+await execFileAsync(process.execPath, ['scripts/test-h7-3-invites.mjs'])
+await execFileAsync(process.execPath, ['scripts/test-h7-3c-admin.mjs'])
 console.log('Kitchen project contract verification: PASS')

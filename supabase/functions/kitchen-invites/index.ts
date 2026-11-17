@@ -8,7 +8,8 @@ import { createClient } from 'npm:@supabase/supabase-js@2.118.0'
 const supabaseUrl = Deno.env.get('SUPABASE_URL')
 const secretKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? Deno.env.get('SUPABASE_SECRET_KEY')
 const appUrl = Deno.env.get('KITCHEN_APP_URL')
-if (!supabaseUrl || !secretKey || !appUrl) throw new Error('Missing H7.3 server configuration')
+const inviteKeyBase64 = Deno.env.get('KITCHEN_INVITE_ENCRYPTION_KEY')
+if (!supabaseUrl || !secretKey || !appUrl || !inviteKeyBase64) throw new Error('Missing H7.3C server configuration')
 const canonicalAppUrl = new URL(appUrl)
 if (canonicalAppUrl.protocol !== 'https:' || canonicalAppUrl.search || canonicalAppUrl.hash) {
   throw new Error('KITCHEN_APP_URL must be a clean HTTPS URL of the Kitchen app')
@@ -42,6 +43,38 @@ function tokenBytes(): string {
 async function tokenDigest(token: string): Promise<string> {
   const buffer = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(token))
   return Array.from(new Uint8Array(buffer), (byte) => byte.toString(16).padStart(2, '0')).join('')
+}
+// AES-256-GCM protects live link re-display in /admin without storing plaintext
+// tokens in Postgres. Set a NEW 32-byte base64 key in Edge Secrets and retain it.
+function decodeBase64(value: string): Uint8Array {
+  const binary = atob(value)
+  return Uint8Array.from(binary, c => c.charCodeAt(0))
+}
+function encodeBase64(value: Uint8Array): string {
+  return btoa(String.fromCharCode(...value))
+}
+const encryptionKey = (async () => {
+  const raw = decodeBase64(inviteKeyBase64!)
+  if (raw.byteLength !== 32) throw Error('H7.3C invite encryption key must be 32 bytes')
+  return crypto.subtle.importKey('raw', raw, { name: 'AES-GCM' }, false, ['encrypt', 'decrypt'])
+})()
+async function encryptToken(token: string): Promise<{ tokenCiphertext: string; tokenIv: string }> {
+  const iv = crypto.getRandomValues(new Uint8Array(12))
+  const buffer = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, await encryptionKey,
+    new TextEncoder().encode(token))
+  return { tokenCiphertext: encodeBase64(new Uint8Array(buffer)), tokenIv: encodeBase64(iv) }
+}
+async function decryptToken(ciphertext: string, iv: string): Promise<string> {
+  const plaintext = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: decodeBase64(iv) },
+    await encryptionKey, decodeBase64(ciphertext))
+  const token = new TextDecoder().decode(plaintext)
+  if (!/^[a-zA-Z0-9_-]{43}$/.test(token)) throw Error('Invalid stored token')
+  return token
+}
+function inviteUrl(token: string): string {
+  const url = new URL(canonicalAppUrl.href)
+  url.searchParams.set('invite', token)
+  return url.toString()
 }
 async function signedInUser(req: Request) {
   const header = req.headers.get('Authorization') ?? ''
@@ -118,13 +151,31 @@ Deno.serve(async (req) => {
 
     if (action === 'issue') {
       const token = tokenBytes()
-      const { data: id, error } = await privilegedRpc('h73_issue_invite', {
-        p_admin_id: user.id, p_token_hash: await tokenDigest(token), p_valid_minutes: 1440,
+      const encrypted = await encryptToken(token)
+      const { data: id, error } = await privilegedRpc('h73c_issue_invite', {
+        p_admin_id: user.id, p_token_hash: await tokenDigest(token),
+        p_token_ciphertext: encrypted.tokenCiphertext, p_token_iv: encrypted.tokenIv,
+        p_valid_minutes: 1440,
       })
-      if (error || !id) return reply(403, { error: 'Brak uprawnień do tworzenia zaproszeń.' })
-      const url = new URL(canonicalAppUrl.href)
-      url.searchParams.set('invite', token)
-      return reply(200, { id, inviteUrl: url.toString(), validHours: 24 })
+      if (error || !id) return reply(403, { error: 'Nie udało się utworzyć zaproszenia. Sprawdź uprawnienia i limit.' })
+      return reply(200, { id, inviteUrl: inviteUrl(token), validHours: 24 })
+    }
+
+    if (action === 'list') {
+      const { data: invitations, error } = await privilegedRpc('h73c_list_active_invites', {
+        p_admin_id: user.id,
+      })
+      if (error || !Array.isArray(invitations)) return reply(403, { error: 'Brak dostępu do listy zaproszeń.' })
+      const invites = await Promise.all(invitations.map(async (row: Record<string, unknown>) => {
+        const cipher = asText(row.token_ciphertext)
+        const iv = asText(row.token_iv)
+        return {
+          id: asText(row.id), issuedAt: asText(row.issued_at), expiresAt: asText(row.expires_at),
+          // Older SHA-only rows cannot be decrypted. Admin can revoke them.
+          inviteUrl: cipher && iv ? inviteUrl(await decryptToken(cipher, iv)) : null,
+        }
+      }))
+      return reply(200, { invites })
     }
 
     if (action === 'revoke') {

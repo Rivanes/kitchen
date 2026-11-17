@@ -1,58 +1,132 @@
-import { useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase/client'
+import { KitchenIcon } from './KitchenIcon'
 
-/** H7.3 minimal admin control; management/history comes in H7.4. */
+type ActiveInvite = {
+  id: string
+  issuedAt: string
+  expiresAt: string
+  inviteUrl: string | null
+}
+
+/** H7.3C: server-filtered, admin-only active invitations; no local token storage. */
 export function AdminInvitePanel() {
-  const [invite, setInvite] = useState<{ url: string; id: string } | null>(null)
+  const [invites, setInvites] = useState<ActiveInvite[]>([])
   const [busy, setBusy] = useState(false)
+  const [loading, setLoading] = useState(true)
   const [message, setMessage] = useState('')
-  const [copied, setCopied] = useState(false)
+  const [errorMessage, setErrorMessage] = useState('')
+  const [now, setNow] = useState(() => Date.now())
+
+  const refresh = useCallback(async (showSpinner = false) => {
+    if (!supabase) return
+    if (showSpinner) setLoading(true)
+    try {
+      const { data, error } = await supabase.functions.invoke('kitchen-invites', {
+        body: { action: 'list' },
+      })
+      if (error || !Array.isArray(data?.invites)) throw Error('list')
+      const active = data.invites.filter((row: unknown): row is ActiveInvite => {
+        if (!row || typeof row !== 'object') return false
+        const item = row as Record<string, unknown>
+        return typeof item.id === 'string' && typeof item.issuedAt === 'string'
+          && typeof item.expiresAt === 'string'
+          && (typeof item.inviteUrl === 'string' || item.inviteUrl === null)
+      })
+      setInvites(active)
+      setErrorMessage('')
+    } catch { setErrorMessage('Nie udało się pobrać aktywnych zaproszeń. Sprawdź połączenie i uprawnienia administratora.') }
+    finally { if (showSpinner) setLoading(false) }
+  }, [])
+
+  useEffect(() => {
+    void refresh(true)
+    // Server/cron is the source of truth. Client interval only refreshes view.
+    const interval = window.setInterval(() => {
+      setNow(Date.now())
+      void refresh()
+    }, 60_000)
+    return () => window.clearInterval(interval)
+  }, [refresh])
 
   async function generate() {
     if (!supabase || busy) return
-    setBusy(true); setMessage(''); setInvite(null); setCopied(false)
+    setBusy(true); setMessage(''); setErrorMessage('')
     try {
-      const { data, error } = await supabase.functions.invoke('kitchen-invites', { body: { action: 'issue' } })
+      const { data, error } = await supabase.functions.invoke('kitchen-invites', {
+        body: { action: 'issue' },
+      })
       if (error || typeof data?.inviteUrl !== 'string' || typeof data?.id !== 'string') throw Error('issue')
-      setInvite({ url: data.inviteUrl, id: data.id })
-    } catch { setMessage('Nie udało się wygenerować linku. Sprawdź wdrożenie H7.3 i uprawnienia administratora.') }
+      setMessage('Wygenerowano nowe zaproszenie. Możesz je skopiować z listy.')
+      await refresh()
+    } catch { setErrorMessage('Nie udało się wygenerować linku. Sprawdź wdrożenie H7.3C i uprawnienia.') }
     finally { setBusy(false) }
   }
 
-  async function revoke() {
-    if (!supabase || !invite || busy) return
-    setBusy(true); setMessage('')
+  async function revoke(id: string) {
+    if (!supabase || busy || !window.confirm('Unieważnić i trwale usunąć to zaproszenie?')) return
+    setBusy(true); setMessage(''); setErrorMessage('')
     try {
       const { data, error } = await supabase.functions.invoke('kitchen-invites', {
-        body: { action: 'revoke', id: invite.id },
+        body: { action: 'revoke', id },
       })
       if (error || data?.revoked !== true) throw Error('revoke')
-      setInvite(null)
-      setMessage('Zaproszenie zostało unieważnione.')
-    } catch { setMessage('Nie udało się unieważnić zaproszenia. Spróbuj ponownie.') }
+      setInvites(current => current.filter(invite => invite.id !== id))
+      setMessage('Zaproszenie zostało unieważnione i usunięte.')
+      await refresh()
+    } catch { setErrorMessage('Nie udało się usunąć zaproszenia. Odśwież listę.') }
     finally { setBusy(false) }
   }
+
+  async function copy(link: string) {
+    try {
+      await navigator.clipboard.writeText(link)
+      setMessage('Link skopiowany. Przekaż go wybranej osobie.')
+      setErrorMessage('')
+    } catch { setErrorMessage('Kopiowanie nie powiodło się. Spróbuj ponownie w przeglądarce z HTTPS.') }
+  }
+
+  const active = invites.filter(item => new Date(item.expiresAt).getTime() > now)
+  const dateFmt = new Intl.DateTimeFormat('pl-PL', { dateStyle: 'short', timeStyle: 'short' })
 
   return <section className="admin-invites" aria-labelledby="invite-admin-title">
     <div className="admin-invites-heading">
-      <div><p className="eyebrow">ADMINISTRATOR</p><h2 id="invite-admin-title">Zaproś użytkownika</h2>
-        <p>Jednorazowy link, ważny 24 godziny. Odbiorca utworzy konto, podając e-mail i własne hasło. Bez wysyłania wiadomości.</p>
+      <div>
+        <p className="eyebrow">DOSTĘP DO KITCHEN</p>
+        <h1 id="invite-admin-title">Zaproszenia</h1>
+        <p>Jednorazowe linki ważne przez 24 godziny. Wykorzystane zaproszenia są usuwane automatycznie, a wygasłe czyści serwer.</p>
       </div>
-      <button className="secondary-button" type="button" onClick={generate} disabled={busy}>
-        {busy ? 'Przetwarzanie…' : 'Generuj link'}
+      <button className="primary-button" type="button" onClick={generate} disabled={busy}>
+        <KitchenIcon name="plus" size={18} /> {busy ? 'Przetwarzanie…' : 'Generuj link'}
       </button>
     </div>
-    {invite ? <div className="admin-invites-result">
-      <label htmlFor="kitchen-invite-url">Link zapraszający</label>
-      <input id="kitchen-invite-url" type="text" readOnly value={invite.url} onFocus={e => e.target.select()}/>
-      <div className="admin-invites-actions">
-        <button type="button" className="secondary-button" onClick={async () => {
-          try { await navigator.clipboard.writeText(invite.url); setCopied(true) }
-          catch { setMessage('Zaznacz link i skopiuj go ręcznie.') }
-        }}>{copied ? 'Skopiowano' : 'Kopiuj link'}</button>
-        <button type="button" className="secondary-button" onClick={revoke} disabled={busy}>Unieważnij</button>
-      </div>
-    </div> : null}
+    <div className="admin-invites-list-heading">
+      <h2>Aktywne linki <span aria-label={`${active.length} aktywnych`}>({active.length})</span></h2>
+      <button type="button" className="secondary-button" onClick={() => { void refresh(true) }} disabled={busy || loading}>
+        <KitchenIcon name="refresh" size={17} /> Odśwież
+      </button>
+    </div>
+    {loading ? <p className="admin-invites-empty" role="status">Wczytywanie zaproszeń…</p> :
+      active.length === 0 ? <div className="admin-invites-empty">
+        <KitchenIcon name="link" size={25} />
+        <strong>Brak aktywnych zaproszeń</strong>
+        <p>Wygeneruj nowy link, kiedy chcesz zaprosić kolejną osobę.</p>
+      </div> : <ul className="admin-invites-list">
+        {active.map(item => <li className="admin-invites-row" key={item.id}>
+          <div className="admin-invites-row-details">
+            <strong>Zaproszenie {item.id.slice(0, 8).toUpperCase()}</strong>
+            <span>Wygasa: {dateFmt.format(new Date(item.expiresAt))}</span>
+            {!item.inviteUrl ? <small>Starszy link — nie można odzyskać adresu; możesz go unieważnić.</small> : null}
+          </div>
+          <div className="admin-invites-actions">
+            <button type="button" className="secondary-button" disabled={!item.inviteUrl || busy}
+              onClick={() => { if (item.inviteUrl) void copy(item.inviteUrl) }}>Kopiuj</button>
+            <button type="button" className="secondary-button admin-invites-revoke" disabled={busy}
+              onClick={() => { void revoke(item.id) }}>Unieważnij</button>
+          </div>
+        </li>)}
+      </ul>}
+    {errorMessage ? <p className="admin-invites-error" role="alert">{errorMessage}</p> : null}
     {message ? <p className="admin-invites-message" role="status">{message}</p> : null}
   </section>
 }

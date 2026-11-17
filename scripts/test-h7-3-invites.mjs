@@ -52,7 +52,7 @@ assert.match(form, /type="password"/)
 assert.match(form, /autocomplete="new-password"/i) // DOM autocomplete casing accepted
 assert.match(gate, /\.rpc\('kitchen_my_access'\)/)
 assert.match(gate, /role === 'admin'/)
-assert.match(hub, /isAdmin \? <AdminInvitePanel/)
+assert.match(hub, /adminRoute && isAdmin/); assert.match(hub, /<AdminInvitePanel/)
 assert.match(adminUI, /action: 'issue'/)
 assert.match(adminUI, /action: 'revoke'/)
 assert.doesNotMatch(adminUI, /service_role|SUPABASE_SECRET_KEY|\.signUp\(/)

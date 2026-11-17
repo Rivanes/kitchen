@@ -9,7 +9,12 @@ import { AdminInvitePanel } from './AdminInvitePanel'
 type HomeModule = 'hub' | 'food' | 'cleaning'
 
 /** Auth and keyed MembershipGate live above this component. Modules own their own navigation. */
-export function HomeHubShell({ user, isAdmin = false }: { user: User; isAdmin?: boolean }) {
+export function HomeHubShell({ user, isAdmin = false, adminRoute = false, onNavigateAdmin }: {
+  user: User
+  isAdmin?: boolean
+  adminRoute?: boolean
+  onNavigateAdmin?: (active: boolean) => void
+}) {
   const [module, setModule] = useState<HomeModule>('hub')
 
   function openModule(nextModule: Exclude<HomeModule, 'hub'>) {
@@ -21,6 +26,19 @@ export function HomeHubShell({ user, isAdmin = false }: { user: User; isAdmin?: 
     setModule('hub')
     window.scrollTo({ top: 0, behavior: 'instant' })
   }
+
+  if (adminRoute && isAdmin) return <main className="app-layout home-hub-layout admin-route-layout">
+    <header className="app-header">
+      <div className="app-brand">
+        <button type="button" className="icon-button" aria-label="Wróć do strony głównej Kitchen"
+          onClick={() => onNavigateAdmin?.(false)}><KitchenIcon name="chevronLeft" /></button>
+        <div><p className="brand-kicker">Kitchen</p><p className="app-greeting">Administracja</p></div>
+      </div>
+      <button type="button" className="icon-button" aria-label="Wyloguj"
+        onClick={() => { void supabase?.auth.signOut() }}><KitchenIcon name="logout" /></button>
+    </header>
+    <div className="home-hub-main"><AdminInvitePanel /></div>
+  </main>
 
   if (module === 'food') return <AppShell user={user} onExit={returnHome} />
   if (module === 'cleaning') return <CleaningShell ownerId={user.id} onExit={returnHome} />
@@ -66,7 +84,9 @@ export function HomeHubShell({ user, isAdmin = false }: { user: User; isAdmin?: 
             <span className="home-hub-module-arrow" aria-hidden="true"><KitchenIcon name="chevronRight" size={18} /></span>
           </button>
         </div>
-        {isAdmin ? <AdminInvitePanel /> : null}
+        {isAdmin ? <button type="button" className="home-hub-admin-link" onClick={() => onNavigateAdmin?.(true)}>
+          <KitchenIcon name="lock" size={18} /> Administracja — zaproszenia <KitchenIcon name="chevronRight" size={18}/>
+        </button> : null}
       </section>
     </main>
   )

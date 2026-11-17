@@ -29,6 +29,7 @@ type KitchenIconName =
   | 'search'
   | 'minus'
   | 'trash'
+  | 'link'
   | 'camera'
   | 'image'
   | 'microphone'
@@ -113,6 +114,8 @@ export function KitchenIcon({ name, size = 22, strokeWidth = 1.9 }: KitchenIconP
       return <svg {...common}><circle cx="10.5" cy="10.5" r="6.5" /><path d="m15.5 15.5 4 4" /></svg>
     case 'minus':
       return <svg {...common}><path d="M5 12h14" /></svg>
+    case 'link':
+      return <svg {...common}><path d="M10 13.5a5 5 0 0 0 7.1 0l2-2A5 5 0 0 0 12 4.4L10.7 5.7" /><path d="M14 10.5a5 5 0 0 0-7.1 0l-2 2A5 5 0 1 0 12 19.6l1.3-1.3" /></svg>
     case 'trash':
       return <svg {...common}><path d="M4.5 7h15" /><path d="M9 3.5h6l1 3.5H8z" /><path d="M7 7l.8 13h8.4L17 7" /><path d="M10 10.5v6" /><path d="M14 10.5v6" /></svg>
     case 'camera':

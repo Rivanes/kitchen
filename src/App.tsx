@@ -7,12 +7,32 @@ import { hasSupabaseConfig, supabase } from './lib/supabase/client'
 
 // H7.3: token is kept in component memory, then removed from the URL on mount.
 const initialInviteToken = new URLSearchParams(window.location.search).get('invite')
+const adminPath = `${import.meta.env.BASE_URL.replace(/\/$/, '')}/admin`
+function isAdminLocation(): boolean {
+  return window.location.pathname.replace(/\/$/, '') === adminPath
+    || new URLSearchParams(window.location.search).get('kitchen_admin_route') === '1'
+}
 
 export default function App() {
   const [session, setSession] = useState<Session | null>(null)
   const [checkingSession, setCheckingSession] = useState(hasSupabaseConfig)
+  const [adminRoute, setAdminRoute] = useState(isAdminLocation)
+
+  function navigateAdmin(next: boolean) {
+    window.history.pushState(null, '', next ? adminPath : import.meta.env.BASE_URL)
+    setAdminRoute(next)
+    window.scrollTo({ top: 0, behavior: 'instant' })
+  }
 
   useEffect(() => {
+    const query = new URLSearchParams(window.location.search)
+    if (query.get('kitchen_admin_route') === '1') {
+      query.delete('kitchen_admin_route')
+      window.history.replaceState(null, '', adminPath + (query.size ? '?' + query.toString() : ''))
+      setAdminRoute(true)
+    }
+    const onPopState = () => setAdminRoute(isAdminLocation())
+    window.addEventListener('popstate', onPopState)
     if (initialInviteToken) {
       const sanitized = new URL(window.location.href)
       sanitized.searchParams.delete('invite')
@@ -20,7 +40,7 @@ export default function App() {
     }
     if (!supabase) {
       setCheckingSession(false)
-      return
+      return () => window.removeEventListener('popstate', onPopState)
     }
 
     let active = true
@@ -40,6 +60,7 @@ export default function App() {
     return () => {
       active = false
       listener.subscription.unsubscribe()
+      window.removeEventListener('popstate', onPopState)
     }
   }, [])
 
@@ -58,5 +79,5 @@ export default function App() {
     return <LoginPage configurationMissing={!hasSupabaseConfig} />
   }
 
-  return <MembershipGate key={session.user.id} user={session.user} />
+  return <MembershipGate key={session.user.id} user={session.user} adminRoute={adminRoute} onNavigateAdmin={navigateAdmin} />
 }

@@ -2,6 +2,10 @@
 
 Administrator generuje 24-godzinny link; osoba otwiera go, wpisuje e-mail, hasło oraz potwierdzenie hasła. Weryfikacja tokena i utworzenie konta przez `auth.admin.createUser` zachodzą tylko w `supabase/functions/kitchen-invites/index.ts` — brak publicznego `signUp`, brak SMTP w tej fazie. GitHub Pages musi dostać zmieniony formularz, a Supabase Edge Function musi zostać **osobno zaktualizowana przez Dashboard → Code → Deploy updates**. SQL H7.3 jest już wdrożony, nie uruchamiać go ponownie. Brak weryfikacji własności e-maila (`email_confirm: true`) jest świadomym **ryzykiem tylko dla środowiska testowego**. Szczegóły `OUTSIDE_REPO/H7_3_RUNBOOK.md`.
 
+## H7.3C — zaproszenia administratora (kandydat źródłowy)
+
+Panel `https://rivanes.github.io/kitchen/admin` (tylko admin) zarządza aktywnymi jednorazowymi zaproszeniami. Backend: istniejąca Edge Function `kitchen-invites` i nowe serwerowe RPC H7.3C z retencją `pg_cron`, AES-GCM w Edge Secret. Po udanej rejestracji lub unieważnieniu zaproszenie jest usuwane z DB; wygasłe zaproszenia sprząta Cron. H7.3C source candidate nie oznacza wdrożenia produkcyjnego ani E2E PASS. Migrację/instrukcje trzymaj poza repo w `OUTSIDE_REPO/H7_3_RUNBOOK.md`. Nie uruchamiaj ALL_IN_ONE na istniejącej bazie.
+
 ## Moduły
 
 - **Dom:** wybór Jedzenie lub Porządki.
