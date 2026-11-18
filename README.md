@@ -1,18 +1,18 @@
-## H7.5.3 — instalacja PWA widoczna w każdej przeglądarce (SOURCE READY, 2026-11-17)
+## H7.5.4 — instalacja PWA pod modułami (SOURCE READY, 2026-11-17)
 
-Opcja `Zainstaluj Kitchen` znajduje się bezpośrednio pod nagłówkiem Dom, a nie pod kafelkami. Zawsze można otworzyć instrukcję (iPhone/Android); natywny prompt jest dostępny tylko tam, gdzie przeglądarka go udostępnia. W trybie standalone widoczny jest status, nie kolejna instalacja. Istniejący manifest/SW nadal obsługuje aktualizację na żądanie (nie przerywa edytora). W razie offline pojawia się informacja o braku połączenia; API/Auth nie są zapisywane w Cache API. `npm run verify:project` uruchamia nowy `scripts/test-h7-5-pwa.mjs`.
+Na ekranie Dom opcja `Zainstaluj Kitchen` znajduje się **pod kafelkami Jedzenie i Porządki**. W zwykłej karcie przeglądarki można otworzyć instrukcję iOS/Android bez wykrywania nazwy przeglądarki; natywny prompt pojawia się tylko, gdy urządzenie go udostępnia. W aplikacji uruchomionej standalone nie pokazujemy ani opcji instalacji, ani zbędnego statusu. Istniejący manifest/SW nadal obsługuje aktualizację na żądanie (bez przerywania edytora). W razie offline pojawia się informacja o braku połączenia; API/Auth nie są zapisywane w Cache API. Test: `npm run verify:project`.
 
-**UWAGA bezpieczeństwa:** wynik live H7.4C.1 POSTCHECK = 6/7 (`H74C1_PRIVATE_AUTHORITY=false`), więc H7.4 nie jest jeszcze w pełni zamknięty. Dodatkowe diagnozy w `OUTSIDE_REPO/H7_5_RUNBOOK.md` (poza repo). Przed zwiększeniem grona testerów wymagane rozstrzygnięcie brakującego testu; na tym etapie nie dodawać nowego SQL migracji.
+**Stan bezpieczeństwa:** poprawiony H7.4C.1 POSTCHECK otrzymał od użytkownika wynik **7/7 PASS**. Nadal wymagane są niezależne testy negatywne A/B, RLS, RPC i Storage w H7.4D/H7.6. W H7.5.4 nie zmieniamy SQL.
 
 ---
 
-## H7.4C.1 — ONE automatically growing product dictionary / SOURCE READY
+## H7.4C.1 — jeden automatycznie rosnący katalog produktów (SQL LIVE 7/7 PASS)
 
-**Status 2026-11-17:** H7.4B SQL foundation is already LIVE PASS (PRE 10/10, migration success, POST 12/12). H7.4C was reported USER PASS, but the user later found that opt-in publication and split suggestion lists conflict with the agreed automatic shared catalog. The new **H7.4C.1 corrective** is SOURCE READY and **NOT deployed**.
+**Status 2026-11-17:** H7.4B SQL LIVE PASS (PRE 10/10, POST 12/12); H7.4C.1 SQL migration wykonana, poprawiony POSTCHECK **7/7 PASS** (wyniki użytkownika), 21/21 istniejących produktów powiązanych. GitHub Deploy PASS zgłoszony przez użytkownika. Rzeczywiste negatywne testy API A/B, JWT, RLS i Storage pozostają OPEN (H7.4D/H7.6).
 
 All Kitchen accounts use **one global name/role/suggested unit dictionary**. Creating or renaming an owner product automatically indexes a matching global definition via a restricted DB trigger, without a publication toggle. Existing owner names are indexed once by a separate corrective SQL migration. In Inventory/Shopping/Recipes there is **one alphabetically sorted autocomplete list** without „Moje / Katalog Kitchen” headings. Adopting a shared name still creates/uses a caller-owned Product ID through `h74_adopt_shared_product`. Private quantities, stock locations, packages and recipe snapshots are never shared.
 
-**Deploy:** See `OUTSIDE_REPO/H7_4C1_UNIFIED_CATALOG_RUNBOOK.md` in the full package. New SQL: readonly PRECHECK (with names review) → `H7_4C1_UNIFIED_CATALOG_CORRECTIVE.sql` once → readonly POSTCHECK → A/B ROLLBACK smoke → GitHub source changes → GitHub QA+Deploy same SHA → real A/B phone QA. **Never rerun H7.4B or ALL_IN_ONE on the existing DB.** Reconcile this source with the actual GitHub main; the current HEAD SHA has not been independently verified. Backend SQL/runtime and TS7 build are OPEN, not PASS.
+**Nie ponawiać** H7.4B, H7.4C.1 ani `ALL_IN_ONE.sql` w istniejącej bazie. Bieżący baseline GitHub przed H7.5.4 to `70701f5ef8d889a43f7c558932590a31188a0254`; bieżące instrukcje wdrożeniowe są wyłącznie w `OUTSIDE_REPO/H7_5_4_RUNBOOK.md` w paczce.
 
 **Constraint:** Global catalog shares **product names**. Do not enter names containing personal data. The existing two-request product-creation/business-save flow can leave an unused catalog definition after a later business-save error; this limitation is documented and must not be mistaken for full atomicity across requests.
 
