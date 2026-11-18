@@ -301,7 +301,6 @@ export function HomePage({ ownerId, onAddProduct, onOpenExpiry, onOpenShopping, 
   return (
     <section className="home-page" aria-label="Start">
       <div className="home-overview">
-        <h1 id="home-overview-title">Twoja kuchnia</h1>
         {(homeStatus.status !== 'ready' || hasResources) && (
           <p role="status">
             {homeStatus.status === 'loading' && 'Sprawdzam zapasy…'}

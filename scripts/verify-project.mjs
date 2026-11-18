@@ -18,6 +18,7 @@ const requiredFiles = [
   '.github/workflows/deploy.yml',
   'src/App.tsx',
   'src/components/AppShell.tsx',
+  'src/components/ModulePageHeader.tsx',
   'src/components/HomeHubShell.tsx',
   'src/features/cleaning/CleaningShell.tsx',
   'tests/HOME_HUB_H1_CONTRACT.md',
@@ -36,6 +37,9 @@ const requiredFiles = [
   'tests/H7_5_6_STARTUP_ANIMATION_CONTRACT.md',
   'scripts/test-h7-5-7-smart-ui.mjs',
   'tests/H7_5_7_SMART_UI_CONTRACT.md',
+  'scripts/test-h7-5-7c-unified-header.mjs',
+  'tests/H7_5_7C_UNIFIED_HEADER_CONTRACT.md',
+  'src/lib/useForegroundRefresh.ts',
   'scripts/test-h7-1b-security-corrective.mjs',
   'scripts/test-h7-3c-admin.mjs',
   'tests/H7_3C_INVITE_ADMIN_CONTRACT.md',
@@ -551,7 +555,7 @@ for (const marker of ['Wszystkie', 'Z terminem', 'Bez terminu', 'Termin: nie pod
     throw new Error(`V1.6.2 Expiry Center contract marker missing: ${marker}`)
   }
 }
-if (!expiryPage.includes('Terminy ważności') || !expiryPage.includes('allLots.length >= 10') || !expiryPage.includes('Szukaj produktu lub miejsca')) {
+if (!expiryPage.includes('aria-labelledby="kitchen-page-title"') || !expiryPage.includes('allLots.length >= 10') || !expiryPage.includes('Szukaj produktu lub miejsca')) {
   throw new Error('V1.7 Expiry Center must keep unified wording and contextual search for larger collections.')
 }
 if (!expiryPage.includes('counts.critical > 0') || !expiryPage.includes('Wszystko w porządku')) {
@@ -1882,3 +1886,4 @@ await execFileAsync(process.execPath, ['scripts/test-h7-5-pwa.mjs'])
 await execFileAsync(process.execPath, ['scripts/test-h7-5-5-login-ux.mjs'])
 await execFileAsync(process.execPath, ['scripts/test-h7-5-6-launch-intro.mjs'])
 await execFileAsync(process.execPath, ['scripts/test-h7-5-7-smart-ui.mjs'])
+await execFileAsync(process.execPath, ['scripts/test-h7-5-7c-unified-header.mjs'])

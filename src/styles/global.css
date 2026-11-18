@@ -445,7 +445,6 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
   gap: 14px;
   margin-bottom: 18px;
 }
-.inventory-page-heading { align-items: center; justify-content: space-between; margin-bottom: 10px; }
 .page-heading-row > div { min-width: 0; }
 .page-heading-row h1 {
   margin: 0 0 5px;
@@ -924,12 +923,6 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
   gap: 4px;
   padding: 2px 1px;
 }
-.home-overview h1 {
-  margin: 0;
-  font-size: clamp(27px, 7.6vw, 34px);
-  line-height: 1.07;
-  letter-spacing: -.04em;
-}
 .home-overview p {
   margin: 0;
   color: var(--color-muted);
@@ -1245,7 +1238,15 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
   gap: 7px;
 }
 
-.inventory-overview-search { margin: 0 0 12px; }
+.inventory-overview-toolbar { display: flex; align-items: center; gap: 9px; margin-bottom: 12px; }
+.inventory-overview-search { flex: 1; min-width: 0; margin: 0; }
+.inventory-overview-toolbar .primary-icon-button { flex: 0 0 var(--touch-min); }
+.inventory-add-row {
+  display: inline-flex; align-items: center; justify-content: center; gap: 9px;
+  width: 100%; min-height: 48px; border: 1px solid var(--color-border);
+  border-radius: 14px; background: var(--color-surface); color: var(--color-accent-strong);
+  font-size: 14px; font-weight: 800;
+}
 .inventory-overview-search-empty { margin-bottom: 12px; }
 
 .inventory-location-grid { display: grid; gap: 10px; }
@@ -1596,15 +1597,6 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
   gap: 14px;
   padding-top: 2px;
 }
-.expiry-page-heading { margin-bottom: 0; }
-.expiry-page-heading .eyebrow { margin-bottom: 4px; }
-.expiry-page-heading h1 {
-  margin: 0;
-  font-size: clamp(29px, 9vw, 38px);
-  line-height: 1.03;
-  letter-spacing: -.04em;
-}
-
 .expiry-quick-summary {
   display: flex;
   flex-wrap: wrap;
@@ -1899,23 +1891,6 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
   gap: 14px;
   padding-top: 2px;
 }
-.shopping-page-heading {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-.shopping-page-heading h1 {
-  margin: 0;
-  font-size: clamp(29px, 8vw, 36px);
-  line-height: 1.04;
-  letter-spacing: -.04em;
-}
-.shopping-heading-actions {
-  display: flex;
-  gap: 8px;
-}
-
 .shopping-state-card,
 .shopping-empty-card {
   border: 1px solid var(--color-border);
@@ -2024,20 +1999,6 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
 }
 .shopping-search-empty strong { color: var(--color-text); font-size: 13px; }
 .shopping-search-empty span { font-size: 11px; }
-
-.shopping-add-footer {
-  min-height: 48px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 7px;
-  border: 1px solid var(--color-border);
-  border-radius: 14px;
-  background: #fff;
-  color: var(--color-accent-strong);
-  font-size: 12px;
-  font-weight: 800;
-}
 
 .shopping-editor-sheet { max-height: calc(100dvh - 8px); }
 .shopping-form { gap: 12px; }
@@ -2185,13 +2146,14 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
   gap: 8px;
 }
 .shopping-section-heading {
-  min-height: 28px;
+  min-height: var(--touch-min);
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: 10px;
   padding: 0 2px;
 }
+.shopping-section-heading .shopping-section-add { margin-left: auto; flex: 0 0 var(--touch-min); }
 .shopping-section-heading strong { font-size: 12px; }
 .shopping-section-heading span {
   min-width: 25px;
@@ -2509,29 +2471,12 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
   min-width: 0;
   padding-top: 2px;
 }
-.recipes-page-heading {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-.recipes-page-heading h1 {
-  margin: 0;
-  font-size: clamp(29px, 8vw, 36px);
-  line-height: 1.04;
-  letter-spacing: -.04em;
-}
 .recipe-detail-heading .eyebrow { margin-bottom: 4px; }
 .recipe-detail-heading h1 {
   margin: 0;
   font-size: clamp(29px, 9vw, 38px);
   line-height: 1.03;
   letter-spacing: -.04em;
-}
-.recipes-heading-actions {
-  display: flex;
-  align-items: center;
-  gap: 7px;
 }
 .recipes-add-button {
   background: var(--color-accent-strong);
@@ -3730,6 +3675,7 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
   color: #34553d;
 }
 .recipe-category-choice:disabled { opacity: .6; }
+.recipe-filters-toolbar { display: grid; grid-template-columns: minmax(0, 1fr) var(--touch-min); align-items: center; gap: 9px; min-width: 0; }
 .recipe-category-filters { margin: 0; }
 .recipe-category-badge {
   display: inline-flex;
@@ -4500,6 +4446,13 @@ html:has(.cleaning-shell), body:has(.cleaning-shell) { background: #f5f8fa; }
 .home-hub-cleaning .home-hub-module-arrow { color: #7591a3; }
 
 /* Both modules share an explicit, accessible return-to-hub action. */
+.module-page-header { gap: 10px; }
+.module-page-brand { flex: 1; min-width: 0; }
+.module-page-title {
+  min-width: 0; margin: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+  color: var(--color-text); font-size: clamp(16px, 4.5vw, 19px); line-height: 1.2;
+  font-weight: 800; letter-spacing: -.02em;
+}
 .module-header-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
 .module-home-button {
   display: flex;
@@ -4539,27 +4492,10 @@ html:has(.cleaning-shell), body:has(.cleaning-shell) { background: #f5f8fa; }
 .cleaning-bottom-nav .nav-item.is-active { color: var(--color-accent-strong); background: var(--color-accent-soft); }
 .cleaning-bottom-nav .nav-item:active { background: #eaf2f8; }
 .cleaning-page { display: grid; gap: 24px; }
-.cleaning-hero {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 13px;
-  padding: 25px 21px;
-  border: 1px solid var(--color-border);
-  border-radius: 25px;
-  background: linear-gradient(125deg, #fff 0%, #f1f7fa 100%);
-}
-.cleaning-hero > div { min-width: 0; }
-.cleaning-hero h1 { margin-bottom: 9px; max-width: 240px; font-size: clamp(25px, 6vw, 34px); letter-spacing: -.045em; line-height: 1.1; }
-.cleaning-hero p:last-child { margin: 0; font-size: 13px; line-height: 1.5; color: var(--color-muted); }
-.cleaning-hero-icon { flex: 0 0 60px; width: 60px; height: 60px; border-radius: 21px; display: grid; place-items: center; color: var(--color-accent-strong); background: var(--color-accent-soft); }
 .cleaning-section { display: grid; gap: 13px; }
 .cleaning-section-title { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
 .cleaning-section-title h2 { font-size: 19px; letter-spacing: -.025em; margin: 0; }
 .cleaning-section-note { font-size: 12px; color: var(--color-muted); }
-.cleaning-page-heading { padding: 17px 3px 2px; }
-.cleaning-page-heading h1 { font-size: clamp(28px, 6vw, 35px); letter-spacing: -.04em; margin-bottom: 8px; }
-.cleaning-page-heading p:last-child { font-size: 14px; color: var(--color-muted); margin-bottom: 0; }
 .cleaning-empty-state { display: flex; align-items: center; flex-direction: column; text-align: center; gap: 10px; border: 1px dashed #c9dbe6; border-radius: 24px; background: rgba(255, 255, 255, .8); padding: 29px 20px; }
 .cleaning-empty-spacious { min-height: 280px; justify-content: center; }
 .cleaning-empty-icon { height: 54px; width: 54px; display: grid; place-items: center; border-radius: 17px; background: var(--color-accent-soft); color: var(--color-accent-strong); margin-bottom: 5px; }
@@ -4573,8 +4509,6 @@ html:has(.cleaning-shell), body:has(.cleaning-shell) { background: #f5f8fa; }
   .home-hub-module-caption { font-size: 11px; }
   .module-header-actions { gap: 5px; }
   .module-home-button { padding: 0 8px; }
-  .cleaning-hero { padding: 22px 17px; }
-  .cleaning-hero-icon { flex-basis: 52px; width: 52px; height: 52px; }
 }
 @media (min-width: 620px) {
   .home-hub-main { max-width: 570px; align-self: center; }
@@ -4584,11 +4518,12 @@ html:has(.cleaning-shell), body:has(.cleaning-shell) { background: #f5f8fa; }
   .home-hub-module { transition: none; }
 }
 
-/* Narrow iPhone: protect header action targets instead of allowing horizontal overflow. */
-.cleaning-header .app-brand { flex: 1; min-width: 0; }
-.cleaning-header .app-brand > div:last-child { min-width: 0; }
-.cleaning-header .cleaning-shell-page-title { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-.cleaning-header .module-header-actions { flex-shrink: 0; }
+/* Narrow iPhone: both modules retain tappable global actions and a single truncated title. */
+@media (max-width: 359px) {
+  .module-page-brand { gap: 7px; }
+  .module-page-header { gap: 5px; }
+  .module-page-title { font-size: 15px; }
+}
 
 /* H2 — Cleaning Rooms CRUD. Tokens remain scoped to .cleaning-shell. */
 .cleaning-start-panel { display: flex; flex-wrap: wrap; align-items: center; gap: 13px; padding: 18px; border: 1px solid var(--color-border); background: var(--color-surface); border-radius: 22px; }
@@ -4605,10 +4540,15 @@ html:has(.cleaning-shell), body:has(.cleaning-shell) { background: #f5f8fa; }
 .cleaning-room-card-copy { min-width: 0; display: grid; gap: 4px; }
 .cleaning-room-card-copy strong { font-size: 16px; overflow-wrap: anywhere; }
 .cleaning-room-card-copy > span { font-size: 12px; color: var(--color-muted); }
-/* H6.2: reuse the Food heading / plus / count badge. Keep the original room card geometry. */
+/* Room overview keeps the shared title in ModulePageHeader; a labelled action replaces the orphan + row. */
 .cleaning-rooms-overview { gap: 14px; }
-.cleaning-rooms-heading { margin: 0; padding: 0 3px; align-items: center; justify-content: flex-end; min-height: 44px; }
-.cleaning-rooms-heading .primary-icon-button { box-shadow: 0 8px 20px rgba(49, 92, 124, .14); }
+.cleaning-add-room-row {
+  display: inline-flex; align-items: center; justify-content: center; gap: 9px;
+  width: 100%; min-height: 48px; border: 1px solid var(--color-border);
+  border-radius: 15px; background: var(--color-surface); color: var(--color-accent-strong);
+  font-size: 14px; font-weight: 800;
+}
+.cleaning-add-room-row:disabled { opacity: .55; }
 .cleaning-room-card-end { margin-left: auto; flex: 0 0 auto; display: flex; gap: 8px; align-items: center; }
 .cleaning-room-card-end > svg { color: #8095a2; }
 .cleaning-room-card-end .location-count-badge { background: var(--color-accent-soft); }
@@ -4763,7 +4703,6 @@ html:has(.cleaning-shell), body:has(.cleaning-shell) { background: #f5f8fa; }
 
 /* H6.4.2 — compact, mobile-first execution calendar; Food design tokens stay untouched. */
 /* H6.4.4B: seven-day rolling viewport with adjacent date buffers and one-day navigation. */
-.cleaning-shell-page-title { margin: 0; font-size: clamp(16px, 4.2vw, 19px); line-height: 1.25; }
 .cleaning-schedule { display: grid; gap: 14px; min-width: 0; }
 .cleaning-schedule-calendar { background: #fff; border: 1px solid var(--color-border); border-radius: 19px; padding: 7px 11px 10px; display: grid; gap: 4px; min-width: 0; }
 .cleaning-schedule-period { display: grid; grid-template-columns: 44px minmax(0,1fr) 44px; align-items: center; gap: 4px; text-align: center; }

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { KitchenIcon } from '../../components/KitchenIcon'
+import { useForegroundRefresh } from '../../lib/useForegroundRefresh'
 import { formatQuantity } from '../quantity/quantity'
 import { getInventoryExpiryMeta } from './expiry'
 import { InventoryConsumeSheet } from './InventoryConsumeSheet'
@@ -48,6 +49,17 @@ export function ExpiryPage({ ownerId, onBack }: ExpiryPageProps) {
     setLoadState({ status: 'loading', model: null })
     setReloadVersion((value) => value + 1)
   }, [])
+
+  const refreshSilently = useCallback(async () => {
+    try {
+      const model = await loadInventoryReadModel(ownerId)
+      setLoadState({ status: 'ready', model })
+    } catch {
+      reload()
+    }
+  }, [ownerId, reload])
+
+  useForegroundRefresh(() => { void refreshSilently() }, loadState.status === 'ready' && editLot === null && consumeLot === null)
 
   useEffect(() => {
     let active = true
@@ -139,21 +151,11 @@ export function ExpiryPage({ ownerId, onBack }: ExpiryPageProps) {
   })
 
   return (
-    <section className="expiry-page" aria-labelledby="expiry-page-title">
+    <section className="expiry-page" aria-labelledby="kitchen-page-title">
       <button className="inventory-back-button" type="button" onClick={onBack}>
         <KitchenIcon name="chevronLeft" size={18} />
         Start
       </button>
-
-      <div className="page-heading-row expiry-page-heading">
-        <div>
-          <p className="eyebrow">Terminy</p>
-          <h1 id="expiry-page-title">Terminy ważności</h1>
-        </div>
-        <button className="icon-button icon-button-quiet" type="button" onClick={reload} disabled={loadState.status === 'loading'} aria-label="Odśwież terminy" title="Odśwież">
-          <KitchenIcon name="refresh" />
-        </button>
-      </div>
 
       {loadState.status === 'loading' && (
         <div className="inventory-state-card" aria-live="polite">

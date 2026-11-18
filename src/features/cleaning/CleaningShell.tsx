@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { KitchenIcon } from '../../components/KitchenIcon'
+import { ModulePageHeader } from '../../components/ModulePageHeader'
 import { AppFormSheet } from '../../components/AppFormSheet'
 import { CleaningTaskBoard } from './CleaningTaskBoard'
 import { CleaningStartTasks } from './CleaningStartTasks'
@@ -236,16 +237,7 @@ export function CleaningShell({ ownerId, onExit }: CleaningShellProps) {
 
   return (
     <main className="app-layout cleaning-shell">
-      <header className="app-header cleaning-header">
-        <div className="app-brand">
-          <div className="brand-mark brand-mark-small cleaning-brand-mark" aria-hidden="true"><KitchenIcon name="cleaning" size={23} /></div>
-          <div><h1 id="cleaning-page-title" className="brand-kicker cleaning-shell-page-title">{pageTitle}</h1></div>
-        </div>
-        <div className="module-header-actions">
-          <button className="module-home-button" type="button" onClick={onExit} aria-label="Wróć do strony głównej Dom"><KitchenIcon name="home" size={19} /><span>Dom</span></button>
-          <button className="icon-button" type="button" onClick={() => { void supabase?.auth.signOut() }} aria-label="Wyloguj" title="Wyloguj"><KitchenIcon name="logout" /></button>
-        </div>
-      </header>
+      <ModulePageHeader title={pageTitle} module="cleaning" onExit={onExit} onLogout={() => { void supabase?.auth.signOut() }} titleId="cleaning-page-title" />
 
       {view === 'start' && (
         <section className="cleaning-page cleaning-start" aria-label="Start Porządków">
@@ -288,18 +280,18 @@ export function CleaningShell({ ownerId, onExit }: CleaningShellProps) {
             </>
           ) : (
             <>
-              <div className="page-heading-row cleaning-rooms-heading">
-                <div className="page-actions">
-                  <button className="primary-icon-button" type="button" onClick={() => openEditor('create')} disabled={roomsLoad !== 'ready' || saving} aria-label="Dodaj pomieszczenie" title="Dodaj pomieszczenie"><KitchenIcon name="plus" /></button>
-                </div>
-              </div>
               {renderLoadStatus()}
               {roomsLoad === 'ready' && (
                 <>
                   {!editor && actionErrorBanner}
+                  {activeRooms.length > 0 && (
+                    <button className="cleaning-add-room-row" type="button" onClick={() => openEditor('create')} disabled={saving}>
+                      <KitchenIcon name="plus" size={20} />Dodaj pomieszczenie
+                    </button>
+                  )}
                   {countsLoad === 'error' && <div className="cleaning-inline-error" role="alert">{countsError} <button className="cleaning-link-button" type="button" onClick={() => setCountsRefresh((n) => n + 1)}>Ponów</button></div>}
                   {activeRooms.length === 0 ? (
-                    <div className="cleaning-empty-state cleaning-empty-spacious"><span className="cleaning-empty-icon" aria-hidden="true"><KitchenIcon name="room" size={28} /></span><h2>Jeszcze nie ma pomieszczeń</h2><p>Dodaj pierwsze pomieszczenie przyciskiem +.</p></div>
+                    <div className="cleaning-empty-state cleaning-empty-spacious"><span className="cleaning-empty-icon" aria-hidden="true"><KitchenIcon name="room" size={28} /></span><h2>Jeszcze nie ma pomieszczeń</h2><button className="cleaning-action" type="button" onClick={() => openEditor('create')} disabled={saving}><KitchenIcon name="plus" size={18} />Dodaj pomieszczenie</button></div>
                   ) : (
                     <div className="cleaning-room-list" aria-label="Aktywne pomieszczenia">{activeRooms.map((room) => (
                       <button type="button" className="cleaning-room-card" onClick={() => openRoom(room)} key={room.id}>

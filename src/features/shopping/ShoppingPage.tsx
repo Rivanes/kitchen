@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { KitchenIcon } from '../../components/KitchenIcon'
+import { useForegroundRefresh } from '../../lib/useForegroundRefresh'
 import { formatQuantity } from '../quantity/quantity'
 import { ShoppingEditor } from './ShoppingEditor'
 import { ShoppingPurchaseSheet } from './ShoppingPurchaseSheet'
@@ -51,6 +52,12 @@ export function ShoppingPage({ ownerId }: ShoppingPageProps) {
   useEffect(() => {
     void load()
   }, [load])
+
+  useForegroundRefresh(() => {
+    void loadShoppingReadModel(ownerId)
+      .then((model) => setShoppingStatus({ status: 'ready', model }))
+      .catch(() => { void load() })
+  }, shoppingStatus.status === 'ready' && editor === null && purchaseTarget === null && inventoryTarget === null && updatingItemId === null)
 
   const model = shoppingStatus.status === 'ready' ? shoppingStatus.model : null
   const normalizedSearch = searchQuery.trim().toLocaleLowerCase('pl-PL')
@@ -126,18 +133,6 @@ export function ShoppingPage({ ownerId }: ShoppingPageProps) {
 
   return (
     <section className="shopping-page" aria-label="Zakupy">
-      <div className="page-heading shopping-page-heading">
-        <h1>Zakupy</h1>
-        <div className="shopping-heading-actions">
-          <button className="icon-button" type="button" onClick={() => void load()} aria-label="Odśwież listę zakupów" title="Odśwież">
-            <KitchenIcon name="refresh" />
-          </button>
-          <button className="primary-icon-button" type="button" onClick={() => setEditor({ kind: 'create' })} aria-label="Dodaj do listy" title="Dodaj do listy">
-            <KitchenIcon name="plus" />
-          </button>
-        </div>
-      </div>
-
       {shoppingStatus.status === 'loading' && (
         <section className="shopping-state-card" aria-live="polite">
           <KitchenIcon name="shopping" size={24} />
@@ -206,6 +201,7 @@ export function ShoppingPage({ ownerId }: ShoppingPageProps) {
           <div className="shopping-section-heading">
             <strong>Do kupienia</strong>
             <span>{model.activeItems.length}</span>
+            <button className="primary-icon-button shopping-section-add" type="button" onClick={() => setEditor({ kind: 'create' })} aria-label="Dodaj do listy" title="Dodaj do listy"><KitchenIcon name="plus" /></button>
           </div>
           {visibleActiveItems.length > 0 ? (
             <div className="shopping-list-card">
@@ -310,13 +306,6 @@ export function ShoppingPage({ ownerId }: ShoppingPageProps) {
           <strong>Brak wyników</strong>
           <span>Spróbuj innej nazwy.</span>
         </div>
-      )}
-
-      {model && totalItemCount > 0 && (
-        <button className="shopping-add-footer" type="button" onClick={() => setEditor({ kind: 'create' })}>
-          <KitchenIcon name="plus" size={18} />
-          Dodaj do listy
-        </button>
       )}
 
       {inventoryTarget && (

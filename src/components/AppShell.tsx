@@ -7,6 +7,7 @@ import { InventoryPage } from '../features/inventory/InventoryPage'
 import { ShoppingPage } from '../features/shopping/ShoppingPage'
 import { RecipesPage } from '../features/recipes/RecipesPage'
 import { KitchenIcon } from './KitchenIcon'
+import { ModulePageHeader } from './ModulePageHeader'
 import { KITCHEN_VOICE_ENABLED } from '../config/featureFlags'
 
 const VoiceSttSpikePage = lazy(() => import('../features/voice/VoiceSttSpikePage').then((module) => ({ default: module.VoiceSttSpikePage })))
@@ -72,6 +73,13 @@ export function AppShell({ user, onExit }: AppShellProps) {
   }
 
   const startSectionActive = view === 'home' || view === 'expiry'
+  const pageTitle: Record<AppView, string> = {
+    home: 'Twoja kuchnia',
+    inventory: 'Zapasy',
+    expiry: 'Terminy ważności',
+    shopping: 'Zakupy',
+    recipes: 'Przepisy',
+  }
 
   if (voiceContextSpikeMode) {
     return (
@@ -119,19 +127,7 @@ export function AppShell({ user, onExit }: AppShellProps) {
 
   return (
     <main className={KITCHEN_VOICE_ENABLED ? 'app-layout voice-enabled' : 'app-layout'}>
-      <header className="app-header">
-        <div className="app-brand">
-          <div className="brand-mark brand-mark-small" aria-hidden="true">K</div>
-        </div>
-        <div className="module-header-actions">
-          <button type="button" className="module-home-button" onClick={onExit} aria-label="Wróć do strony głównej Dom">
-            <KitchenIcon name="home" size={19} /><span>Dom</span>
-          </button>
-          <button className="icon-button" type="button" onClick={handleLogout} aria-label="Wyloguj z Kitchen" title="Wyloguj">
-            <KitchenIcon name="logout" />
-          </button>
-        </div>
-      </header>
+      <ModulePageHeader title={pageTitle[view]} module="food" onExit={onExit} onLogout={() => { void handleLogout() }} titleId="kitchen-page-title" />
 
       {view === 'home' && (
         <HomePage

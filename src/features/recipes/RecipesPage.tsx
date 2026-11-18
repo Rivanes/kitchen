@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { KitchenIcon } from '../../components/KitchenIcon'
+import { useForegroundRefresh } from '../../lib/useForegroundRefresh'
 import { ensureCanonicalShoppingTargetsSequentially } from '../shopping/shoppingMutations'
 import { RecipeServingsControl } from './RecipeServingsControl'
 import { formatRecipeDuration } from './recipeDuration'
@@ -219,6 +220,10 @@ export function RecipesPage({ ownerId, overviewRequestToken, openRecipeId, openR
     const refreshed = await loadRecipesReadModel(ownerId)
     setRecipesStatus({ status: 'ready', model: refreshed })
   }
+
+  useForegroundRefresh(() => {
+    void refreshRecipesSilently().catch(() => { void load() })
+  }, recipesStatus.status === 'ready' && editorMode === null && selectedRecipeId === null)
 
   async function updateRecipeShoppingTargets(productIds: string[], action: RecipeShoppingAction) {
     if (!selectedRecipeShoppingPlan || shoppingAction || shoppingRecoveryBlocked || productIds.length === 0) return
@@ -443,18 +448,6 @@ export function RecipesPage({ ownerId, overviewRequestToken, openRecipeId, openR
 
   return (
     <section className="recipes-page" aria-label="Przepisy">
-      <div className="recipes-page-heading">
-        <h1>Przepisy</h1>
-        <div className="recipes-heading-actions">
-          <button className="icon-button" type="button" onClick={() => void load()} aria-label="Odśwież przepisy" title="Odśwież">
-            <KitchenIcon name="refresh" />
-          </button>
-          <button className="icon-button recipes-add-button" type="button" onClick={() => setEditorMode({ kind: 'create' })} aria-label="Dodaj przepis" title="Dodaj przepis">
-            <KitchenIcon name="plus" />
-          </button>
-        </div>
-      </div>
-
       {recipesStatus.status === 'loading' && (
         <section className="recipes-state-card" aria-live="polite">
           <span className="loading-dot" aria-hidden="true" />
@@ -485,7 +478,8 @@ export function RecipesPage({ ownerId, overviewRequestToken, openRecipeId, openR
       )}
 
       {model && model.recipes.length > 0 && (
-        <div className="recipe-category-filters" role="group" aria-label="Filtr kategorii przepisów">
+        <div className="recipe-filters-toolbar">
+          <div className="recipe-category-filters" role="group" aria-label="Filtr kategorii przepisów">
           <button
             className={`recipe-category-filter${categoryFilter === 'all' ? ' is-active' : ''}`}
             type="button"
@@ -505,6 +499,8 @@ export function RecipesPage({ ownerId, overviewRequestToken, openRecipeId, openR
               {category.label}
             </button>
           ))}
+          </div>
+          <button className="primary-icon-button recipes-add-button" type="button" onClick={() => setEditorMode({ kind: 'create' })} aria-label="Dodaj przepis" title="Dodaj przepis"><KitchenIcon name="plus" /></button>
         </div>
       )}
 

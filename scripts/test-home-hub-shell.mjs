@@ -2,11 +2,12 @@ import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 
 const file = (name) => readFile(name, 'utf8')
-const [gate, hub, food, cleaning, flags, css, testContract] = await Promise.all([
+const [gate, hub, food, cleaning, sharedHeader, flags, css, testContract] = await Promise.all([
   file('src/components/MembershipGate.tsx'),
   file('src/components/HomeHubShell.tsx'),
   file('src/components/AppShell.tsx'),
   file('src/features/cleaning/CleaningShell.tsx'),
+  file('src/components/ModulePageHeader.tsx'),
   file('src/config/featureFlags.ts'),
   file('src/styles/global.css'),
   file('tests/HOME_HUB_H1_CONTRACT.md'),
@@ -32,7 +33,7 @@ for (const marker of ["view === 'home'", "view === 'expiry'", "view === 'invento
 for (const label of ['Start', 'Zapasy', 'Zakupy', 'Przepisy']) {
   assert.match(food, new RegExp(`<span>${label}</span>`))
 }
-assert.match(food, /className="module-home-button" onClick=\{onExit\}/)
+assert.match(food, /<ModulePageHeader title=\{pageTitle\[view\]\} module="food" onExit=\{onExit\}/)
 
 // Cleaning H1 shell remains intact; H2 room persistence is encapsulated in a separate data module.
 assert.match(cleaning, /useState<CleaningView>\('start'\)/)
@@ -40,9 +41,13 @@ for (const view of ['start', 'rooms', 'schedule']) {
   assert.match(cleaning, new RegExp(`view === '${view}'`))
   assert.match(cleaning, new RegExp(`changeView\\('${view}'\\)`))
 }
-for (const label of ['Pomieszczenia', 'Harmonogram', 'Start', 'Nawigacja Porządki', 'Wróć do strony głównej Dom']) {
+for (const label of ['Pomieszczenia', 'Harmonogram', 'Start', 'Nawigacja Porządki']) {
   assert.ok(cleaning.includes(label), `Missing Cleaning UI: ${label}`)
 }
+assert.match(cleaning, /<ModulePageHeader title=\{pageTitle\} module="cleaning" onExit=\{onExit\}/)
+assert.match(sharedHeader, /className="module-home-button" onClick=\{onExit\}/)
+assert.match(sharedHeader, /Wróć do strony głównej Dom/)
+assert.match(sharedHeader, /<h1 id=\{titleId\} className="module-page-title"/)
 assert.doesNotMatch(cleaning, /supabase\.from\(|supabase\.rpc\(|insert\(|update\(|delete\(/)
 assert.match(css, /\.cleaning-shell\s*\{[\s\S]*--color-accent-strong: #315c7c;/)
 assert.match(css, /\.cleaning-bottom-nav\s*\{\s*grid-template-columns: repeat\(3, minmax\(0, 1fr\)\)/)

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { KitchenIcon } from '../../components/KitchenIcon'
+import { useForegroundRefresh } from '../../lib/useForegroundRefresh'
 import { CompactQuantityStepper } from '../quantity/CompactQuantityStepper'
 import { formatQuantity } from '../quantity/quantity'
 import { InventoryConsumeSheet } from './InventoryConsumeSheet'
@@ -131,23 +132,30 @@ function InventoryOverview({
         </div>
       )}
 
-      {shouldShowSearch && (
-        <label className="inventory-search inventory-overview-search">
-          <span className="sr-only">Szukaj produktu lub miejsca w zapasach</span>
-          <KitchenIcon name="search" size={19} />
-          <input
-            type="search"
-            value={searchQuery}
-            onChange={(event) => onSearchChange(event.target.value)}
-            placeholder="Szukaj produktu lub miejsca"
-            autoComplete="off"
-          />
-          {searchQuery && (
-            <button type="button" onClick={() => onSearchChange('')} aria-label="Wyczyść wyszukiwanie">
-              <KitchenIcon name="close" size={17} />
-            </button>
-          )}
-        </label>
+      {model.totalDisplayItems > 0 && (
+        <div className="inventory-overview-toolbar">
+          {shouldShowSearch ? (
+            <label className="inventory-search inventory-overview-search">
+              <span className="sr-only">Szukaj produktu lub miejsca w zapasach</span>
+              <KitchenIcon name="search" size={19} />
+              <input
+                type="search"
+                value={searchQuery}
+                onChange={(event) => onSearchChange(event.target.value)}
+                placeholder="Szukaj produktu lub miejsca"
+                autoComplete="off"
+              />
+              {searchQuery && (
+                <button type="button" onClick={() => onSearchChange('')} aria-label="Wyczyść wyszukiwanie">
+                  <KitchenIcon name="close" size={17} />
+                </button>
+              )}
+            </label>
+          ) : null}
+          <button className={shouldShowSearch ? 'primary-icon-button' : 'inventory-add-row'} type="button" onClick={onAdd} aria-label="Dodaj produkt" title="Dodaj produkt">
+            <KitchenIcon name="plus" size={20} />{!shouldShowSearch && <span>Dodaj produkt</span>}
+          </button>
+        </div>
       )}
 
       {normalizedSearch && visibleGroups.length === 0 ? (
@@ -460,6 +468,8 @@ export function InventoryPage({
     }
   }, [ownerId, reload])
 
+  useForegroundRefresh(() => { void refreshSilently() }, loadState.status === 'ready' && editor === null && consumeLot === null && minimumResource === null && resourceUpdatingId === null && quickUpdatingLotId === null)
+
   useEffect(() => {
     let active = true
 
@@ -592,21 +602,7 @@ export function InventoryPage({
   })
 
   return (
-    <section className="inventory-page" aria-labelledby={selectedGroup ? undefined : 'inventory-title'}>
-      {!selectedGroup && (
-        <div className="page-heading-row inventory-page-heading">
-          <h1 id="inventory-title">Zapasy</h1>
-          <div className="page-actions">
-            <button className="icon-button icon-button-quiet" type="button" onClick={reload} disabled={loadState.status === 'loading'} aria-label="Odśwież zapasy" title="Odśwież zapasy">
-              <KitchenIcon name="refresh" />
-            </button>
-            <button className="primary-icon-button" type="button" onClick={() => setEditor({ kind: 'create' })} disabled={loadState.status !== 'ready'} aria-label="Dodaj produkt" title="Dodaj produkt">
-              <KitchenIcon name="plus" />
-            </button>
-          </div>
-        </div>
-      )}
-
+    <section className="inventory-page" aria-labelledby={selectedGroup ? undefined : 'kitchen-page-title'}>
       {loadState.status === 'loading' && (
         <div className="inventory-state-card" aria-live="polite">
           <div className="loading-dot" aria-hidden="true" />
