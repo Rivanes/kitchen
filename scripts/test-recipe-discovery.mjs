@@ -50,12 +50,12 @@ const morning = buildHomeRecipeSuggestions({
   nowLimit: 3,
   generalLimit: 4,
 })
-assert.deepEqual(morning.now.map((recipe) => recipe.id), ['breakfast-a', 'breakfast-b'])
+assert.deepEqual(morning.now.map((recipe) => recipe.id), ['breakfast-b'], 'Na teraz contains only meal-time suggestions not already available in Mogę ugotować')
 assert.deepEqual(morning.cookableNow.map((recipe) => recipe.id), ['breakfast-a'], 'Mogę ugotować must be a separate current-meal section containing only sufficient Recipes')
 assert.equal(morning.general.length, 4)
 assert.ok(morning.general.some((recipe) => recipe.categoryCode === 'snack'))
 assert.ok(morning.general.some((recipe) => recipe.categoryCode === 'cake'))
-assert.ok(morning.general.every((recipe) => !morning.now.some((nowRecipe) => nowRecipe.id === recipe.id)), 'general preview should avoid duplicate Now recipes when alternatives exist')
+assert.ok(morning.general.every((recipe) => ![...morning.now, ...morning.cookableNow].some((highlight) => highlight.id === recipe.id)), 'unfiltered general preview cannot repeat highlighted recipes')
 
 const oneAlternative = buildHomeRecipeSuggestions({
   recipes: recipes.slice(0, 3),
@@ -64,6 +64,23 @@ const oneAlternative = buildHomeRecipeSuggestions({
   generalLimit: 6,
 })
 assert.deepEqual(oneAlternative.general.map((recipe) => recipe.id), ['lunch-a'], 'one available alternative should be preferred over duplicating Na teraz in unfiltered General')
+
+const onlyMissing = buildHomeRecipeSuggestions({
+  recipes: [recipes[1]], currentMealCategory: 'breakfast', generalFilter: 'all',
+})
+assert.deepEqual(onlyMissing.now.map((recipe) => recipe.id), ['breakfast-b'])
+assert.equal(onlyMissing.cookableNow.length, 0)
+assert.equal(onlyMissing.general.length, 0, 'a single missing recipe is presented only once')
+
+const onlySufficient = buildHomeRecipeSuggestions({
+  recipes: [recipes[0]], currentMealCategory: 'breakfast', generalFilter: 'all',
+})
+assert.deepEqual(onlySufficient.cookableNow.map((recipe) => recipe.id), ['breakfast-a'])
+assert.equal(onlySufficient.now.length, 0)
+assert.equal(onlySufficient.general.length, 0, 'a single available recipe is presented only once')
+
+const empty = buildHomeRecipeSuggestions({ recipes: [], currentMealCategory: 'breakfast', generalFilter: 'all' })
+assert.deepEqual(empty, { now: [], cookableNow: [], general: [] }, 'empty account never fabricates suggestions')
 
 const filteredBreakfast = buildHomeRecipeSuggestions({
   recipes,
@@ -108,16 +125,21 @@ assert.match(editor, /Wybierz jedną kategorię/)
 assert.match(recipesPage, /recipe-category-filters/)
 assert.match(recipesPage, /openRecipeRequestToken/)
 assert.match(home, /Na teraz/)
-assert.match(home, /Inspiracje i planowanie/)
+assert.match(home, /Przepisy/)
 assert.match(home, /recipeCategoryFilter/)
 assert.match(home, /home-recipes-cookable/)
-assert.match(home, /mealOccasionLabel/)
+assert.ok(home.indexOf('home-recipes-cookable"') < home.indexOf('home-recipes-now"'), 'available recipes are shown before ideas requiring shopping')
+assert.match(home, /recipeSuggestions\.cookableNow\.length > 0/)
+assert.match(home, /recipeSuggestions\.now\.length > 0/)
+assert.match(home, /showGeneralRecipes && <section/)
+assert.match(home, /!recipeFilterActive && recipeSuggestions/)
 assert.doesNotMatch(home, /recipeCookabilityFilter/)
 assert.doesNotMatch(recipesPage, /recipe-cookable-filter/)
 
 assert.doesNotMatch(home, /recipe\.match\?\.state \?\? ['"]unresolved['"]/, 'Home must not synthesize Nieustalone while Inventory matching data is unavailable')
-assert.match(home, /homeStatus\.status === ['"]ready['"] && recipe\.match/, 'Home matching badges must wait for ready Inventory data')
-assert.match(home, /Brak przepisu z kompletem potwierdzonych składników na tę porę dnia\./, 'Cookable empty state must stay neutral for missing/partial/unresolved distinctions')
+assert.match(home, /showMatch && recipe\.match/, 'Home badge component may render only confirmed matcher results')
+assert.match(home, /showMatch=\{homeStatus\.status === ['"]ready['"]\}/, 'Home must not pass enabled badge state before Inventory is ready')
+assert.doesNotMatch(home, /Brak przepisu z kompletem potwierdzonych składników/, 'hide empty automatic cookable suggestions')
 assert.doesNotMatch(home, /nie masz wszystkich składników do żadnego przepisu/, 'Cookable empty state must not claim definite ingredient shortage')
 assert.match(home, /visibilitychange/)
 assert.match(shell, /openRecipeFromHome/)

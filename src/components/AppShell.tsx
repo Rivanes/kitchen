@@ -122,10 +122,6 @@ export function AppShell({ user, onExit }: AppShellProps) {
       <header className="app-header">
         <div className="app-brand">
           <div className="brand-mark brand-mark-small" aria-hidden="true">K</div>
-          <div>
-            <p className="brand-kicker">Kitchen</p>
-            <p className="app-greeting">Dzień dobry</p>
-          </div>
         </div>
         <div className="module-header-actions">
           <button type="button" className="module-home-button" onClick={onExit} aria-label="Wróć do strony głównej Dom">
@@ -143,7 +139,6 @@ export function AppShell({ user, onExit }: AppShellProps) {
           onAddProduct={openInventoryCreate}
           onOpenExpiry={() => changeView('expiry')}
           onOpenShopping={() => changeView('shopping')}
-          onOpenRecipes={() => changeView('recipes')}
           onOpenRecipe={openRecipeFromHome}
         />
       )}

@@ -34,6 +34,8 @@ const requiredFiles = [
   'src/components/StartupScreen.tsx',
   'scripts/test-h7-5-6-launch-intro.mjs',
   'tests/H7_5_6_STARTUP_ANIMATION_CONTRACT.md',
+  'scripts/test-h7-5-7-smart-ui.mjs',
+  'tests/H7_5_7_SMART_UI_CONTRACT.md',
   'scripts/test-h7-1b-security-corrective.mjs',
   'scripts/test-h7-3c-admin.mjs',
   'tests/H7_3C_INVITE_ADMIN_CONTRACT.md',
@@ -530,7 +532,7 @@ if (consumeSheet.includes('onSaved')) {
 }
 
 const homePage = await readFile('src/features/home/HomePage.tsx', 'utf8')
-if (!homePage.includes('Terminy ważności') || !homePage.includes('Inspiracje i planowanie') || !homePage.includes('Mogę ugotować')) {
+if (!homePage.includes('Terminy ważności') || !homePage.includes('home-recipes-general') || !homePage.includes('Mogę ugotować')) {
   throw new Error('V4.3 Start must keep expiry access plus active Recipe discovery/cookability surfaces.')
 }
 if (!homePage.includes('getInventoryExpiryMeta') || !homePage.includes('bez terminu') || !homePage.includes('onOpenExpiry')) {
@@ -1376,13 +1378,13 @@ for (const marker of ['RECIPE_CATEGORIES', 'Wybierz jedną kategorię', 'recipe-
 for (const marker of ['recipe-category-filters', 'filterRecipesByCategory', 'openRecipeRequestToken', 'recipeCategoryLabel']) {
   if (!recipesPage.includes(marker)) throw new Error(`V4.2 RecipesPage category/navigation marker missing: ${marker}`)
 }
-for (const marker of ['loadRecipeDiscoveryReadModel', 'Na teraz', 'Inspiracje i planowanie', 'visibilitychange', 'recipeCategoryFilter']) {
+for (const marker of ['loadRecipeDiscoveryReadModel', 'Na teraz', 'home-recipes-general', 'visibilitychange', 'recipeCategoryFilter']) {
   if (!homePage.includes(marker)) throw new Error(`V4.2 Home Recipe discovery marker missing: ${marker}`)
 }
 if (homePage.includes('loadRecipesReadModel')) {
   throw new Error('V4.2 Home must not load the heavy full Recipe read model for discovery cards.')
 }
-for (const marker of ['openRecipeFromHome', 'openRecipeId={recipeOpenRequest.recipeId}', 'onOpenRecipes']) {
+for (const marker of ['openRecipeFromHome', 'openRecipeId={recipeOpenRequest.recipeId}', 'onOpenRecipe={openRecipeFromHome}']) {
   if (!shell.includes(marker)) throw new Error(`V4.2 Home -> Recipe detail navigation marker missing: ${marker}`)
 }
 for (const marker of ['.recipe-category-filter', '.home-recipe-grid', '.home-recipe-card', '.recipe-category-choice']) {
@@ -1425,11 +1427,11 @@ if (homePage.includes('recipeCookabilityFilter') || homePage.includes('generalCo
 if (homePage.includes("recipe.match?.state ?? 'unresolved'") || homePage.includes('recipe.match?.state ?? \"unresolved\"')) {
   throw new Error('V4.4 Home must not synthesize Nieustalone before Inventory matching data is ready.')
 }
-if (!homePage.includes("homeStatus.status === 'ready' && recipe.match")) {
+if (!homePage.includes("showMatch={homeStatus.status === 'ready'}") || !homePage.includes('showMatch && recipe.match')) {
   throw new Error('V4.4 Home matching badges must be gated by ready Inventory data.')
 }
-if (!homePage.includes('Brak przepisu z kompletem potwierdzonych składników na tę porę dnia.')) {
-  throw new Error('V4.4 cookable empty state must stay neutral across missing/partial/unresolved cases.')
+if (!homePage.includes('recipeSuggestions.cookableNow.length > 0') || !homePage.includes('recipeSuggestions.now.length > 0')) {
+  throw new Error('H7.5.7 automatic Recipe sections must not render when empty.')
 }
 if (homePage.includes('nie masz wszystkich składników do żadnego przepisu')) {
   throw new Error('V4.4 Home must not collapse unresolved/partial states into a definite ingredient-shortage message.')
@@ -1879,3 +1881,4 @@ await execFileAsync(process.execPath, ['scripts/test-h7-4c-shared-catalog.mjs'])
 await execFileAsync(process.execPath, ['scripts/test-h7-5-pwa.mjs'])
 await execFileAsync(process.execPath, ['scripts/test-h7-5-5-login-ux.mjs'])
 await execFileAsync(process.execPath, ['scripts/test-h7-5-6-launch-intro.mjs'])
+await execFileAsync(process.execPath, ['scripts/test-h7-5-7-smart-ui.mjs'])

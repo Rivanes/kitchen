@@ -23,16 +23,6 @@ type EditorState =
   | { kind: 'edit'; item: ShoppingItem }
   | null
 
-function thingsLabel(count: number) {
-  if (count === 1) return '1 rzecz'
-  const mod10 = count % 10
-  const mod100 = count % 100
-  if (mod10 >= 2 && mod10 <= 4 && !(mod100 >= 12 && mod100 <= 14)) {
-    return `${count} rzeczy`
-  }
-  return `${count} rzeczy`
-}
-
 function filterItems(items: ShoppingItem[], normalizedSearch: string) {
   if (!normalizedSearch) return items
   return items.filter((item) => item.name.toLocaleLowerCase('pl-PL').includes(normalizedSearch))
@@ -137,13 +127,7 @@ export function ShoppingPage({ ownerId }: ShoppingPageProps) {
   return (
     <section className="shopping-page" aria-label="Zakupy">
       <div className="page-heading shopping-page-heading">
-        <div>
-          <p className="eyebrow">Bieżąca lista</p>
-          <h1>Zakupy</h1>
-          {model && model.activeItems.length > 0 && <p>{thingsLabel(model.activeItems.length)} do kupienia</p>}
-          {model && model.activeItems.length === 0 && model.purchasedItems.length > 0 && <p>Wszystko kupione</p>}
-          {model && totalItemCount === 0 && <p>Dodaj to, czego brakuje w domu.</p>}
-        </div>
+        <h1 className="sr-only">Zakupy</h1>
         <div className="shopping-heading-actions">
           <button className="icon-button" type="button" onClick={() => void load()} aria-label="Odśwież listę zakupów" title="Odśwież">
             <KitchenIcon name="refresh" />

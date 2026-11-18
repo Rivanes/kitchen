@@ -595,12 +595,7 @@ export function InventoryPage({
     <section className="inventory-page" aria-labelledby={selectedGroup ? undefined : 'inventory-title'}>
       {!selectedGroup && (
         <div className="page-heading-row inventory-page-heading">
-          <div>
-            <h1 id="inventory-title">Zapasy</h1>
-            {loadState.status === 'ready' && (
-              <p className="page-intro">Wybierz miejsce, żeby zobaczyć jego zawartość.</p>
-            )}
-          </div>
+          <h1 id="inventory-title" className="sr-only">Zapasy</h1>
           <div className="page-actions">
             <button className="icon-button icon-button-quiet" type="button" onClick={reload} disabled={loadState.status === 'loading'} aria-label="Odśwież zapasy" title="Odśwież zapasy">
               <KitchenIcon name="refresh" />

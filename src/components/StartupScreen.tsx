@@ -3,7 +3,7 @@ import { KitchenIcon } from './KitchenIcon'
 
 // The exit animation ends before the component is removed. No auth or network
 // operation is delayed by this purely visual, once-per-document sequence.
-const INTRO_LIFETIME_MS = 1140
+const INTRO_LIFETIME_MS = 1650
 
 function shouldShowIntro(): boolean {
   return !window.matchMedia('(prefers-reduced-motion: reduce)').matches

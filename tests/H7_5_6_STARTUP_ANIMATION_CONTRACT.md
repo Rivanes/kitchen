@@ -2,7 +2,7 @@
 
 ## Scope
 
-- One fixed, short branded Kitchen intro at the React root on a fresh document load.
+- One fixed, branded Kitchen intro at the React root on a fresh document load. H7.5.7 adjusts the duration to 1.65 s without changing its visual language.
 - App and Supabase Auth/Membership load simultaneously behind the visual overlay; intro must not await data or authorize access.
 - CSS completes and hides the overlay independently of JS timer; the component then unmounts and releases resources.
 - Launch must not replay on module transitions, Auth state change or iOS PWA foreground/resume; there is no persistence/UA sniffing.

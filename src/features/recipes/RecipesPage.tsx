@@ -42,14 +42,6 @@ type RecipeShoppingFeedback =
   | { kind: 'success' | 'error'; message: string }
   | null
 
-function recipesLabel(count: number) {
-  if (count === 1) return '1 przepis'
-  const mod10 = count % 10
-  const mod100 = count % 100
-  if (mod10 >= 2 && mod10 <= 4 && !(mod100 >= 12 && mod100 <= 14)) return `${count} przepisy`
-  return `${count} przepisów`
-}
-
 function servingsLabel(count: number) {
   if (count === 1) return '1 porcja'
   const mod10 = count % 10
@@ -452,12 +444,7 @@ export function RecipesPage({ ownerId, overviewRequestToken, openRecipeId, openR
   return (
     <section className="recipes-page" aria-label="Przepisy">
       <div className="recipes-page-heading">
-        <div>
-          <p className="eyebrow">Twoja książka kucharska</p>
-          <h1>Przepisy</h1>
-          {model && model.recipes.length > 0 && <p>{recipesLabel(model.recipes.length)}</p>}
-          {model && model.recipes.length === 0 && <p>Zapisane przepisy pojawią się tutaj.</p>}
-        </div>
+        <h1 className="sr-only">Przepisy</h1>
         <div className="recipes-heading-actions">
           <button className="icon-button" type="button" onClick={() => void load()} aria-label="Odśwież przepisy" title="Odśwież">
             <KitchenIcon name="refresh" />

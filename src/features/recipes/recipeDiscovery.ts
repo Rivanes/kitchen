@@ -49,22 +49,25 @@ export function buildHomeRecipeSuggestions<T extends RecipeDiscoveryCandidate>(i
   const currentMealRecipes = input.currentMealCategory
     ? ordered.filter((recipe) => recipe.categoryCode === input.currentMealCategory)
     : []
-  const now = currentMealRecipes.slice(0, nowLimit)
   const cookableNow = currentMealRecipes
     .filter((recipe) => recipe.cookable === true)
     .slice(0, cookableNowLimit)
+  // The Home screen is a set of prioritized previews, not three copies of one
+  // catalogue: available meals come first, then other meal-time ideas.
+  const cookableIds = new Set(currentMealRecipes.filter((recipe) => recipe.cookable === true).map((recipe) => recipe.id))
+  const now = currentMealRecipes
+    .filter((recipe) => !cookableIds.has(recipe.id))
+    .slice(0, nowLimit)
 
   const general = filterRecipesByCategory(ordered, input.generalFilter)
-  if (input.generalFilter !== 'all' || now.length === 0) {
+  if (input.generalFilter !== 'all') {
     return { now, cookableNow, general: general.slice(0, generalLimit) }
   }
 
-  const nowIds = new Set(now.map((recipe) => recipe.id))
-  const alternatives = general.filter((recipe) => !nowIds.has(recipe.id))
-
-  if (alternatives.length > 0) {
-    return { now, cookableNow, general: alternatives.slice(0, generalLimit) }
+  const highlightedIds = new Set([...cookableNow, ...now].map((recipe) => recipe.id))
+  return {
+    now,
+    cookableNow,
+    general: general.filter((recipe) => !highlightedIds.has(recipe.id)).slice(0, generalLimit),
   }
-
-  return { now, cookableNow, general: general.slice(0, generalLimit) }
 }

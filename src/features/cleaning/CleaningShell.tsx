@@ -239,7 +239,7 @@ export function CleaningShell({ ownerId, onExit }: CleaningShellProps) {
       <header className="app-header cleaning-header">
         <div className="app-brand">
           <div className="brand-mark brand-mark-small cleaning-brand-mark" aria-hidden="true"><KitchenIcon name="cleaning" size={23} /></div>
-          <div><h1 id="cleaning-page-title" className="brand-kicker cleaning-shell-page-title">{pageTitle}</h1></div>
+          <div><h1 id="cleaning-page-title" className={selectedRoom ? 'brand-kicker cleaning-shell-page-title' : 'sr-only'}>{pageTitle}</h1></div>
         </div>
         <div className="module-header-actions">
           <button className="module-home-button" type="button" onClick={onExit} aria-label="Wróć do strony głównej Dom"><KitchenIcon name="home" size={19} /><span>Dom</span></button>
@@ -299,7 +299,7 @@ export function CleaningShell({ ownerId, onExit }: CleaningShellProps) {
                   {!editor && actionErrorBanner}
                   {countsLoad === 'error' && <div className="cleaning-inline-error" role="alert">{countsError} <button className="cleaning-link-button" type="button" onClick={() => setCountsRefresh((n) => n + 1)}>Ponów</button></div>}
                   {activeRooms.length === 0 ? (
-                    <div className="cleaning-empty-state cleaning-empty-spacious"><span className="cleaning-empty-icon" aria-hidden="true"><KitchenIcon name="room" size={28} /></span><h2>Jeszcze nie ma pomieszczeń</h2><p>Dodaj łazienkę, kuchnię, salon lub dowolne miejsce w domu. Pomieszczenia zostaną zapisane na Twoim koncie.</p></div>
+                    <div className="cleaning-empty-state cleaning-empty-spacious"><span className="cleaning-empty-icon" aria-hidden="true"><KitchenIcon name="room" size={28} /></span><h2>Jeszcze nie ma pomieszczeń</h2><p>Dodaj pierwsze pomieszczenie przyciskiem +.</p></div>
                   ) : (
                     <div className="cleaning-room-list" aria-label="Aktywne pomieszczenia">{activeRooms.map((room) => (
                       <button type="button" className="cleaning-room-card" onClick={() => openRoom(room)} key={room.id}>

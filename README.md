@@ -1,3 +1,9 @@
+## H7.5.7 — porządki SMART UI i dłuższe przywitanie (SOURCE QA PASS, 2026-11-18)
+
+W widokach Jedzenia i Porządków uproszczono nagłówki i puste stany, nie powtarzając aktywnej zakładki z dolnego menu. Nazwa konkretnego pomieszczenia, miejsca przechowywania i przepisu pozostaje widoczna w szczegółach. Na Start przepisy mają kolejność **Mogę ugotować → Na teraz → Przepisy**, bez pustych automatycznych paneli i bez powtarzania kart między automatycznymi sekcjami. Ręczny filtr kategorii pokazuje pełne wyniki, na czas wyboru ukrywając automatyczne propozycje. Animację wejścia wydłużono do ~1,65 s; ładowanie danych i Auth nie czeka. `npm run check` PASS lokalnie, GitHub QA/Deploy oraz telefon OPEN. Brak SQL i zmian Service Workera. Procedura: `OUTSIDE_REPO/H7_5_7_RUNBOOK.md`.
+
+---
+
 ## H7.5.6 — animacja uruchomienia Kitchen (SOURCE QA PASS, 2026-11-18)
 
 Jedna krótka animacja startowa oparta o istniejącą ikonografię i kolory Kitchen. React uruchamia Auth i Membership równolegle z animacją, a ekran wejścia znika sam po ~1,1 s. Nie wraca przy przechodzeniu między modułami ani przy wybudzeniu aplikacji; szanuje `prefers-reduced-motion`. Na wolnym połączeniu sesja i uprawnienia zachowują jedną wspólną prezentację oczekiwania, bez osłabiania bramek. Test: `npm run check`. GitHub QA/Deploy i prawdziwy iOS/Android smoke OPEN. Bez SQL i nowych obrazów/bibliotek. Baseline wdrożenia: GitHub `main` `987355885984df8272ff7e1d3d59a48396290b32` (H7.5.5).
@@ -24,7 +30,7 @@ Na ekranie Dom opcja `Zainstaluj Kitchen` znajduje się **pod kafelkami Jedzenie
 
 All Kitchen accounts use **one global name/role/suggested unit dictionary**. Creating or renaming an owner product automatically indexes a matching global definition via a restricted DB trigger, without a publication toggle. Existing owner names are indexed once by a separate corrective SQL migration. In Inventory/Shopping/Recipes there is **one alphabetically sorted autocomplete list** without „Moje / Katalog Kitchen” headings. Adopting a shared name still creates/uses a caller-owned Product ID through `h74_adopt_shared_product`. Private quantities, stock locations, packages and recipe snapshots are never shared.
 
-**Nie ponawiać** H7.4B, H7.4C.1 ani `ALL_IN_ONE.sql` w istniejącej bazie. Bieżąca instrukcja wdrożenia H7.5.6 jest w `OUTSIDE_REPO/H7_5_6_RUNBOOK.md` w paczce.
+**Nie ponawiać** H7.4B, H7.4C.1 ani `ALL_IN_ONE.sql` w istniejącej bazie. Bieżąca instrukcja wdrożenia H7.5.7 jest w `OUTSIDE_REPO/H7_5_7_RUNBOOK.md` w paczce.
 
 **Constraint:** Global catalog shares **product names**. Do not enter names containing personal data. The existing two-request product-creation/business-save flow can leave an unused catalog definition after a later business-save error; this limitation is documented and must not be mistaken for full atomicity across requests.
 

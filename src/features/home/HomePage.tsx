@@ -8,7 +8,7 @@ import { loadActiveShoppingCount, loadActiveShoppingProductIds } from '../shoppi
 import { ensureActiveShoppingProduct } from '../shopping/shoppingMutations'
 import type { InventoryReadModel } from '../inventory/types'
 import { RecipeCoverImage } from '../recipes/RecipeCoverImage'
-import { RECIPE_CATEGORIES, recipeCategoryLabel, type RecipeCategoryCode } from '../recipes/recipeCategories'
+import { RECIPE_CATEGORIES, recipeCategoryLabel } from '../recipes/recipeCategories'
 import {
   buildHomeRecipeSuggestions,
   resolveCurrentMealCategory,
@@ -22,7 +22,6 @@ type HomePageProps = {
   onAddProduct: () => void
   onOpenExpiry: () => void
   onOpenShopping: () => void
-  onOpenRecipes: () => void
   onOpenRecipe: (recipeId: string) => void
 }
 
@@ -76,14 +75,42 @@ function servingsLabel(count: number) {
   return `${count} porcji`
 }
 
-function mealOccasionLabel(category: RecipeCategoryCode) {
-  if (category === 'breakfast') return 'Na śniadanie'
-  if (category === 'lunch') return 'Na obiad'
-  if (category === 'dinner') return 'Na kolację'
-  return recipeCategoryLabel(category)
+type HomeRecipeCardData = RecipeDiscoveryReadModel['recipes'][number] & {
+  match: RecipeMatchResult | null
 }
 
-export function HomePage({ ownerId, onAddProduct, onOpenExpiry, onOpenShopping, onOpenRecipes, onOpenRecipe }: HomePageProps) {
+function HomeRecipeCard({
+  recipe,
+  onOpen,
+  showCategory = false,
+  showMatch = false,
+}: {
+  recipe: HomeRecipeCardData
+  onOpen: (recipeId: string) => void
+  showCategory?: boolean
+  showMatch?: boolean
+}) {
+  return (
+    <button className="home-recipe-card" type="button" onClick={() => onOpen(recipe.id)}>
+      <span className={`home-recipe-cover${recipe.coverImageUrl ? ' has-image' : ''}`}>
+        {recipe.coverImageUrl ? (
+          <RecipeCoverImage src={recipe.coverImageUrl} alt="" focusX={recipe.coverFocusX} focusY={recipe.coverFocusY} />
+        ) : (
+          <KitchenIcon name="recipes" size={23} />
+        )}
+      </span>
+      <span className="home-recipe-copy">
+        <strong>{recipe.name}</strong>
+        <small>{showCategory && `${recipeCategoryLabel(recipe.categoryCode)} · `}{servingsLabel(recipe.servings)}</small>
+        {showMatch && recipe.match && (
+          <span className={`recipe-match-badge is-${recipe.match.state}`}>{recipeMatchStateLabel(recipe.match.state)}</span>
+        )}
+      </span>
+    </button>
+  )
+}
+
+export function HomePage({ ownerId, onAddProduct, onOpenExpiry, onOpenShopping, onOpenRecipe }: HomePageProps) {
   const [homeStatus, setHomeStatus] = useState<HomeStatus>({ status: 'loading', model: null })
   const [shoppingCount, setShoppingCount] = useState<number | null>(null)
   const [activeShoppingProductIds, setActiveShoppingProductIds] = useState<Set<string>>(new Set())
@@ -247,6 +274,13 @@ export function HomePage({ ownerId, onAddProduct, onOpenExpiry, onOpenShopping, 
       generalFilter: recipeCategoryFilter,
     })
   ), [currentMealCategory, recipeCandidates, recipeCategoryFilter])
+  // A deliberate category selection displays its complete filtered catalogue;
+  // the automatic recommendation lanes are paused so the same card is not
+  // repeated above the user's chosen filter.
+  const recipeFilterActive = recipeCategoryFilter !== 'all'
+  const showGeneralRecipes = recipeStatus.status !== 'ready'
+    || recipeFilterActive
+    || recipeSuggestions.general.length > 0
 
   async function handleAddLowStock(productId: string) {
     if (lowStockUpdatingId || activeShoppingProductIds.has(productId)) return
@@ -266,19 +300,17 @@ export function HomePage({ ownerId, onAddProduct, onOpenExpiry, onOpenShopping, 
 
   return (
     <section className="home-page" aria-label="Start">
-      <section className="home-overview" aria-labelledby="home-overview-title">
-        <p className="eyebrow">Dzisiaj</p>
-        <div className="home-overview-row">
-          <div>
-            <h1 id="home-overview-title">Twoja kuchnia</h1>
-            {homeStatus.status === 'loading' && <p>Sprawdzam stan zapasów…</p>}
-            {homeStatus.status === 'error' && <p>Zapasy są dostępne w dolnym menu.</p>}
-            {homeStatus.status === 'ready' && !hasResources && <p>Dodaj pierwszy produkt i zacznij budować zasoby.</p>}
-            {homeStatus.status === 'ready' && hasResources && <p>{polishProducts(homeStatus.model.resourceProducts)}</p>}
-          </div>
-          <span className="home-overview-icon" aria-hidden="true"><KitchenIcon name="inventory" size={22} /></span>
+      <h1 id="home-overview-title" className="sr-only">Start</h1>
+      {(homeStatus.status !== 'ready' || hasResources) && (
+        <div className="home-overview" role="status">
+          <span>
+            {homeStatus.status === 'loading' && 'Sprawdzam zapasy…'}
+            {homeStatus.status === 'error' && 'Nie udało się sprawdzić zapasów.'}
+            {homeStatus.status === 'ready' && polishProducts(homeStatus.model.resourceProducts)}
+          </span>
+          <span className="home-overview-icon" aria-hidden="true"><KitchenIcon name="inventory" size={20} /></span>
         </div>
-      </section>
+      )}
 
       <button className="home-quick-action" type="button" onClick={onAddProduct}>
         <span className="home-quick-icon" aria-hidden="true"><KitchenIcon name="plus" size={23} /></span>
@@ -346,79 +378,35 @@ export function HomePage({ ownerId, onAddProduct, onOpenExpiry, onOpenShopping, 
         </section>
       )}
 
-      {recipeStatus.status === 'ready' && currentMealCategory && recipeSuggestions.now.length > 0 && (
-        <section className="home-recipes-section home-recipes-now" aria-labelledby="home-recipes-now-title">
+      {recipeStatus.status === 'ready' && homeStatus.status === 'ready' && !recipeFilterActive && recipeSuggestions.cookableNow.length > 0 && (
+        <section className="home-recipes-section home-recipes-cookable" aria-labelledby="home-recipes-cookable-title">
           <div className="home-section-heading home-recipes-heading">
-            <div>
-              <p className="eyebrow">Na teraz</p>
-              <h2 id="home-recipes-now-title">{recipeCategoryLabel(currentMealCategory)}</h2>
-            </div>
-            <button className="home-recipes-link" type="button" onClick={onOpenRecipes}>Wszystkie przepisy</button>
+            <h2 id="home-recipes-cookable-title">Mogę ugotować</h2>
           </div>
           <div className="home-recipe-grid">
-            {recipeSuggestions.now.map((recipe) => (
-              <button className="home-recipe-card" type="button" key={recipe.id} onClick={() => onOpenRecipe(recipe.id)}>
-                <span className={`home-recipe-cover${recipe.coverImageUrl ? ' has-image' : ''}`}>
-                  {recipe.coverImageUrl ? (
-                    <RecipeCoverImage src={recipe.coverImageUrl} alt="" focusX={recipe.coverFocusX} focusY={recipe.coverFocusY} />
-                  ) : (
-                    <KitchenIcon name="recipes" size={23} />
-                  )}
-                </span>
-                <span className="home-recipe-copy">
-                  <strong>{recipe.name}</strong>
-                  <small>{servingsLabel(recipe.servings)}</small>
-                  {homeStatus.status === 'ready' && recipe.match && (
-                    <span className={`recipe-match-badge is-${recipe.match.state}`}>{recipeMatchStateLabel(recipe.match.state)}</span>
-                  )}
-                </span>
-              </button>
+            {recipeSuggestions.cookableNow.map((recipe) => (
+              <HomeRecipeCard key={recipe.id} recipe={recipe} onOpen={onOpenRecipe} />
             ))}
           </div>
         </section>
       )}
 
-      {recipeStatus.status === 'ready' && homeStatus.status === 'ready' && currentMealCategory && (
-        <section className="home-recipes-section home-recipes-cookable" aria-labelledby="home-recipes-cookable-title">
+      {recipeStatus.status === 'ready' && !recipeFilterActive && recipeSuggestions.now.length > 0 && (
+        <section className="home-recipes-section home-recipes-now" aria-labelledby="home-recipes-now-title">
           <div className="home-section-heading home-recipes-heading">
-            <div>
-              <p className="eyebrow">Mogę ugotować</p>
-              <h2 id="home-recipes-cookable-title">{mealOccasionLabel(currentMealCategory)}</h2>
-            </div>
-            <button className="home-recipes-link" type="button" onClick={onOpenRecipes}>Wszystkie przepisy</button>
+            <h2 id="home-recipes-now-title">Na teraz</h2>
           </div>
-          {recipeSuggestions.cookableNow.length === 0 ? (
-            <div className="home-recipe-state">Brak przepisu z kompletem potwierdzonych składników na tę porę dnia.</div>
-          ) : (
-            <div className="home-recipe-grid">
-              {recipeSuggestions.cookableNow.map((recipe) => (
-                <button className="home-recipe-card" type="button" key={recipe.id} onClick={() => onOpenRecipe(recipe.id)}>
-                  <span className={`home-recipe-cover${recipe.coverImageUrl ? ' has-image' : ''}`}>
-                    {recipe.coverImageUrl ? (
-                      <RecipeCoverImage src={recipe.coverImageUrl} alt="" focusX={recipe.coverFocusX} focusY={recipe.coverFocusY} />
-                    ) : (
-                      <KitchenIcon name="recipes" size={23} />
-                    )}
-                  </span>
-                  <span className="home-recipe-copy">
-                    <strong>{recipe.name}</strong>
-                    <small>{servingsLabel(recipe.servings)}</small>
-                    <span className="recipe-match-badge is-sufficient">Wystarczy</span>
-                  </span>
-                </button>
-              ))}
-            </div>
-          )}
+          <div className="home-recipe-grid">
+            {recipeSuggestions.now.map((recipe) => (
+              <HomeRecipeCard key={recipe.id} recipe={recipe} onOpen={onOpenRecipe} showMatch={homeStatus.status === 'ready'} />
+            ))}
+          </div>
         </section>
       )}
 
-      <section className="home-recipes-section home-recipes-general" aria-labelledby="home-recipes-general-title">
+      {showGeneralRecipes && <section className="home-recipes-section home-recipes-general" aria-labelledby="home-recipes-general-title">
         <div className="home-section-heading home-recipes-heading">
-          <div>
-            <p className="eyebrow">Inspiracje i planowanie</p>
-            <h2 id="home-recipes-general-title">Przepisy</h2>
-          </div>
-          <button className="home-recipes-link" type="button" onClick={onOpenRecipes}>Otwórz</button>
+          <h2 id="home-recipes-general-title">Przepisy</h2>
         </div>
 
         {recipeStatus.status === 'loading' && (
@@ -458,38 +446,18 @@ export function HomePage({ ownerId, onAddProduct, onOpenExpiry, onOpenShopping, 
                 </button>
               ))}
             </div>
-            {recipeStatus.model.recipes.length === 0 ? (
-              <div className="home-recipe-state">
-                <span>Dodaj pierwszy przepis, aby pojawiły się tutaj inspiracje.</span>
-                <button className="secondary-button compact-button" type="button" onClick={onOpenRecipes}>Przejdź do przepisów</button>
-              </div>
-            ) : recipeSuggestions.general.length === 0 ? (
+            {recipeSuggestions.general.length === 0 ? (
               <div className="home-recipe-state">Brak przepisów pasujących do wybranych filtrów.</div>
             ) : (
               <div className="home-recipe-grid">
                 {recipeSuggestions.general.map((recipe) => (
-                  <button className="home-recipe-card" type="button" key={recipe.id} onClick={() => onOpenRecipe(recipe.id)}>
-                    <span className={`home-recipe-cover${recipe.coverImageUrl ? ' has-image' : ''}`}>
-                      {recipe.coverImageUrl ? (
-                        <RecipeCoverImage src={recipe.coverImageUrl} alt="" focusX={recipe.coverFocusX} focusY={recipe.coverFocusY} />
-                      ) : (
-                        <KitchenIcon name="recipes" size={23} />
-                      )}
-                    </span>
-                    <span className="home-recipe-copy">
-                      <strong>{recipe.name}</strong>
-                      <small>{recipeCategoryLabel(recipe.categoryCode)} · {servingsLabel(recipe.servings)}</small>
-                      {homeStatus.status === 'ready' && recipe.match && (
-                    <span className={`recipe-match-badge is-${recipe.match.state}`}>{recipeMatchStateLabel(recipe.match.state)}</span>
-                  )}
-                    </span>
-                  </button>
+                  <HomeRecipeCard key={recipe.id} recipe={recipe} onOpen={onOpenRecipe} showCategory showMatch={homeStatus.status === 'ready'} />
                 ))}
               </div>
             )}
           </>
         )}
-      </section>
+      </section>}
 
     </section>
   )
