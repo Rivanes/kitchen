@@ -39,35 +39,36 @@ export function buildHomeRecipeSuggestions<T extends RecipeDiscoveryCandidate>(i
   currentMealCategory: RecipeCategoryCode | null
   generalFilter: RecipeCategoryFilter
   nowLimit?: number
-  cookableNowLimit?: number
+  cookableLimit?: number
   generalLimit?: number
 }) {
   const nowLimit = input.nowLimit ?? 3
-  const cookableNowLimit = input.cookableNowLimit ?? 3
+  const cookableLimit = input.cookableLimit ?? 3
   const generalLimit = input.generalLimit ?? 6
   const ordered = [...input.recipes].sort(compareUpdatedDesc)
-  const currentMealRecipes = input.currentMealCategory
-    ? ordered.filter((recipe) => recipe.categoryCode === input.currentMealCategory)
+  const readyRecipes = ordered.filter((recipe) => recipe.cookable === true)
+  // Both automatic lanes require confirmed physical sufficiency. "Na teraz"
+  // takes the ready recipes for the current meal; "Mogę ugotować" contains
+  // ready alternatives from other categories, without repeating those cards.
+  const currentMealReady = input.currentMealCategory
+    ? readyRecipes.filter((recipe) => recipe.categoryCode === input.currentMealCategory)
     : []
-  const cookableNow = currentMealRecipes
-    .filter((recipe) => recipe.cookable === true)
-    .slice(0, cookableNowLimit)
-  // The Home screen is a set of prioritized previews, not three copies of one
-  // catalogue: available meals come first, then other meal-time ideas.
-  const cookableIds = new Set(currentMealRecipes.filter((recipe) => recipe.cookable === true).map((recipe) => recipe.id))
-  const now = currentMealRecipes
-    .filter((recipe) => !cookableIds.has(recipe.id))
-    .slice(0, nowLimit)
+  const now = currentMealReady.slice(0, nowLimit)
+  const currentMealReadyIds = new Set(currentMealReady.map((recipe) => recipe.id))
+  const cookable = readyRecipes
+    .filter((recipe) => !currentMealReadyIds.has(recipe.id))
+    .slice(0, cookableLimit)
 
   const general = filterRecipesByCategory(ordered, input.generalFilter)
   if (input.generalFilter !== 'all') {
-    return { now, cookableNow, general: general.slice(0, generalLimit) }
+    // A deliberate category selection is planning, not a restricted preview.
+    return { now, cookable, general }
   }
 
-  const highlightedIds = new Set([...cookableNow, ...now].map((recipe) => recipe.id))
+  const highlightedIds = new Set([...cookable, ...now].map((recipe) => recipe.id))
   return {
     now,
-    cookableNow,
+    cookable,
     general: general.filter((recipe) => !highlightedIds.has(recipe.id)).slice(0, generalLimit),
   }
 }

@@ -77,7 +77,7 @@
 
 ## V4.3.1 cookability discovery UX
 - `Mogę ugotować` is not a RecipesPage filter and is not a toggle in general Home `Przepisy`.
-- Home exposes a dedicated `Mogę ugotować` section only when there are fully sufficient Recipes during the breakfast/lunch/dinner time windows.
-- The section contains only Recipe-level `Wystarczy` Recipes from the current meal category.
-- `Mogę ugotować` appears **before** the separate `Na teraz` ideas. Automatically shown cards are unique across the Home sections; empty automatic sections are hidden.
+- Home exposes a dedicated `Mogę ugotować` section for fully sufficient Recipes outside the current meal category, even at night.
+- `Na teraz` contains only Recipe-level `Wystarczy` Recipes from the device-local current meal window (Śniadanie / Obiad / Kolacja), never a Recipe with `Brak` or `Częściowo`.
+- `Mogę ugotować` appears **before** `Na teraz`. Automatically shown cards are unique across Home sections; empty automatic sections are hidden.
 - Category filters in the general Recipe overview remain complete and independent planning/navigation controls. While a Home category filter is active, the two automatic meal-time lanes pause to avoid repeating a filtered card above the selection.

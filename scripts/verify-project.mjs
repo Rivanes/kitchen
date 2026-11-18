@@ -1412,14 +1412,14 @@ if (/supabase|\.from\(['"]|\.rpc\(|shopping_items/i.test(recipeMatching)) {
 for (const marker of ['recipeMatches', 'selectedRecipeMatch', 'recipeMatchStateLabel']) {
   if (!recipesPage.includes(marker)) throw new Error(`V4.3 RecipesPage matching marker missing: ${marker}`)
 }
-for (const marker of ['recipeMatches', 'home-recipes-cookable', 'recipe-match-badge', 'buildRecipeMatchMap', 'cookableNow']) {
+for (const marker of ['recipeMatches', 'home-recipes-cookable', 'recipe-match-badge', 'buildRecipeMatchMap', 'recipeSuggestions.cookable']) {
   if (!homePage.includes(marker)) throw new Error(`V4.3 Home matching marker missing: ${marker}`)
 }
 for (const marker of ['.recipe-match-badge', '.home-recipes-cookable', '.recipe-ingredient-index.is-match-sufficient', '.recipe-ingredient-index.is-match-unresolved']) {
   if (!globalCss.includes(marker)) throw new Error(`V4.3 Recipe matching CSS marker missing: ${marker}`)
 }
 if (recipesPage.includes('recipe-cookable-filter') || recipesPage.includes('cookabilityFilter')) {
-  throw new Error('V4.3.1 Mogę ugotować must not remain a RecipesPage filter; it is a dedicated time-aware Home section.')
+  throw new Error('Recipe physical availability must not become a RecipesPage category filter; it has a dedicated Home section.')
 }
 if (homePage.includes('recipeCookabilityFilter') || homePage.includes('generalCookabilityFilter')) {
   throw new Error('V4.3.1 Home general Recipe discovery must not be filtered by Mogę ugotować.')
@@ -1430,7 +1430,7 @@ if (homePage.includes("recipe.match?.state ?? 'unresolved'") || homePage.include
 if (!homePage.includes("showMatch={homeStatus.status === 'ready'}") || !homePage.includes('showMatch && recipe.match')) {
   throw new Error('V4.4 Home matching badges must be gated by ready Inventory data.')
 }
-if (!homePage.includes('recipeSuggestions.cookableNow.length > 0') || !homePage.includes('recipeSuggestions.now.length > 0')) {
+if (!homePage.includes('recipeSuggestions.cookable.length > 0') || !homePage.includes('recipeSuggestions.now.length > 0')) {
   throw new Error('H7.5.7 automatic Recipe sections must not render when empty.')
 }
 if (homePage.includes('nie masz wszystkich składników do żadnego przepisu')) {

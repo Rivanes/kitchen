@@ -12,17 +12,17 @@
   - 23:00–05:59 → hidden.
 - Przekąska and Ciasto are never time-promoted.
 - Home refreshes the local clock on minute boundaries, focus and visibility return; no timezone or meal-time state is persisted.
-- The default Start has three prioritized, non-overlapping visual lanes: `Mogę ugotować` first, then other current-meal ideas (`Na teraz`), then distinct general Recipe previews. A Recipe already shown in a higher-priority lane is not reintroduced in a lower automatic lane, even when no alternatives exist.
+- The default Start has three prioritized, non-overlapping visual lanes: `Mogę ugotować` (sufficient recipes from other categories), `Na teraz` (sufficient current-meal recipes) and distinct general planning previews. Recipes lacking physical ingredients belong in general planning, not `Na teraz`. A Recipe already shown in a higher-priority lane is not reintroduced in a lower automatic lane.
 - When the user selects a general category, current-meal promotional lanes pause, while the chosen category filter shows its **complete** matching list. The explicit filter never silently drops Recipes. The full RecipesPage remains independent.
 - Home opens the canonical RecipesPage detail through an explicit AppShell request; Home never owns a duplicate Recipe detail/write authority.
 
 ## V4.3.1 cookability discovery
 - Home lightweight discovery additionally loads only the compact ingredient requirement projection needed by the shared matcher; it still does not load sections, instructions or editor state.
 - Home reuses the already-loaded Inventory read model as physical-stock authority.
-- `Mogę ugotować` is a **separate time-aware Home section**, not a filter on general Recipe discovery.
-- During 06:00–11:59 it contains only sufficient Śniadania, during 12:00–17:59 only sufficient Obiady, and during 18:00–22:59 only sufficient Kolacje. It is hidden outside those windows.
+- `Mogę ugotować` is a **separate availability Home section**, not a filter on general Recipe discovery. It shows recipes that the canonical matcher confirms as sufficient, excluding the current-meal items reserved for `Na teraz`. It can display available meals, snacks or cakes even outside meal-time windows.
+- `Na teraz` uses the time windows above but **only physically sufficient** recipes of the relevant current meal. It is hidden if all current-meal recipes are missing/partial/unresolved, or Inventory loading has not completed.
 - General `Przepisy` stays category-filterable and complete for planning/inspiration; RecipesPage also keeps category/search only.
-- `Na teraz` is a current-meal **preview** of Recipes not already available in the higher-priority `Mogę ugotować` lane. It may include missing, partial or unresolved Recipes; cards show the canonical match state only if the Inventory read model is ready.
+- A deliberate category filter (`Śniadanie`/`Obiad`/`Kolacja`/...) is a **planning catalogue**: it includes sufficient and missing/partial/unresolved recipes and is never limited by the default six-card preview size.
 
 
 ## V4.4 final polish

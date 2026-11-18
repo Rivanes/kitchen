@@ -445,7 +445,7 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
   gap: 14px;
   margin-bottom: 18px;
 }
-.inventory-page-heading { justify-content: flex-end; margin-bottom: 10px; }
+.inventory-page-heading { align-items: center; justify-content: space-between; margin-bottom: 10px; }
 .page-heading-row > div { min-width: 0; }
 .page-heading-row h1 {
   margin: 0 0 5px;
@@ -920,25 +920,21 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
 
 .home-page { gap: 14px; }
 .home-overview {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 12px;
-  padding: 10px 13px;
-  border: 1px solid var(--color-border);
-  border-radius: 15px;
-  background: linear-gradient(145deg, #ffffff 0%, #f4f9f3 100%);
-}
-.home-overview > span:first-child { color: var(--color-muted); font-size: 13px; font-weight: 650; }
-.home-overview-icon {
-  width: 34px;
-  height: 34px;
-  flex: 0 0 auto;
   display: grid;
-  place-items: center;
-  border-radius: 12px;
-  background: var(--color-accent-soft);
-  color: var(--color-accent-strong);
+  gap: 4px;
+  padding: 2px 1px;
+}
+.home-overview h1 {
+  margin: 0;
+  font-size: clamp(27px, 7.6vw, 34px);
+  line-height: 1.07;
+  letter-spacing: -.04em;
+}
+.home-overview p {
+  margin: 0;
+  color: var(--color-muted);
+  font-size: 12px;
+  line-height: 1.4;
 }
 .home-coming { display: grid; gap: 10px; padding-top: 5px; }
 .home-section-heading .eyebrow { margin-bottom: 5px; }
@@ -1905,9 +1901,15 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
 }
 .shopping-page-heading {
   display: flex;
-  align-items: flex-start;
-  justify-content: flex-end;
+  align-items: center;
+  justify-content: space-between;
   gap: 12px;
+}
+.shopping-page-heading h1 {
+  margin: 0;
+  font-size: clamp(29px, 8vw, 36px);
+  line-height: 1.04;
+  letter-spacing: -.04em;
 }
 .shopping-heading-actions {
   display: flex;
@@ -2509,9 +2511,15 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
 }
 .recipes-page-heading {
   display: flex;
-  align-items: flex-start;
-  justify-content: flex-end;
+  align-items: center;
+  justify-content: space-between;
   gap: 12px;
+}
+.recipes-page-heading h1 {
+  margin: 0;
+  font-size: clamp(29px, 8vw, 36px);
+  line-height: 1.04;
+  letter-spacing: -.04em;
 }
 .recipe-detail-heading .eyebrow { margin-bottom: 4px; }
 .recipe-detail-heading h1 {

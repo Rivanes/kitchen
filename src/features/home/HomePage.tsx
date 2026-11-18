@@ -300,17 +300,16 @@ export function HomePage({ ownerId, onAddProduct, onOpenExpiry, onOpenShopping, 
 
   return (
     <section className="home-page" aria-label="Start">
-      <h1 id="home-overview-title" className="sr-only">Start</h1>
-      {(homeStatus.status !== 'ready' || hasResources) && (
-        <div className="home-overview" role="status">
-          <span>
+      <div className="home-overview">
+        <h1 id="home-overview-title">Twoja kuchnia</h1>
+        {(homeStatus.status !== 'ready' || hasResources) && (
+          <p role="status">
             {homeStatus.status === 'loading' && 'Sprawdzam zapasy…'}
             {homeStatus.status === 'error' && 'Nie udało się sprawdzić zapasów.'}
             {homeStatus.status === 'ready' && polishProducts(homeStatus.model.resourceProducts)}
-          </span>
-          <span className="home-overview-icon" aria-hidden="true"><KitchenIcon name="inventory" size={20} /></span>
-        </div>
-      )}
+          </p>
+        )}
+      </div>
 
       <button className="home-quick-action" type="button" onClick={onAddProduct}>
         <span className="home-quick-icon" aria-hidden="true"><KitchenIcon name="plus" size={23} /></span>
@@ -378,20 +377,20 @@ export function HomePage({ ownerId, onAddProduct, onOpenExpiry, onOpenShopping, 
         </section>
       )}
 
-      {recipeStatus.status === 'ready' && homeStatus.status === 'ready' && !recipeFilterActive && recipeSuggestions.cookableNow.length > 0 && (
+      {recipeStatus.status === 'ready' && homeStatus.status === 'ready' && !recipeFilterActive && recipeSuggestions.cookable.length > 0 && (
         <section className="home-recipes-section home-recipes-cookable" aria-labelledby="home-recipes-cookable-title">
           <div className="home-section-heading home-recipes-heading">
             <h2 id="home-recipes-cookable-title">Mogę ugotować</h2>
           </div>
           <div className="home-recipe-grid">
-            {recipeSuggestions.cookableNow.map((recipe) => (
+            {recipeSuggestions.cookable.map((recipe) => (
               <HomeRecipeCard key={recipe.id} recipe={recipe} onOpen={onOpenRecipe} />
             ))}
           </div>
         </section>
       )}
 
-      {recipeStatus.status === 'ready' && !recipeFilterActive && recipeSuggestions.now.length > 0 && (
+      {recipeStatus.status === 'ready' && homeStatus.status === 'ready' && !recipeFilterActive && recipeSuggestions.now.length > 0 && (
         <section className="home-recipes-section home-recipes-now" aria-labelledby="home-recipes-now-title">
           <div className="home-section-heading home-recipes-heading">
             <h2 id="home-recipes-now-title">Na teraz</h2>

@@ -444,7 +444,7 @@ export function RecipesPage({ ownerId, overviewRequestToken, openRecipeId, openR
   return (
     <section className="recipes-page" aria-label="Przepisy">
       <div className="recipes-page-heading">
-        <h1 className="sr-only">Przepisy</h1>
+        <h1>Przepisy</h1>
         <div className="recipes-heading-actions">
           <button className="icon-button" type="button" onClick={() => void load()} aria-label="Odśwież przepisy" title="Odśwież">
             <KitchenIcon name="refresh" />

@@ -239,7 +239,7 @@ export function CleaningShell({ ownerId, onExit }: CleaningShellProps) {
       <header className="app-header cleaning-header">
         <div className="app-brand">
           <div className="brand-mark brand-mark-small cleaning-brand-mark" aria-hidden="true"><KitchenIcon name="cleaning" size={23} /></div>
-          <div><h1 id="cleaning-page-title" className={selectedRoom ? 'brand-kicker cleaning-shell-page-title' : 'sr-only'}>{pageTitle}</h1></div>
+          <div><h1 id="cleaning-page-title" className="brand-kicker cleaning-shell-page-title">{pageTitle}</h1></div>
         </div>
         <div className="module-header-actions">
           <button className="module-home-button" type="button" onClick={onExit} aria-label="Wróć do strony głównej Dom"><KitchenIcon name="home" size={19} /><span>Dom</span></button>

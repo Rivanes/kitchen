@@ -50,12 +50,10 @@ const morning = buildHomeRecipeSuggestions({
   nowLimit: 3,
   generalLimit: 4,
 })
-assert.deepEqual(morning.now.map((recipe) => recipe.id), ['breakfast-b'], 'Na teraz contains only meal-time suggestions not already available in Mogę ugotować')
-assert.deepEqual(morning.cookableNow.map((recipe) => recipe.id), ['breakfast-a'], 'Mogę ugotować must be a separate current-meal section containing only sufficient Recipes')
-assert.equal(morning.general.length, 4)
-assert.ok(morning.general.some((recipe) => recipe.categoryCode === 'snack'))
-assert.ok(morning.general.some((recipe) => recipe.categoryCode === 'cake'))
-assert.ok(morning.general.every((recipe) => ![...morning.now, ...morning.cookableNow].some((highlight) => highlight.id === recipe.id)), 'unfiltered general preview cannot repeat highlighted recipes')
+assert.deepEqual(morning.now.map((recipe) => recipe.id), ['breakfast-a'], 'Na teraz contains only current-meal Recipes with sufficient physical ingredients')
+assert.deepEqual(morning.cookable.map((recipe) => recipe.id), ['lunch-a', 'dinner-a', 'snack-a'], 'Mogę ugotować contains ready alternatives outside the current meal window')
+assert.deepEqual(morning.general.map((recipe) => recipe.id), ['breakfast-b', 'cake-a'], 'unavailable current-meal Recipes remain available for planning, not Na teraz')
+assert.ok(morning.general.every((recipe) => ![...morning.now, ...morning.cookable].some((highlight) => highlight.id === recipe.id)), 'unfiltered general preview cannot repeat highlighted recipes')
 
 const oneAlternative = buildHomeRecipeSuggestions({
   recipes: recipes.slice(0, 3),
@@ -63,32 +61,43 @@ const oneAlternative = buildHomeRecipeSuggestions({
   generalFilter: 'all',
   generalLimit: 6,
 })
-assert.deepEqual(oneAlternative.general.map((recipe) => recipe.id), ['lunch-a'], 'one available alternative should be preferred over duplicating Na teraz in unfiltered General')
+assert.deepEqual(oneAlternative.cookable.map((recipe) => recipe.id), ['lunch-a'], 'a ready alternative should appear in Mogę ugotować')
+assert.deepEqual(oneAlternative.general.map((recipe) => recipe.id), ['breakfast-b'], 'a missing current-meal Recipe is displayed only in general planning')
 
 const onlyMissing = buildHomeRecipeSuggestions({
   recipes: [recipes[1]], currentMealCategory: 'breakfast', generalFilter: 'all',
 })
-assert.deepEqual(onlyMissing.now.map((recipe) => recipe.id), ['breakfast-b'])
-assert.equal(onlyMissing.cookableNow.length, 0)
-assert.equal(onlyMissing.general.length, 0, 'a single missing recipe is presented only once')
+assert.equal(onlyMissing.now.length, 0, 'a Recipe requiring shopping must never appear in Na teraz')
+assert.equal(onlyMissing.cookable.length, 0)
+assert.deepEqual(onlyMissing.general.map((recipe) => recipe.id), ['breakfast-b'], 'a single missing Recipe remains available in planning')
 
 const onlySufficient = buildHomeRecipeSuggestions({
   recipes: [recipes[0]], currentMealCategory: 'breakfast', generalFilter: 'all',
 })
-assert.deepEqual(onlySufficient.cookableNow.map((recipe) => recipe.id), ['breakfast-a'])
-assert.equal(onlySufficient.now.length, 0)
+assert.deepEqual(onlySufficient.now.map((recipe) => recipe.id), ['breakfast-a'])
+assert.equal(onlySufficient.cookable.length, 0)
 assert.equal(onlySufficient.general.length, 0, 'a single available recipe is presented only once')
 
 const empty = buildHomeRecipeSuggestions({ recipes: [], currentMealCategory: 'breakfast', generalFilter: 'all' })
-assert.deepEqual(empty, { now: [], cookableNow: [], general: [] }, 'empty account never fabricates suggestions')
+assert.deepEqual(empty, { now: [], cookable: [], general: [] }, 'empty account never fabricates suggestions')
 
 const filteredBreakfast = buildHomeRecipeSuggestions({
   recipes,
   currentMealCategory: 'breakfast',
   generalFilter: 'breakfast',
-  generalLimit: 6,
+  generalLimit: 1,
 })
 assert.deepEqual(filteredBreakfast.general.map((recipe) => recipe.id), ['breakfast-a', 'breakfast-b'], 'manual category filter must never hide matching recipes because they also appear in Now')
+
+const partialAndUnresolved = buildHomeRecipeSuggestions({
+  recipes: [
+    { id: 'partial', categoryCode: 'breakfast', updatedAt: '2026-10-06T12:00:00Z', cookable: false },
+    { id: 'unresolved', categoryCode: 'breakfast', updatedAt: '2026-10-06T11:00:00Z' },
+  ],
+  currentMealCategory: 'breakfast', generalFilter: 'all',
+})
+assert.equal(partialAndUnresolved.now.length, 0, 'unknown or partial physical availability must never be promoted')
+assert.deepEqual(partialAndUnresolved.general.map((recipe) => recipe.id), ['partial', 'unresolved'])
 
 const night = buildHomeRecipeSuggestions({
   recipes,
@@ -96,8 +105,8 @@ const night = buildHomeRecipeSuggestions({
   generalFilter: 'all',
 })
 assert.equal(night.now.length, 0)
-assert.equal(night.cookableNow.length, 0, 'time-aware Mogę ugotować section is hidden outside breakfast/lunch/dinner windows')
-assert.equal(night.general.length, 6, 'general discovery must remain available at night')
+assert.deepEqual(night.cookable.map((recipe) => recipe.id), ['breakfast-a', 'lunch-a', 'dinner-a'], 'other available Recipes may be cooked outside fixed meal-time windows')
+assert.equal(night.general.length, 3, 'remaining planning Recipes are still available at night')
 
 
 const lunchDiscovery = buildHomeRecipeSuggestions({
@@ -105,7 +114,8 @@ const lunchDiscovery = buildHomeRecipeSuggestions({
   currentMealCategory: 'lunch',
   generalFilter: 'all',
 })
-assert.deepEqual(lunchDiscovery.cookableNow.map((recipe) => recipe.id), ['lunch-a'])
+assert.deepEqual(lunchDiscovery.now.map((recipe) => recipe.id), ['lunch-a'])
+assert.ok(lunchDiscovery.cookable.every((recipe) => recipe.cookable && recipe.categoryCode !== 'lunch'))
 
 for (const promoted of ['snack', 'cake']) {
   assert.notEqual(resolveCurrentMealCategory(10), promoted)
@@ -128,8 +138,8 @@ assert.match(home, /Na teraz/)
 assert.match(home, /Przepisy/)
 assert.match(home, /recipeCategoryFilter/)
 assert.match(home, /home-recipes-cookable/)
-assert.ok(home.indexOf('home-recipes-cookable"') < home.indexOf('home-recipes-now"'), 'available recipes are shown before ideas requiring shopping')
-assert.match(home, /recipeSuggestions\.cookableNow\.length > 0/)
+assert.ok(home.indexOf('home-recipes-cookable"') < home.indexOf('home-recipes-now"'), 'Mogę ugotować is visually above Na teraz')
+assert.match(home, /recipeSuggestions\.cookable\.length > 0/)
 assert.match(home, /recipeSuggestions\.now\.length > 0/)
 assert.match(home, /showGeneralRecipes && <section/)
 assert.match(home, /!recipeFilterActive && recipeSuggestions/)

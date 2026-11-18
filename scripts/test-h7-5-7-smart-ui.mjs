@@ -13,30 +13,29 @@ const [shell, home, inventory, shopping, recipes, cleaning, css, contract] = awa
   read('tests/H7_5_7_SMART_UI_CONTRACT.md'),
 ])
 
-// The bottom navigation is authoritative for module names. Hub return and
-// logout remain real actions, not decorative controls.
+// Bottom navigation is navigation, not a replacement for visible screen titles.
 assert.doesNotMatch(shell, /<p className="brand-kicker">Kitchen<\/p>[\s\S]*?<p className="app-greeting">Dzień dobry<\/p>/)
 assert.match(shell, /className="module-home-button" onClick=\{onExit\}/)
 for (const tab of ['Start', 'Zapasy', 'Zakupy', 'Przepisy']) {
   assert.match(shell, new RegExp(`<span>${tab}</span>`))
 }
 
-// Empty pages have one meaningful action/empty state and accessible names,
-// without a second visual module heading or tautological helper text.
-assert.match(home, /className="sr-only">Start<\/h1>/)
-assert.doesNotMatch(home, /Twoja kuchnia|Dodaj pierwszy produkt i zacznij budować zasoby/)
-assert.match(home, /\(homeStatus\.status !== 'ready' \|\| hasResources\)/)
+// Each overview keeps one visible H1, but not its former decorative microcopy.
+assert.match(home, /<h1 id="home-overview-title">Twoja kuchnia<\/h1>/)
+assert.doesNotMatch(home, /Dodaj pierwszy produkt i zacznij budować zasoby/)
 for (const [page, name] of [[inventory, 'Zapasy'], [shopping, 'Zakupy'], [recipes, 'Przepisy']]) {
-  assert.match(page, new RegExp(`<h1[^>]*className="sr-only"[^>]*>${name}<\\/h1>`))
+  assert.match(page, new RegExp(`<h1(?:\\s+id="[^"]+")?>${name}<\\/h1>`))
 }
+assert.match(css, /\.shopping-page-heading h1\s*\{/)
+assert.match(css, /\.recipes-page-heading h1\s*\{/)
+assert.match(css, /\.home-overview h1\s*\{/)
 assert.doesNotMatch(inventory, /Wybierz miejsce, żeby zobaczyć jego zawartość/)
 assert.doesNotMatch(shopping, /Bieżąca lista|Dodaj to, czego brakuje w domu/)
 assert.doesNotMatch(recipes, /Twoja książka kucharska|Zapisane przepisy pojawią się tutaj/)
 assert.equal((shopping.match(/Wszystko kupione/g) ?? []).length, 1, 'purchased-only UI has one completion message')
 
-// Keep the selected room title visible; hide only the text duplicated by
-// Start / Rooms / Schedule tabs, retaining the H1 accessible name.
-assert.match(cleaning, /className=\{selectedRoom \? 'brand-kicker cleaning-shell-page-title' : 'sr-only'\}/)
+// All Cleaning screens have visible titles, including selected room details.
+assert.match(cleaning, /className="brand-kicker cleaning-shell-page-title">\{pageTitle\}<\/h1>/)
 assert.match(cleaning, /aria-labelledby="cleaning-page-title"/)
 assert.match(cleaning, /selectedRoom\?\.name \?\? 'Pomieszczenia'/)
 
@@ -45,10 +44,11 @@ const ready = home.indexOf('home-recipes-cookable"')
 const ideas = home.indexOf('home-recipes-now"')
 const general = home.indexOf('home-recipes-general"')
 assert.ok(ready !== -1 && ready < ideas && ideas < general, 'Mogę ugotować -> Na teraz -> Przepisy')
-assert.match(home, /recipeSuggestions\.cookableNow\.length > 0/)
+assert.match(home, /recipeSuggestions\.cookable\.length > 0/)
 assert.match(home, /recipeSuggestions\.now\.length > 0/)
 assert.match(home, /recipeSuggestions\.general\.length > 0/)
 assert.match(home, /recipeFilterActive/)
+assert.match(home, /homeStatus\.status === 'ready' && !recipeFilterActive && recipeSuggestions\.now\.length > 0/)
 assert.match(home, /function HomeRecipeCard\(/)
 assert.equal((home.match(/className="home-recipe-card"/g) ?? []).length, 1, 'one shared Home card renderer')
 assert.doesNotMatch(home, /Wszystkie przepisy<\/button>|Inspiracje i planowanie|home-recipes-link/)

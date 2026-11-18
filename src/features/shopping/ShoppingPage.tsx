@@ -127,7 +127,7 @@ export function ShoppingPage({ ownerId }: ShoppingPageProps) {
   return (
     <section className="shopping-page" aria-label="Zakupy">
       <div className="page-heading shopping-page-heading">
-        <h1 className="sr-only">Zakupy</h1>
+        <h1>Zakupy</h1>
         <div className="shopping-heading-actions">
           <button className="icon-button" type="button" onClick={() => void load()} aria-label="Odśwież listę zakupów" title="Odśwież">
             <KitchenIcon name="refresh" />
