@@ -1,11 +1,9 @@
 import assert from 'node:assert/strict'
-import { readFile } from 'node:fs/promises'
+import { readFile, readdir } from 'node:fs/promises'
+import { join } from 'node:path'
 
 const gate = await readFile('src/components/MembershipGate.tsx', 'utf8')
 const app = await readFile('src/App.tsx', 'utf8')
-const sql = await readFile('supabase/sql/h7_6d/H7_6D1_RLS_AUTO_ENABLE_EXECUTE_CORRECTIVE.sql', 'utf8')
-const pre = await readFile('supabase/sql/h7_6d/H7_6D1_PREFLIGHT_READONLY.sql', 'utf8')
-const post = await readFile('supabase/sql/h7_6d/H7_6D1_POSTCHECK_READONLY.sql', 'utf8')
 
 function verifyGate(source) {
   assert.match(source, /\.rpc\('kitchen_my_access'\)/)
@@ -37,10 +35,24 @@ for (const broken of [
 ]) assert.throws(() => verifyGate(broken))
 
 assert.match(app, /key=\{session\.user\.id\}/)
-assert.match(sql, /BEGIN;/)
-assert.match(sql, /REVOKE EXECUTE ON FUNCTION public\.rls_auto_enable\(\) FROM PUBLIC, anon, authenticated, service_role;/)
-assert.match(sql, /COMMIT;/)
-assert.doesNotMatch(sql, /DROP (?:FUNCTION|EVENT TRIGGER)|CREATE OR REPLACE FUNCTION|DELETE FROM|UPDATE\s+private\./i)
-for (const snippet of ['rls_auto_enable', 'event_trigger', 'anon_execute', 'authenticated_execute']) assert.ok(pre.includes(snippet))
-for (const snippet of ['function_preserved', 'enabled_event_trigger_preserved', 'anon_denied', 'authenticated_denied', 'service_denied']) assert.ok(post.includes(snippet))
-console.log('H7.6D membership revalidation + narrow SQL ACL source contract: PASS')
+
+// Permanent packaging invariant. GitHub checks out REPO alone. The executable
+// SQL scripts belong ONLY to UPDATED_SQL and OUTSIDE_REPO, never to REPO.
+async function sourcePaths(dir = '.') {
+  const results = []
+  for (const entry of await readdir(dir, { withFileTypes: true })) {
+    if (entry.isDirectory() && !['node_modules', 'dist', '.git'].includes(entry.name)) {
+      results.push(...await sourcePaths(join(dir, entry.name)))
+    } else if (entry.isFile()) {
+      results.push(join(dir, entry.name))
+    }
+  }
+  return results
+}
+function assertNoSqlInRepo(paths) {
+  const unexpected = paths.filter(path => /\.sql$/i.test(path))
+  assert.deepEqual(unexpected, [], 'SQL files must not be committed to GitHub/REPO')
+}
+assertNoSqlInRepo(await sourcePaths())
+assert.throws(() => assertNoSqlInRepo(['src/example.sql']))
+console.log('H7.6D membership revalidation + GitHub SQL isolation contract: PASS')

@@ -14,6 +14,7 @@
 - `rls_auto_enable()` is an existing Postgres-owned EVENT TRIGGER helper (`ensure_rls`) in public schema; it is **not** a client API.
 - H7.6D.1 revokes only EXECUTE on that exact function from PUBLIC, anon, authenticated and service_role. Preserve function, event trigger, owner, RLS behavior, all data and other RPC grants.
 - Execute only after read-only preflight and a verified backup; postcheck six booleans all true. Do not run historical migrations again.
+- **No `.sql` file may be present in GitHub/`REPO`/`UPDATED_FILES`.** The three H7.6D.1 scripts are maintained exclusively in `UPDATED_SQL` and `OUTSIDE_REPO/SQL`. A package-only SQL parity test lives under `OUTSIDE_REPO/QA` and is intentionally not called by GitHub CI, which checks out `REPO` alone.
 
 ## Deferred release gates
 
