@@ -8,7 +8,7 @@ export function PwaUpdateNotice({ needRefresh, updateServiceWorker }: Props) {
   if (!needRefresh) return null
   return (
     <section className="pwa-update-notice" role="status" aria-label="Aktualizacja Kitchen">
-      <div><strong>Nowa wersja Kitchen jest gotowa</strong><p>Zaktualizuj ją teraz, gdy nie edytujesz formularza.</p></div>
+      <p>Dostępna aktualizacja</p>
       <button type="button" className="secondary-button" onClick={() => { void updateServiceWorker(true) }}>Aktualizuj</button>
     </section>
   )

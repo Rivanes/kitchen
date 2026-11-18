@@ -86,16 +86,6 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
 .brand-caption { margin: 2px 0 0; color: var(--color-muted); font-size: 12px; line-height: 1.35; }
 
 .login-heading { margin-top: 34px; }
-.soft-icon {
-  width: 40px;
-  height: 40px;
-  display: grid;
-  place-items: center;
-  margin-bottom: 16px;
-  border-radius: 14px;
-  background: #f2f6f1;
-  color: var(--color-accent-strong);
-}
 
 .eyebrow {
   margin: 0 0 7px;
@@ -124,6 +114,55 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
   transition: border-color .16s ease, box-shadow .16s ease, background .16s ease;
 }
 .login-form input:focus { border-color: #81a589; background: #fff; box-shadow: 0 0 0 4px rgba(78, 119, 89, .10); }
+
+/* H7.5.5 — focused login composition. Shared invite/member screens keep .login-card. */
+.login-layout {
+  background:
+    radial-gradient(ellipse 70% 40% at 50% 2%, #e7f2e8 0%, transparent 100%),
+    #f8faf7;
+}
+.login-entry {
+  width: min(100%, 420px);
+  padding: 38px;
+  border-color: #e1eae2;
+  border-radius: 30px;
+  background: #fff;
+  box-shadow: 0 22px 70px rgba(36, 66, 45, .085);
+}
+.login-brand { display: flex; align-items: center; gap: 12px; }
+.login-brand-emblem {
+  width: 52px;
+  height: 52px;
+  flex: 0 0 52px;
+  display: grid;
+  place-items: center;
+  border-radius: 17px;
+  background: #e5f1e7;
+  color: var(--color-accent-strong);
+}
+.login-brand-wordmark { font-size: 21px; font-weight: 830; letter-spacing: -.035em; }
+.login-entry .login-heading { margin: 37px 0 31px; }
+.login-entry h1 { margin: 0; font-size: clamp(30px, 7vw, 37px); line-height: 1.08; letter-spacing: -.045em; }
+.login-entry .login-form { gap: 18px; }
+.login-entry .login-form label { gap: 9px; color: #516457; font-size: 13px; }
+.login-entry .login-form input {
+  min-height: 54px;
+  border-color: #d8e3d9;
+  background: #fbfdfb;
+}
+.login-entry .login-form .primary-button {
+  min-height: 54px;
+  margin-top: 8px;
+  border-radius: 15px;
+  box-shadow: 0 11px 24px rgba(49, 92, 61, .16);
+}
+@media (max-width: 480px) {
+  .login-layout { padding-inline: 16px; }
+  .login-entry { padding: 30px 24px; }
+}
+@media (max-height: 560px) {
+  .login-layout { place-items: start center; }
+}
 
 .primary-button, .secondary-button, .icon-button, .nav-item {
   min-height: var(--touch-min);
@@ -4867,17 +4906,12 @@ html:has(.cleaning-shell), body:has(.cleaning-shell) { background: #f5f8fa; }
   .pwa-install-panel { padding: 13px; }
 }
 .pwa-update-notice { width: 100%; display: flex; align-items: center; justify-content: space-between;
-  gap: 12px; padding: 13px; border: 1px solid var(--color-border); border-radius: 16px;
+  gap: 10px; padding: 10px 12px; border: 1px solid var(--color-border); border-radius: 16px;
   background: var(--color-surface-soft); }
-.pwa-update-notice strong { font-size: 13px; }
-.pwa-update-notice p { margin: 4px 0 0; font-size: 12px; color: var(--color-muted); }
-.pwa-update-notice .secondary-button { flex-shrink: 0; min-height: 44px; }
+.pwa-update-notice p { margin: 0; font-size: 13px; line-height: 1.35; font-weight: 730; }
+.pwa-update-notice .secondary-button { flex-shrink: 0; min-height: 44px; padding-inline: 14px; }
 .pwa-offline-banner { position: fixed; top: env(safe-area-inset-top); left: 50%; transform: translateX(-50%);
   z-index: 100; width: min(calc(100% - 20px), 500px); padding: 10px 14px;
   background: #fff4d9; border: 1px solid #e4bc64; border-radius: 12px;
   box-shadow: var(--shadow-soft); color: #5b4217; text-align: center; font-size: 12px; font-weight: 680;
   pointer-events: none; }
-@media (max-width: 400px) {
-  .pwa-update-notice { align-items: stretch; flex-direction: column; }
-  .pwa-update-notice .secondary-button { width: 100%; }
-}

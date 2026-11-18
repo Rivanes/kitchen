@@ -14,7 +14,9 @@ assert.match(gate, /if \(status === 'active'\) \{[\s\S]*return <HomeHubShell use
 assert.match(gate, /status === 'suspended'/)
 assert.doesNotMatch(gate, /is_kitchen_owner|service_role|\.signUp\(/)
 assert.doesNotMatch(login, /\.signUp\(/)
-assert.match(login, /Dostęp tylko dla zaproszonych użytkowników Kitchen/)
+// Invite-only access is enforced by Auth and MembershipGate, not login footer copy.
+assert.match(login, /supabase\.auth\.signInWithPassword\(/)
+assert.doesNotMatch(login, /Zarejestruj|Utwórz konto|Zapisz konto/)
 for (const marker of ['private.kitchen_members','is_kitchen_member','kitchen_my_access','ACTIVE', 'ADMIN','owner_id', 'RLS', 'SQL']) {
   assert.match(sql.toUpperCase(), new RegExp(marker.toUpperCase().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))
 }

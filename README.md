@@ -1,4 +1,10 @@
-## H7.5.4 — instalacja PWA pod modułami (SOURCE READY, 2026-11-17)
+## H7.5.5 — uproszczone logowanie + aktualizacja PWA (SOURCE QA PASS, 2026-11-18)
+
+Logowanie pokazuje markę Kitchen, pojedynczy tytuł, pola E-mail/Hasło i akcję Zaloguj się. Usunięto pomocnicze teksty powtarzające oczywisty kontekst; wygląd ograniczono do `login-layout`/`login-entry`, aby nie zmieniać MembershipGate i zaproszeń. W Home Hub komunikat o nowej wersji ma jedną linię „Dostępna aktualizacja” i przycisk „Aktualizuj”, nadal bez automatycznego przeładowania aplikacji. H7.5.5: `npm run check` PASS lokalnie; GitHub QA/Deploy i realne iPhone QA OPEN. Bez zmian SQL, Auth, RLS, Product i SW config.
+
+---
+
+## H7.5.4 — instalacja PWA pod modułami (PASS użytkownika, 2026-11-18)
 
 Na ekranie Dom opcja `Zainstaluj Kitchen` znajduje się **pod kafelkami Jedzenie i Porządki**. W zwykłej karcie przeglądarki można otworzyć instrukcję iOS/Android bez wykrywania nazwy przeglądarki; natywny prompt pojawia się tylko, gdy urządzenie go udostępnia. W aplikacji uruchomionej standalone nie pokazujemy ani opcji instalacji, ani zbędnego statusu. Istniejący manifest/SW nadal obsługuje aktualizację na żądanie (bez przerywania edytora). W razie offline pojawia się informacja o braku połączenia; API/Auth nie są zapisywane w Cache API. Test: `npm run verify:project`.
 
@@ -12,7 +18,7 @@ Na ekranie Dom opcja `Zainstaluj Kitchen` znajduje się **pod kafelkami Jedzenie
 
 All Kitchen accounts use **one global name/role/suggested unit dictionary**. Creating or renaming an owner product automatically indexes a matching global definition via a restricted DB trigger, without a publication toggle. Existing owner names are indexed once by a separate corrective SQL migration. In Inventory/Shopping/Recipes there is **one alphabetically sorted autocomplete list** without „Moje / Katalog Kitchen” headings. Adopting a shared name still creates/uses a caller-owned Product ID through `h74_adopt_shared_product`. Private quantities, stock locations, packages and recipe snapshots are never shared.
 
-**Nie ponawiać** H7.4B, H7.4C.1 ani `ALL_IN_ONE.sql` w istniejącej bazie. Bieżący baseline GitHub przed H7.5.4 to `70701f5ef8d889a43f7c558932590a31188a0254`; bieżące instrukcje wdrożeniowe są wyłącznie w `OUTSIDE_REPO/H7_5_4_RUNBOOK.md` w paczce.
+**Nie ponawiać** H7.4B, H7.4C.1 ani `ALL_IN_ONE.sql` w istniejącej bazie. Baseline GitHub przed H7.5.5 to `db094eb0e14404c710de9eea2842b36a81ceb1b4`; bieżące instrukcje wdrożeniowe są w `OUTSIDE_REPO/H7_5_5_RUNBOOK.md` w paczce.
 
 **Constraint:** Global catalog shares **product names**. Do not enter names containing personal data. The existing two-request product-creation/business-save flow can leave an unused catalog definition after a later business-save error; this limitation is documented and must not be mistaken for full atomicity across requests.
 

@@ -41,22 +41,16 @@ export function LoginPage({ configurationMissing }: LoginPageProps) {
   }
 
   return (
-    <main className="auth-layout">
-      <section className="login-card" aria-labelledby="login-title">
-        <div className="brand-row">
-          <div className="brand-mark" aria-hidden="true">K</div>
-          <div>
-            <p className="brand-kicker">Kitchen</p>
-            <p className="brand-caption">Twoja domowa kuchnia w jednym miejscu</p>
-          </div>
+    <main className="auth-layout login-layout">
+      <section className="login-card login-entry" aria-labelledby="login-title">
+        <div className="login-brand">
+          <span className="login-brand-emblem" aria-hidden="true"><KitchenIcon name="home" size={25} /></span>
+          <span className="login-brand-wordmark">Kitchen</span>
         </div>
 
-        <div className="login-heading">
-          <span className="soft-icon" aria-hidden="true"><KitchenIcon name="lock" size={20} /></span>
-          <p className="eyebrow">Prywatny dostęp</p>
+        <header className="login-heading">
           <h1 id="login-title">Witaj ponownie</h1>
-          <p className="login-intro">Zaloguj się, aby przejść do swoich zapasów, zakupów i przepisów.</p>
-        </div>
+        </header>
 
         {configurationMissing ? (
           <div className="notice notice-error" role="alert">
@@ -99,7 +93,6 @@ export function LoginPage({ configurationMissing }: LoginPageProps) {
           </button>
         </form>
 
-        <p className="login-footnote">Dostęp tylko dla zaproszonych użytkowników Kitchen.</p>
       </section>
     </main>
   )

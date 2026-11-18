@@ -29,6 +29,8 @@ const requiredFiles = [
   'scripts/contracts/audit-frontend-boundaries.mjs',
   'scripts/test-h7-5-2-ui-boundaries.mjs',
   'scripts/test-h7-1-membership-source.mjs',
+  'scripts/test-h7-5-5-login-ux.mjs',
+  'tests/H7_5_5_LOGIN_UPDATE_UX_CONTRACT.md',
   'scripts/test-h7-1b-security-corrective.mjs',
   'scripts/test-h7-3c-admin.mjs',
   'tests/H7_3C_INVITE_ADMIN_CONTRACT.md',
@@ -1872,3 +1874,4 @@ console.log('Kitchen project contract verification: PASS')
 // H7.4C.1: shared names auto-indexed server-side; owner identities and histories remain private.
 await execFileAsync(process.execPath, ['scripts/test-h7-4c-shared-catalog.mjs'])
 await execFileAsync(process.execPath, ['scripts/test-h7-5-pwa.mjs'])
+await execFileAsync(process.execPath, ['scripts/test-h7-5-5-login-ux.mjs'])
