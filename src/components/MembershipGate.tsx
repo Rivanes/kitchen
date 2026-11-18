@@ -3,6 +3,7 @@ import type { User } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase/client'
 import { HomeHubShell } from './HomeHubShell'
 import { KitchenIcon } from './KitchenIcon'
+import { StartupPending } from './StartupScreen'
 import type { PwaInstallState } from '../features/pwa/usePwaInstall'
 
 type MemberStatus = 'checking' | 'active' | 'suspended' | 'denied' | 'error'
@@ -70,11 +71,7 @@ export function MembershipGate({ user, adminRoute = false, onNavigateAdmin, inst
       install={install} needPwaRefresh={needPwaRefresh} updatePwa={updatePwa} />
   }
   if (status === 'checking') {
-    return <main className="loading-layout" aria-live="polite">
-      <div className="loading-mark" aria-hidden="true">K</div>
-      <div className="loading-dot" aria-hidden="true" />
-      <p>Sprawdzanie dostępu do Kitchen…</p>
-    </main>
+    return <StartupPending message="Sprawdzanie dostępu do Kitchen…" />
   }
 
   const message = status === 'suspended'

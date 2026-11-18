@@ -3,6 +3,7 @@ import { useRegisterSW } from 'virtual:pwa-register/react'
 import { usePwaInstall } from './features/pwa/usePwaInstall'
 import type { Session } from '@supabase/supabase-js'
 import { LoginPage } from './components/LoginPage'
+import { StartupPending } from './components/StartupScreen'
 import { InvitationPage } from './components/InvitationPage'
 import { MembershipGate } from './components/MembershipGate'
 import { hasSupabaseConfig, supabase } from './lib/supabase/client'
@@ -69,12 +70,7 @@ export default function App() {
   }, [])
 
   if (checkingSession) {
-    return (
-      <main className="loading-layout" aria-live="polite">
-        <div className="loading-dot" aria-hidden="true" />
-        <p>Sprawdzanie sesji…</p>
-      </main>
-    )
+    return <StartupPending message="Sprawdzanie sesji…" />
   }
 
   if (initialInviteToken) return <InvitationPage token={initialInviteToken} />
