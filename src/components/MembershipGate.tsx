@@ -20,42 +20,89 @@ export function MembershipGate({ user, adminRoute = false, onNavigateAdmin, inst
 }) {
   const [status, setStatus] = useState<MemberStatus>('checking')
   const [role, setRole] = useState<MemberAccess['kitchen_role'] | null>(null)
+  const [rechecking, setRechecking] = useState(false)
 
   useEffect(() => {
     let current = true
+    let inFlight = false
+    let foregroundQueued = false
     setStatus('checking')
     setRole(null)
+    setRechecking(false)
 
-    async function verifyMembership() {
+    async function verifyMembership(foreground = false) {
+      // Focus, visibility and online can fire together. Serialize checks; if
+      // resume happens during an older read, make ONE fresh read afterward.
+      if (inFlight) {
+        if (foreground) foregroundQueued = true
+        return
+      }
+      inFlight = true
+      if (foreground) setRechecking(true)
       if (!supabase) {
         if (current) setStatus('error')
+        inFlight = false
         return
       }
       try {
         const { data, error } = await supabase.rpc('kitchen_my_access')
         if (!current) return
         if (error) {
+          setRole(null)
           setStatus('error')
           return
         }
         const rows = Array.isArray(data) ? data as MemberAccess[] : []
         const account = rows[0]
         if (!account || !['admin', 'member'].includes(account.kitchen_role)) {
+          setRole(null)
           setStatus('denied')
         } else if (account.kitchen_status === 'active') {
           setRole(account.kitchen_role)
           setStatus('active')
         } else if (account.kitchen_status === 'suspended') {
+          setRole(null)
           setStatus('suspended')
         } else {
+          setRole(null)
           setStatus('denied')
         }
       } catch {
-        if (current) setStatus('error')
+        if (current) {
+          setRole(null)
+          setStatus('error')
+        }
+      } finally {
+        inFlight = false
+        if (current) {
+          setRechecking(false)
+          if (foregroundQueued) {
+            foregroundQueued = false
+            void verifyMembership(true)
+          }
+        }
       }
     }
+
+    function checkForeground() {
+      if (current && document.visibilityState === 'visible') void verifyMembership(true)
+    }
+    document.addEventListener('visibilitychange', checkForeground)
+    window.addEventListener('focus', checkForeground)
+    window.addEventListener('pageshow', checkForeground)
+    window.addEventListener('online', checkForeground)
+    // Also revalidate long-lived foreground sessions, not only resumed PWAs.
+    const periodicCheck = window.setInterval(checkForeground, 5 * 60 * 1000)
     void verifyMembership()
-    return () => { current = false }
+    return () => {
+      current = false
+      foregroundQueued = false
+      window.clearInterval(periodicCheck)
+      document.removeEventListener('visibilitychange', checkForeground)
+      window.removeEventListener('focus', checkForeground)
+      window.removeEventListener('pageshow', checkForeground)
+      window.removeEventListener('online', checkForeground)
+    }
   }, [user.id])
 
   if (status === 'active') {
@@ -67,8 +114,15 @@ export function MembershipGate({ user, adminRoute = false, onNavigateAdmin, inst
         <button type="button" className="secondary-button" onClick={() => onNavigateAdmin?.(false)}>Wróć do Kitchen</button>
       </section>
     </main>
-    return <HomeHubShell user={user} isAdmin={role === 'admin'} adminRoute={adminRoute} onNavigateAdmin={onNavigateAdmin}
-      install={install} needPwaRefresh={needPwaRefresh} updatePwa={updatePwa} />
+    return <>
+      {/* Keep in-progress editors mounted, but do not expose cached private UI
+          until the server has confirmed membership again. */}
+      <div hidden={rechecking} aria-hidden={rechecking}>
+        <HomeHubShell user={user} isAdmin={role === 'admin'} adminRoute={adminRoute} onNavigateAdmin={onNavigateAdmin}
+          install={install} needPwaRefresh={needPwaRefresh} updatePwa={updatePwa} />
+      </div>
+      {rechecking ? <StartupPending message="Ponowne sprawdzanie dostępu…" /> : null}
+    </>
   }
   if (status === 'checking') {
     return <StartupPending message="Sprawdzanie dostępu do Kitchen…" />
