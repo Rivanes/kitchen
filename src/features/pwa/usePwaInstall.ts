@@ -16,7 +16,9 @@ export function isStandaloneApp(): boolean {
 }
 
 export function usePwaInstall() {
-  const [installed, setInstalled] = useState(isStandaloneApp)
+  // Only the current display context is observable across browsers.
+  // An appinstalled event does not mean this browser tab is running standalone.
+  const [runningStandalone, setRunningStandalone] = useState(isStandaloneApp)
   const [promptEvent, setPromptEvent] = useState<InstallPromptEvent | null>(null)
   const [installing, setInstalling] = useState(false)
 
@@ -28,10 +30,9 @@ export function usePwaInstall() {
       setPromptEvent(candidate)
     }
     const onInstalled = () => {
-      setInstalled(true)
       setPromptEvent(null)
     }
-    const onModeChange = () => setInstalled(isStandaloneApp())
+    const onModeChange = () => setRunningStandalone(isStandaloneApp())
     const mode = typeof window.matchMedia === 'function'
       ? window.matchMedia('(display-mode: standalone)') : null
 
@@ -55,7 +56,7 @@ export function usePwaInstall() {
   }, [])
 
   async function requestInstall(): Promise<'accepted' | 'dismissed' | 'unavailable'> {
-    if (!promptEvent || installed) return 'unavailable'
+    if (!promptEvent || runningStandalone) return 'unavailable'
     const event = promptEvent
     setPromptEvent(null) // A deferred event is single-use.
     setInstalling(true)
@@ -71,7 +72,7 @@ export function usePwaInstall() {
     }
   }
 
-  return { installed, canPrompt: Boolean(promptEvent) && !installed, installing, requestInstall }
+  return { runningStandalone, canPrompt: Boolean(promptEvent) && !runningStandalone, installing, requestInstall }
 }
 
 export type PwaInstallState = ReturnType<typeof usePwaInstall>

@@ -1,19 +1,18 @@
-# H7.5.3 — PWA: stały dostęp do instalacji (2026-11-17)
+# H7.5.4 — instalacja PWA: jeden dyskretny punkt pod modułami
 
-## Cel
+## Kontrakt UX
 
-- Ekran Dom ma nadal **dwa** kafle: Jedzenie i Porządki.
-- Przycisk **Zainstaluj Kitchen** dostępny jest bezpośrednio POD nagłówkiem Dom, PRZED wyśrodkowanymi kaflami, niezależnie od rozpoznania przeglądarki i `beforeinstallprompt`.
-- Brak sztywnego rozpoznawania nazw przeglądarek ani filtrowania instrukcji wg `userAgent`. `beforeinstallprompt` zmienia jedynie możliwość otwarcia natywnego promptu, nie widoczność pomocy.
-- Gdy natywny prompt nie jest obsługiwany: stała instrukcja iOS/iPadOS, Android/inne. Brak fałszywej obietnicy automatycznej instalacji. W przypadku iOS bez przycisku dodawania można skorzystać z Safari.
-- W trybie `standalone` przycisk nie znika; pokazuje status `Kitchen uruchomiony jako aplikacja` i informacje o ponownym uruchomieniu. Nie oferuje drugiej instalacji.
-- Stany: unavailable/manual, native-prompt available, installing, accepted, dismissed, installed. `accepted` nie oznacza `installed`.
-- Obsługa starszego `MediaQueryList.addListener` i eventu `pageshow` pozwala wykryć zmianę trybu po powrocie do karty.
-- Wspólny `MembershipGate`, auth, Supabase, katalog produktów, Service Worker, Vite config i SQL pozostają bez zmian.
+- Dom ma dokładnie dwa główne kafelki: Jedzenie i Porządki.
+- W zwykłej karcie przeglądarki jeden link „Zainstaluj Kitchen” znajduje się **pod obydwoma kafelkami**, wewnątrz `home-hub-main`. Nie zajmuje miejsca pomiędzy nagłówkiem Dom a zawartością.
+- Link jest wizualnie drugorzędny, ma obszar dotyku co najmniej 44 px, dostępny focus klawiatury i `aria-expanded` / `aria-controls`.
+- Instrukcje rozwijają się w normalnym przepływie dokumentu. Na 320×568, 360×640 i 390×844 treść można przewinąć; brak przycinania i nakładania na safe-area.
+- W standalone PWA nie ma linku, tekstu „Kitchen jest zainstalowany” ani pustego bloku w jego miejscu.
+- W karcie przeglądarki pomoc pozostaje dostępna niezależnie od typu przeglądarki i od `beforeinstallprompt`. Natywny prompt jest opcjonalnym dodatkiem.
+- `runningStandalone` oznacza wyłącznie bieżący tryb wyświetlania (`display-mode: standalone` lub `navigator.standalone`). Zdarzenie `appinstalled` zwalnia już zużyty prompt, ale nie udaje wykrycia globalnej instalacji.
+- `PwaUpdateNotice` pozostaje osobnym, warunkowym komunikatem. Nie ingerujemy w Service Worker, Auth, MembershipGate, Supabase, produkty ani SQL.
 
 ## Weryfikacja
 
-- `npm run verify:project` wywołuje `scripts/test-h7-5-pwa.mjs`: testuje pozycję przycisku przed kafelkami, brak wczesnego `return null` dla installed, instrukcje niezależne od UA, rozdzielenie możliwości natywnego promptu od widoczności, brak rozgałęziania produktów/danych.
-- GitHub `Kitchen QA` i `Deploy` na tym samym commicie muszą PASS (TypeScript i production build).
-- QA urządzeń: iPhone w Safari i innej przeglądarce, Android/Chromium i browser bez `beforeinstallprompt`, standalone, mała wysokość ekranu, aktualizacja SW nieprzerywająca edycji.
-- Nie obiecuj systemowej instalacji we wszystkich przeglądarkach: to ograniczenie platformy, nie interfejsu Kitchen.
+- `scripts/test-h7-5-pwa.mjs` sprawdza pozycję po kafelkach, dokładnie jedno wejście, brak komunikatu instalacji w standalone oraz negatywne fixture dla poprzedniego błędnego układu i statusu.
+- `npm run check`: `verify:project`, TypeScript, produkcyjny build. GitHub `Kitchen QA` i `Deploy Kitchen to GitHub Pages` muszą PASS dla tego samego SHA.
+- Rzeczywiste QA po wdrożeniu: iOS Safari i inna przeglądarka, Android gdy dostępny, PWA standalone, małe ekrany, rozwijanie/zamykanie instrukcji, klawiatura/focus, native prompt opcjonalny i ręczna aktualizacja PWA.

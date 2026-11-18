@@ -70,10 +70,6 @@ export function HomeHubShell({ user, isAdmin = false, adminRoute = false, onNavi
         </button>
       </header>
 
-      <div className="pwa-home-install-access">
-        <PwaInstallPanel install={install} />
-      </div>
-
       <section className="home-hub-main" aria-labelledby="home-hub-title">
         <div className="home-hub-heading">
           <p className="eyebrow">TWÓJ DOM</p>
@@ -94,6 +90,7 @@ export function HomeHubShell({ user, isAdmin = false, adminRoute = false, onNavi
             <span className="home-hub-module-arrow" aria-hidden="true"><KitchenIcon name="chevronRight" size={18} /></span>
           </button>
         </div>
+        <PwaInstallPanel install={install} />
         <PwaUpdateNotice needRefresh={needPwaRefresh} updateServiceWorker={updatePwa} />
       </section>
     </main>

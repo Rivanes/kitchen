@@ -4353,9 +4353,10 @@ html:has(.cleaning-shell), body:has(.cleaning-shell) { background: #f5f8fa; }
   display: flex;
   flex-direction: column;
   justify-content: center;
-  gap: 30px;
+  justify-content: safe center;
+  gap: clamp(18px, 3vh, 30px);
   width: 100%;
-  padding: 0 0 max(30px, 7vh);
+  padding: 0 0 max(24px, 5vh);
 }
 .home-hub-heading { text-align: center; }
 .home-hub-heading .eyebrow { margin-bottom: 11px; }
@@ -4836,17 +4837,16 @@ html:has(.cleaning-shell), body:has(.cleaning-shell) { background: #f5f8fa; }
 }
 
 
-/* H7.5 — non-intrusive installation help and deferred Service Worker updates. */
-/* H7.5.3 — installation entry stays above the vertically centered module tiles. */
-.pwa-home-install-access { align-self: stretch; display: flex; justify-content: flex-end; min-width: 0; margin: -12px 0 8px; }
-.pwa-hub-help { display: flex; flex-direction: column; align-items: flex-end; width: 100%; min-width: 0; gap: 10px; }
+/* H7.5 — install help follows the module cards in normal page flow. */
+.pwa-hub-help { display: flex; flex-direction: column; align-items: center; width: 100%; min-width: 0; gap: 10px; margin-top: -10px; }
 .pwa-hub-help-trigger {
   display: inline-flex; align-items: center; justify-content: center; gap: 8px;
-  min-height: 44px; max-width: 100%; padding: 9px 13px;
-  color: var(--color-accent-strong); background: var(--color-surface);
-  border: 1px solid var(--color-border); border-radius: 14px;
-  font-size: 13px; font-weight: 760; line-height: 1.35; text-align: left;
+  min-height: 44px; max-width: 100%; padding: 9px 12px;
+  color: var(--color-accent-strong); background: transparent;
+  border: 0; border-radius: 12px;
+  font-size: 13px; font-weight: 730; line-height: 1.35; text-align: left;
 }
+.pwa-hub-help-trigger:hover { background: var(--color-surface-soft); }
 .pwa-hub-help-trigger span { min-width: 0; overflow-wrap: anywhere; }
 .pwa-hub-help-trigger svg { flex-shrink: 0; }
 .pwa-install-panel { width: min(100%, 470px); padding: 17px; border: 1px solid var(--color-border);
@@ -4864,7 +4864,6 @@ html:has(.cleaning-shell), body:has(.cleaning-shell) { background: #f5f8fa; }
   min-height: 44px; padding: 8px 8px; text-decoration: underline;
   text-underline-offset: 4px; font-size: 13px; font-weight: 730; }
 @media (max-width: 359px) {
-  .pwa-home-install-access { margin-top: -7px; }
   .pwa-install-panel { padding: 13px; }
 }
 .pwa-update-notice { width: 100%; display: flex; align-items: center; justify-content: space-between;
