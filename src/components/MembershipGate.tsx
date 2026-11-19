@@ -8,6 +8,9 @@ import type { PwaInstallState } from '../features/pwa/usePwaInstall'
 
 type MemberStatus = 'checking' | 'active' | 'suspended' | 'denied' | 'error'
 type MemberAccess = { kitchen_role: 'admin' | 'member'; kitchen_status: 'active' | 'suspended' }
+// A lost browser focus/visibility event must not leave private data exposed
+// for five minutes. This is a foreground safety net, NOT a substitute for RLS.
+const FOREGROUND_RECHECK_MS = 30 * 1000
 
 /** Keyed by user.id in App: old account state is unmounted BEFORE this renders. */
 export function MembershipGate({ user, adminRoute = false, onNavigateAdmin, install, needPwaRefresh, updatePwa }: {
@@ -26,6 +29,7 @@ export function MembershipGate({ user, adminRoute = false, onNavigateAdmin, inst
     let current = true
     let inFlight = false
     let foregroundQueued = false
+    let backgroundRevision = 0
     setStatus('checking')
     setRole(null)
     setRechecking(false)
@@ -38,6 +42,7 @@ export function MembershipGate({ user, adminRoute = false, onNavigateAdmin, inst
         return
       }
       inFlight = true
+      const verifiedRevision = backgroundRevision
       if (foreground) setRechecking(true)
       if (!supabase) {
         if (current) setStatus('error')
@@ -75,30 +80,54 @@ export function MembershipGate({ user, adminRoute = false, onNavigateAdmin, inst
       } finally {
         inFlight = false
         if (current) {
-          setRechecking(false)
           if (foregroundQueued) {
             foregroundQueued = false
             void verifyMembership(true)
+          } else if (verifiedRevision !== backgroundRevision && document.visibilityState === 'visible') {
+            // The app was backgrounded during this read: its ACTIVE result
+            // predates a new exposure and must never unlock the cached view.
+            void verifyMembership(true)
+          } else if (verifiedRevision === backgroundRevision && document.visibilityState === 'visible') {
+            setRechecking(false)
+          } else {
+            // Remain hidden while the browser is in the background.
+            setRechecking(true)
           }
         }
       }
     }
 
+    // Hide the mounted private subtree as soon as the document loses focus,
+    // including when the browser/PWA is backgrounded. On return an ACTIVE
+    // server response is required before the subtree is shown again.
+    function pausePrivateView() {
+      if (current) {
+        backgroundRevision += 1
+        setRechecking(true)
+      }
+    }
     function checkForeground() {
       if (current && document.visibilityState === 'visible') void verifyMembership(true)
     }
-    document.addEventListener('visibilitychange', checkForeground)
+    function checkVisibility() {
+      if (document.visibilityState === 'hidden') pausePrivateView()
+      else checkForeground()
+    }
+    document.addEventListener('visibilitychange', checkVisibility)
+    window.addEventListener('blur', pausePrivateView)
     window.addEventListener('focus', checkForeground)
     window.addEventListener('pageshow', checkForeground)
     window.addEventListener('online', checkForeground)
-    // Also revalidate long-lived foreground sessions, not only resumed PWAs.
-    const periodicCheck = window.setInterval(checkForeground, 5 * 60 * 1000)
+    // Browsers and virtual PWAs can miss a resume event: cap the foreground
+    // detection delay to 30 s even when focus/visibility never fires.
+    const periodicCheck = window.setInterval(checkForeground, FOREGROUND_RECHECK_MS)
     void verifyMembership()
     return () => {
       current = false
       foregroundQueued = false
       window.clearInterval(periodicCheck)
-      document.removeEventListener('visibilitychange', checkForeground)
+      document.removeEventListener('visibilitychange', checkVisibility)
+      window.removeEventListener('blur', pausePrivateView)
       window.removeEventListener('focus', checkForeground)
       window.removeEventListener('pageshow', checkForeground)
       window.removeEventListener('online', checkForeground)

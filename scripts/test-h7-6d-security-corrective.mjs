@@ -7,13 +7,13 @@ const app = await readFile('src/App.tsx', 'utf8')
 
 function verifyGate(source) {
   assert.match(source, /\.rpc\('kitchen_my_access'\)/)
-  assert.match(source, /document\.addEventListener\('visibilitychange', checkForeground\)/)
+  assert.match(source, /document\.addEventListener\('visibilitychange', checkVisibility\)/)
   assert.match(source, /window\.addEventListener\('focus', checkForeground\)/)
   assert.match(source, /window\.addEventListener\('pageshow', checkForeground\)/)
   assert.match(source, /window\.addEventListener\('online', checkForeground\)/)
-  assert.match(source, /window\.setInterval\(checkForeground, 5 \* 60 \* 1000\)/)
+  assert.match(source, /window\.setInterval\(checkForeground, FOREGROUND_RECHECK_MS\)/)
   assert.match(source, /window\.clearInterval\(periodicCheck\)/)
-  assert.match(source, /document\.removeEventListener\('visibilitychange', checkForeground\)/)
+  assert.match(source, /document\.removeEventListener\('visibilitychange', checkVisibility\)/)
   assert.match(source, /let inFlight = false/)
   assert.match(source, /if \(inFlight\) \{[\s\S]*foregroundQueued = true/)
   assert.match(source, /foregroundQueued = false;?\s*void verifyMembership\(true\)/)
@@ -28,7 +28,7 @@ function verifyGate(source) {
 
 verifyGate(gate)
 for (const broken of [
-  gate.replace("document.addEventListener('visibilitychange', checkForeground)", ''),
+  gate.replace("document.addEventListener('visibilitychange', checkVisibility)", ''),
   gate.replace('hidden={rechecking}', ''),
   gate.replace('foregroundQueued = true', 'foregroundQueued = false'),
   gate.replace("setStatus('suspended')", "setStatus('active')"),

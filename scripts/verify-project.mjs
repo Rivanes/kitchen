@@ -43,6 +43,11 @@ const requiredFiles = [
   'scripts/test-h7-1b-security-corrective.mjs',
   'scripts/test-h7-6d-security-corrective.mjs',
   'tests/H7_6D_SECURITY_CORRECTIVE_CONTRACT.md',
+  'scripts/test-h7-6f-membership-behavior.mjs',
+  'scripts/test-h7-6f-live-jwt-contract.mjs',
+  'scripts/h7-6f-live-jwt-ab.mjs',
+  '.github/workflows/h7-6f-live-jwt-qa.yml',
+  'tests/H7_6F_SECURITY_CORRECTIVE_CONTRACT.md',
   'scripts/test-h7-6e-archive-removal.mjs',
   'tests/H7_6E_NO_ARCHIVE_HARD_DELETE_CONTRACT.md',
   'scripts/test-h7-3c-admin.mjs',
@@ -1881,6 +1886,8 @@ await execFileAsync(process.execPath, ['scripts/test-cleaning-h6-4-3e.mjs'])
 await execFileAsync(process.execPath, ['scripts/test-h7-1-membership-source.mjs'])
 await execFileAsync(process.execPath, ['scripts/test-h7-1b-security-corrective.mjs'])
 await execFileAsync(process.execPath, ['scripts/test-h7-6d-security-corrective.mjs'])
+await execFileAsync(process.execPath, ['scripts/test-h7-6f-membership-behavior.mjs'])
+await execFileAsync(process.execPath, ['scripts/test-h7-6f-live-jwt-contract.mjs'])
 await execFileAsync(process.execPath, ['scripts/test-h7-6e-archive-removal.mjs'])
 await execFileAsync(process.execPath, ['scripts/test-h7-3-invites.mjs'])
 await execFileAsync(process.execPath, ['scripts/test-h7-3c-admin.mjs'])
