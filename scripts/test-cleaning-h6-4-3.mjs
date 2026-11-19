@@ -4,18 +4,18 @@ import { cleaningDashboardGroups } from '../src/features/cleaning/cleaningDashbo
 
 const task = (id, date, options = {}) => ({ id, title: id, roomId: 'room',
   nextDueDate: date, scheduleRevision: 1, cycleGeneration: 4,
-  isArchived: false, isCompleted: false, ...options })
+  isCompleted: false, ...options })
 const occ = (id, date, options = {}) => ({ taskId: id, roomId: 'room',
   scheduledDueDate: date, scheduleRevision: 1, cycleGeneration: 4,
   isDone: false, isActionable: false, ...options })
 const date = '2026-11-01'
 const tasks = [task('biweekly',date), task('late','2026-09-01'),
-  task('once','2026-11-02'), task('hidden','2026-11-03', { isArchived: true }),
+  task('once','2026-11-02'), task('later','2026-11-03'),
   task('done','2026-11-01',{ isCompleted:true }), task('other','2026-11-01',{roomId:'elsewhere'})]
 const events = [occ('biweekly','2026-11-01',{isActionable:true}),
   occ('biweekly','2026-11-15'), occ('biweekly','2026-11-08'),
   occ('biweekly','2026-11-08'), occ('once','2026-11-02',{isActionable:true}),
-  occ('late','2026-11-05'), occ('hidden','2026-11-03'), occ('done','2026-11-03'),
+  occ('late','2026-11-05'), occ('later','2026-11-03'), occ('done','2026-11-03'),
   occ('other','2026-11-03'), occ('once','2026-11-04',{scheduleRevision:0}), occ('once','2026-11-06',{cycleGeneration:3}),
   occ('biweekly','2026-11-04',{isDone:true})]
 const result = cleaningDashboardGroups(tasks, events, new Set(['room']), date)

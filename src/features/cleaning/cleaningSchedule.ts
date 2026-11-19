@@ -105,7 +105,7 @@ export function scheduleEntries(occurrences: CleaningOccurrence[], tasks: Cleani
   const byId = new Map(tasks.map((task) => [task.id, task]))
   return occurrences.flatMap((occurrence) => {
     const task = byId.get(occurrence.taskId)
-    if (!task || task.isArchived || !activeRoomIds.has(task.roomId)) return []
+    if (!task || !activeRoomIds.has(task.roomId)) return []
     return [{ occurrence, task }]
   }).sort((a, b) => occurrenceCalendarDay(a.occurrence).localeCompare(occurrenceCalendarDay(b.occurrence))
     || Number(a.occurrence.isDone) - Number(b.occurrence.isDone)
@@ -118,7 +118,7 @@ export function entriesOn(entries: ScheduleEntry[], date: string) {
 
 /** Open backlog remains actionable even when its original date has aged out of the calendar. */
 export function overdueBacklog(tasks: CleaningTask[], activeRoomIds: ReadonlySet<string>, today: string): CleaningTask[] {
-  return tasks.filter((task) => !task.isArchived && !task.isCompleted && task.nextDueDate < today
+  return tasks.filter((task) => !task.isCompleted && task.nextDueDate < today
     && activeRoomIds.has(task.roomId))
     .sort((a, b) => a.nextDueDate.localeCompare(b.nextDueDate) || a.title.localeCompare(b.title, 'pl'))
 }

@@ -38,10 +38,10 @@ for (const start of ['2026-10-24','2026-11-02','2026-11-15','2027-01-01']) {
 }
 
 const task = (id, roomId, nextDueDate, extra={}) => ({
-  id, roomId, title: id, nextDueDate, isCompleted: false, isArchived: false, ...extra,
+  id, roomId, title: id, nextDueDate, isCompleted: false, ...extra,
 })
 const tasks = [task('pet','animals','2026-10-31'),task('wc','bath','2026-10-27'),
-  task('old','bath','2026-10-01'),task('archived','bath','2026-10-31',{isArchived:true})]
+  task('old','bath','2026-10-01'),task('extra','bath','2026-10-31')]
 const event = (taskId, scheduledDueDate, extra={}) => ({
   taskId, roomId: taskId==='pet'?'animals':'bath', scheduledDueDate,
   completedLocalDate: null, isDone: false, isActionable: false,
@@ -49,7 +49,7 @@ const event = (taskId, scheduledDueDate, extra={}) => ({
 })
 const projected = [event('pet','2026-10-31',{isActionable:true}),
   event('pet','2026-11-14'), event('pet','2026-11-28'),
-  event('wc','2026-10-27',{isDone:true}),event('archived','2026-10-31')]
+  event('wc','2026-10-27',{isDone:true}),event('extra','2026-10-31')]
 const rooms = new Set(['animals','bath'])
 const entries = scheduleEntries(projected,tasks,rooms)
 assert.deepEqual(entries.filter(x => x.task.id==='pet').map(x => x.occurrence.scheduledDueDate),
@@ -70,7 +70,7 @@ assert.equal(canUndoOccurrence(lateDone, {
 }, {dueDate:'2026-10-31',completedAt:'2026-11-01T08:30:00+00:00'}),true)
 
 assert.equal(entriesOn(scheduleEntries(projected,tasks,new Set(['bath'])),'2026-11-14').length,0)
-assert.equal(entries.some(x=>x.task.id==='archived'), false)
+assert.equal(entries.some(x=>x.task.id==='extra'), true)
 const doneEvent = event('pet','2026-10-31',{ isDone:true })
 const latestTask = { ...tasks[0],lastCompletedAt:'2026-10-31T15:00:00+00:00' }
 assert.equal(canUndoOccurrence(doneEvent, latestTask,

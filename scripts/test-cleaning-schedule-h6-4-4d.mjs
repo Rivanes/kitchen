@@ -16,7 +16,7 @@ assert.deepEqual(scheduleViewAfterCompletion('2026-11-02', '2026-11-04'), {
   selectedDate: '2026-11-04', visibleStart: '2026-11-02',
 })
 
-const makeTask = (id,title) => ({id, roomId:'room', title, isArchived:false})
+const makeTask = (id,title) => ({id, roomId:'room', title})
 const overdueDone = {
   taskId:'rtv',roomId:'room',scheduledDueDate:'2026-10-31',
   completedLocalDate:'2026-11-01',isDone:true,isActionable:false,

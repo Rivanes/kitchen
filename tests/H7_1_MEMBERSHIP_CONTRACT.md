@@ -13,7 +13,7 @@
 
 ## H7.1B — Legacy RPC security corrective
 
-- `archiveCleaningTask()` is removed from browser code after a repo-wide caller audit: it had no callers. Historic H3 SQL remains for compatibility but its `authenticated` EXECUTE is revoked in the H7.1 cutover.
+- `archiveCleaningTask()` was removed from browser code in H7.1B. H7.6E fully retires the historical H3 archive RPC; its old `authenticated` EXECUTE grant had already been revoked in H7.1.
 - `h4_complete_cleaning_task` remains **installed** and callable internally by `h64_complete_cleaning_occurrence` (SECURITY DEFINER); browser `authenticated` EXECUTE is revoked.
 - Only `h64_complete_cleaning_occurrence` is the browser completion authority; H4 task create/update, H63 delete/undo remain legitimately callable.
 - Both legacy direct grants must be false in the H7.1 postcheck. SQL staging A/B, anon and Storage runtime QA remain mandatory; static source tests alone do not authorize production cutover.

@@ -29,7 +29,6 @@ export function CleaningTaskBoard({ ownerId, room, onChanged }: Props) {
   const [recurrenceInterval, setRecurrenceInterval] = useState(1)
   const [feedback, setFeedback] = useState('')
   const [showDone, setShowDone] = useState(false)
-  const [showLegacyArchived, setShowLegacyArchived] = useState(false)
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
   const [reload, setReload] = useState(0)
   const mountedRoomId = room.id
@@ -50,9 +49,8 @@ export function CleaningTaskBoard({ ownerId, room, onChanged }: Props) {
 
   // Definition catalog ordering must not change when a completion moves next_due_date.
   const byName = (a: CleaningTask, b: CleaningTask) => a.title.localeCompare(b.title, 'pl') || a.id.localeCompare(b.id)
-  const activeTasks = tasks.filter((task) => !task.isArchived && !task.isCompleted).sort(byName)
-  const doneTasks = tasks.filter((task) => !task.isArchived && task.isCompleted && task.recurrenceKind === 'once').sort(byName)
-  const archivedTasks = tasks.filter((task) => task.isArchived).sort(byName)
+  const activeTasks = tasks.filter((task) => !task.isCompleted).sort(byName)
+  const doneTasks = tasks.filter((task) => task.isCompleted && task.recurrenceKind === 'once').sort(byName)
   function upsert(updated: CleaningTask) {
     setTasks((previous) => sortCleaningTasks([...previous.filter((task) => task.id !== updated.id), updated]))
     onChanged()
@@ -68,7 +66,7 @@ export function CleaningTaskBoard({ ownerId, room, onChanged }: Props) {
   }
   async function submitTask(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    if (busy || room.isArchived || !editor) return
+    if (busy || !editor) return
     setBusy(true); setFormError('')
     try {
       const interval = recurrenceKind === 'once' ? null : recurrenceInterval
@@ -114,7 +112,7 @@ export function CleaningTaskBoard({ ownerId, room, onChanged }: Props) {
     </div>
   }
   function renderTask(task: CleaningTask) {
-    const canEdit = !room.isArchived && !task.isArchived && !task.isCompleted
+    const canEdit = !task.isCompleted
     const details = <>
       <strong>{task.title}</strong>
       {task.notes && <span>{task.notes}</span>}
@@ -127,7 +125,7 @@ export function CleaningTaskBoard({ ownerId, room, onChanged }: Props) {
           <KitchenIcon name="chevronRight" size={19}/>
         </button>
         : <div className="cleaning-task-description cleaning-catalog-content">{details}</div>}
-      {(task.isCompleted || task.isArchived) && <button type="button" className="cleaning-task-link cleaning-delete-link" disabled={busy} onClick={() => { setConfirmDeleteId(task.id); setActionError(''); setFormError('') }}>Usuń zadanie</button>}
+      {task.isCompleted && <button type="button" className="cleaning-task-link cleaning-delete-link" disabled={busy} onClick={() => { setConfirmDeleteId(task.id); setActionError(''); setFormError('') }}>Usuń zadanie</button>}
       {!editor && renderDeleteConfirm(task)}
     </article>
   }
@@ -137,7 +135,7 @@ export function CleaningTaskBoard({ ownerId, room, onChanged }: Props) {
   return <section className="cleaning-tasks" aria-label={`Zadania — ${room.name}`}>
     <div className="page-heading-row cleaning-tasks-heading">
       <h2>Zadania</h2>
-      {!room.isArchived && <div className="page-actions"><button className="primary-icon-button" type="button" onClick={openNew} disabled={busy} aria-label="Dodaj zadanie" title="Dodaj zadanie"><KitchenIcon name="plus" /></button></div>}
+      <div className="page-actions"><button className="primary-icon-button" type="button" onClick={openNew} disabled={busy} aria-label="Dodaj zadanie" title="Dodaj zadanie"><KitchenIcon name="plus" /></button></div>
     </div>
     {editor && <AppFormSheet titleId="cleaning-task-editor-title" title={editor.mode === 'new' ? 'Nowe zadanie' : 'Edytuj zadanie'}
       kicker="POMIESZCZENIE" busy={busy} onClose={() => { setEditor(null); setFormError(''); setActionError(''); setConfirmDeleteId(null) }} className="cleaning-editor-sheet">
@@ -188,19 +186,13 @@ export function CleaningTaskBoard({ ownerId, room, onChanged }: Props) {
     {loading ? <div className="cleaning-status-message" role="status">Wczytywanie zadań…</div>
       : loadError ? <div className="cleaning-inline-error" role="alert">{loadError} <button className="cleaning-task-link" type="button" onClick={() => setReload((v) => v + 1)}>Ponów</button></div>
       : <>
-        {!activeTasks.length && !doneTasks.length && !archivedTasks.length && <p className="cleaning-empty-compact">{room.isArchived ? 'Brak zadań w tym pomieszczeniu.' : 'Brak zadań.'}</p>}
+        {!activeTasks.length && !doneTasks.length && <p className="cleaning-empty-compact">Brak zadań.</p>}
         <div className="cleaning-task-list">{activeTasks.map(renderTask)}</div>
-        {doneTasks.length > 0 && <section className="cleaning-archived-section" aria-label="Zrobione zadania">
-          <button type="button" className="cleaning-archived-toggle" aria-expanded={showDone} onClick={() => setShowDone((value) => !value)}>
+        {doneTasks.length > 0 && <section className="cleaning-completed-section" aria-label="Zrobione zadania">
+          <button type="button" className="cleaning-completed-toggle" aria-expanded={showDone} onClick={() => setShowDone((value) => !value)}>
             Zrobione ({doneTasks.length}) <KitchenIcon name={showDone ? 'chevronUp' : 'chevronDown'} size={17}/>
           </button>
           {showDone && <div className="cleaning-task-list">{doneTasks.map(renderTask)}</div>}
-        </section>}
-        {archivedTasks.length > 0 && <section className="cleaning-archived-section" aria-label="Ukryte stare zadania">
-          <button type="button" className="cleaning-archived-toggle" aria-expanded={showLegacyArchived} onClick={() => setShowLegacyArchived((value) => !value)}>
-            Ukryte zadania ({archivedTasks.length}) <KitchenIcon name={showLegacyArchived ? 'chevronUp' : 'chevronDown'} size={17}/>
-          </button>
-          {showLegacyArchived && <div className="cleaning-task-list">{archivedTasks.map(renderTask)}</div>}
         </section>}
       </>}
   </section>

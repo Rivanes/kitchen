@@ -7,7 +7,7 @@
 
 ## Dashboard authority
 - Start calls owner-only `h64_list_cleaning_occurrences(todayWarsaw, todayWarsaw+7)` and `loadCleaningTasks` together. No client projection of recurring dates.
-- `Nadchodzące` = first three distinct *occurrences*, strictly after today and no later than `today+7` (including possible repeats of a single task). Exclude archived rooms/tasks, completed occurrences, stale schedule revision / generation, and deduplicate identical task/date.
+- `Nadchodzące` = first three distinct *occurrences*, strictly after today and no later than `today+7` (including possible repeats of a single task). Exclude completed occurrences, stale schedule revision / generation, and deduplicate identical task/date. H7.6E removes archived state entirely.
 - `Do zrobienia` = first three open server task cursors due today or overdue, including older than seven-day history. No double counting of future occurrences as today's tasks.
 - Both groups use `cleaningDueStatus(scheduledDueDate,todayWarsaw)` like Rooms and Schedule, showing `Na dziś` / `Jutro` / `Za N dni` / `Zaległe`. Frequency stays only in Rooms editing.
 - Description is visible without opening room. Task opens its room; only checkbox completes current, server-actionable occurrence. Nonactionable future checkbox is disabled with accessible explanatory text.

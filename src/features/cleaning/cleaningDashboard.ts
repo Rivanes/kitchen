@@ -14,7 +14,7 @@ export function cleaningDashboardGroups(
   tasks: CleaningTask[], occurrences: CleaningOccurrence[], activeRoomIds: ReadonlySet<string>,
   today: string, upcomingDays = 7,
 ): { due: DashboardOccurrence[]; upcoming: DashboardOccurrence[] } {
-  const eligible = tasks.filter((task) => !task.isArchived && !task.isCompleted && activeRoomIds.has(task.roomId))
+  const eligible = tasks.filter((task) => !task.isCompleted && activeRoomIds.has(task.roomId))
   const taskById = new Map(eligible.map((task) => [task.id, task]))
   const cutoff = addCalendarDays(today, upcomingDays)
   const scheduled = occurrences.flatMap((occurrence) => {

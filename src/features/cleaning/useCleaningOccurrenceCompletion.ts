@@ -12,7 +12,7 @@ export function useCleaningOccurrenceCompletion() {
   const pending = useRef(new Map<string, { id: string; generation: number; revision: number; date: string }>())
 
   async function run(occurrence: CleaningOccurrence, task: CleaningTask): Promise<CleaningTask | null> {
-    if (inFlight.current || task.isArchived || task.isCompleted || occurrence.isDone || !occurrence.isActionable) return null
+    if (inFlight.current || task.isCompleted || occurrence.isDone || !occurrence.isActionable) return null
     const previous = pending.current.get(task.id)
     if (previous && (previous.generation !== occurrence.cycleGeneration
       || previous.revision !== occurrence.scheduleRevision || previous.date !== occurrence.scheduledDueDate)) {

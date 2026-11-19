@@ -51,7 +51,7 @@ assert.equal(rollingScrollShift(600,700,'2026-10-26','2026-11-02'),0) // at hist
 assert.equal(earliestScheduleDay('2026-11-01'), '2026-10-25')
 assert.equal(addCalendarDays('2026-12-31',1), '2027-01-01')
 assert.equal(occurrenceCalendarDay({scheduledDueDate:'2026-10-31',completedLocalDate:'2026-11-01',isDone:true}), '2026-11-01')
-const overdue = {id:'a',title:'Puścić odkurzacz',roomId:'r',isArchived:false,isCompleted:false,nextDueDate:'2026-10-31'}
+const overdue = {id:'a',title:'Puścić odkurzacz',roomId:'r',isCompleted:false,nextDueDate:'2026-10-31'}
 assert.deepEqual(overdueBacklog([overdue],new Set(['r']),'2026-11-01'), [overdue])
 const preview = {taskId:'a',roomId:'r',scheduledDueDate:'2026-11-02',isDone:false,isActionable:false}
 const due = {taskId:'a',roomId:'r',scheduledDueDate:'2026-10-31',isDone:false,isActionable:true}

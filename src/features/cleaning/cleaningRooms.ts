@@ -5,7 +5,6 @@ export type CleaningRoom = {
   ownerId: string
   name: string
   sortOrder: number
-  isArchived: boolean
   createdAt: string
   updatedAt: string
 }
@@ -15,12 +14,11 @@ type CleaningRoomRow = {
   owner_id: string
   name: string
   sort_order: number
-  is_archived: boolean
   created_at: string
   updated_at: string
 }
 
-const roomProjection = 'id, owner_id, name, sort_order, is_archived, created_at, updated_at'
+const roomProjection = 'id, owner_id, name, sort_order, created_at, updated_at'
 
 function requireClient() {
   if (!supabase) throw new Error('Brak połączenia z Supabase.')
@@ -41,7 +39,6 @@ function parseRoom(row: CleaningRoomRow): CleaningRoom {
     ownerId: row.owner_id,
     name: row.name,
     sortOrder: row.sort_order,
-    isArchived: row.is_archived,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   }
@@ -49,8 +46,7 @@ function parseRoom(row: CleaningRoomRow): CleaningRoom {
 
 export function sortCleaningRooms(rooms: CleaningRoom[]): CleaningRoom[] {
   return [...rooms].sort((a, b) => (
-    Number(a.isArchived) - Number(b.isArchived)
-    || a.sortOrder - b.sortOrder
+    a.sortOrder - b.sortOrder
     || a.name.localeCompare(b.name, 'pl', { sensitivity: 'base' })
     || a.id.localeCompare(b.id)
   ))
@@ -97,7 +93,6 @@ export async function renameCleaningRoom(ownerId: string, roomId: string, rawNam
     .update({ name })
     .eq('id', roomId)
     .eq('owner_id', ownerId)
-    .eq('is_archived', false)
     .select(roomProjection)
     .maybeSingle()
 
@@ -106,17 +101,16 @@ export async function renameCleaningRoom(ownerId: string, roomId: string, rawNam
   return parseRoom(data as CleaningRoomRow)
 }
 
-export async function setCleaningRoomArchived(ownerId: string, roomId: string, archived: boolean): Promise<CleaningRoom> {
+/** H7.6E: only the owner-checked atomic RPC can delete a room and its task history. */
+export async function deleteCleaningRoom(roomId: string): Promise<void> {
   const { data, error } = await requireClient()
-    .from('cleaning_rooms')
-    .update({ is_archived: archived })
-    .eq('id', roomId)
-    .eq('owner_id', ownerId)
-    .eq('is_archived', !archived)
-    .select(roomProjection)
-    .maybeSingle()
+    .rpc('h76_delete_cleaning_room', { p_room_id: roomId })
 
-  if (error) mapRoomWriteError(error, archived ? 'zarchiwizować pomieszczenia' : 'przywrócić pomieszczenia')
-  if (!data) throw new Error('Pomieszczenie zmieniło już swój status. Odśwież listę.')
-  return parseRoom(data as CleaningRoomRow)
+  if (error?.code === '42501') throw new Error('Brak uprawnień do usunięcia pomieszczenia.')
+  if (error?.code === 'PGRST202' || error?.code === '42883') {
+    throw new Error('Brakuje funkcji usuwania pomieszczeń w Supabase. Najpierw wdroż SQL H7.6E.')
+  }
+  if (error) mapRoomWriteError(error, 'usunąć pomieszczenia')
+  // false is an idempotent success after a lost HTTP reply; the caller reconciles its list.
+  if (data !== true && data !== false) throw new Error('Nie udało się potwierdzić usunięcia pomieszczenia.')
 }

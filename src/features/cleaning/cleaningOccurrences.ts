@@ -63,14 +63,14 @@ export async function completeCleaningOccurrence(occurrence: CleaningOccurrence,
   const row = data as {
     id: string; owner_id: string; room_id: string; title: string; notes: string; next_due_date: string
     recurrence_kind: CleaningTask['recurrenceKind']; recurrence_interval: number | null
-    cycle_generation: number; schedule_revision: number; is_completed: boolean; is_archived: boolean; last_completed_at: string | null
+    cycle_generation: number; schedule_revision: number; is_completed: boolean; last_completed_at: string | null
     created_at: string
   }
   return {
     id: row.id, ownerId: row.owner_id, roomId: row.room_id, title: row.title, notes: row.notes,
     nextDueDate: row.next_due_date, recurrenceKind: row.recurrence_kind,
     recurrenceInterval: row.recurrence_interval, cycleGeneration: row.cycle_generation, scheduleRevision: row.schedule_revision,
-    isCompleted: row.is_completed, isArchived: row.is_archived,
+    isCompleted: row.is_completed,
     lastCompletedAt: row.last_completed_at, createdAt: row.created_at,
   }
 }

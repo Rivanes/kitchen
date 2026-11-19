@@ -11,9 +11,9 @@ import { toUserErrorMessage } from '../../lib/userError'
 import { supabase } from '../../lib/supabase/client'
 import {
   createCleaningRoom,
+  deleteCleaningRoom,
   loadCleaningRooms,
   renameCleaningRoom,
-  setCleaningRoomArchived,
   sortCleaningRooms,
   validateCleaningRoomName,
   type CleaningRoom,
@@ -40,8 +40,7 @@ export function CleaningShell({ ownerId, onExit }: CleaningShellProps) {
   const [editor, setEditor] = useState<EditorMode>(null)
   const [name, setName] = useState('')
   const [saving, setSaving] = useState(false)
-  const [showArchived, setShowArchived] = useState(false)
-  const [confirmArchive, setConfirmArchive] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState<{ roomId: string; taskCount: number } | null>(null)
   const [reloadToken, setReloadToken] = useState(0)
   const [taskRevision, setTaskRevision] = useState(0)
   const [countsLoad, setCountsLoad] = useState<CountsLoad>('loading')
@@ -99,8 +98,7 @@ export function CleaningShell({ ownerId, onExit }: CleaningShellProps) {
     }
   }, [view, selectedRoomId])
 
-  const activeRooms = rooms.filter((room) => !room.isArchived)
-  const archivedRooms = rooms.filter((room) => room.isArchived)
+  const activeRooms = rooms
   const selectedRoom = selectedRoomId ? rooms.find((room) => room.id === selectedRoomId) ?? null : null
   const pageTitle = view === 'rooms' ? selectedRoom?.name ?? 'Pomieszczenia' : view === 'schedule' ? 'Harmonogram' : 'Start'
 
@@ -108,7 +106,7 @@ export function CleaningShell({ ownerId, onExit }: CleaningShellProps) {
     setView(next)
     setSelectedRoomId(null)
     setEditor(null)
-    setConfirmArchive(false)
+    setConfirmDelete(null)
     setActionError('')
     window.scrollTo({ top: 0, behavior: 'instant' })
   }
@@ -116,7 +114,7 @@ export function CleaningShell({ ownerId, onExit }: CleaningShellProps) {
   function openRoom(room: CleaningRoom) {
     setSelectedRoomId(room.id)
     setEditor(null)
-    setConfirmArchive(false)
+    setConfirmDelete(null)
     setActionError('')
     window.scrollTo({ top: 0, behavior: 'instant' })
   }
@@ -125,7 +123,7 @@ export function CleaningShell({ ownerId, onExit }: CleaningShellProps) {
     setName(mode === 'rename' ? selectedRoom?.name ?? '' : '')
     setEditor(mode)
     setActionError('')
-    setConfirmArchive(false)
+    setConfirmDelete(null)
   }
 
   function upsertRoom(updated: CleaningRoom) {
@@ -152,7 +150,7 @@ export function CleaningShell({ ownerId, onExit }: CleaningShellProps) {
     setSaving(true)
     setActionError('')
     try {
-      const updated = editor === 'rename' && selectedRoom && !selectedRoom.isArchived
+      const updated = editor === 'rename' && selectedRoom
         ? await renameCleaningRoom(ownerId, selectedRoom.id, normalized)
         : editor === 'create'
           ? await createCleaningRoom(ownerId, normalized)
@@ -169,19 +167,45 @@ export function CleaningShell({ ownerId, onExit }: CleaningShellProps) {
     }
   }
 
-  async function updateArchive(room: CleaningRoom, archived: boolean) {
+  async function prepareRoomDelete(room: CleaningRoom) {
     if (saving || roomsLoad !== 'ready') return
     setSaving(true)
     setActionError('')
     try {
-      const updated = await setCleaningRoomArchived(ownerId, room.id, archived)
-      upsertRoom(updated)
-      setEditor(null)
-      setConfirmArchive(false)
-      setSelectedRoomId(null)
-      if (!archived) setShowArchived(false)
+      const tasks = await loadCleaningTasks(ownerId, room.id)
+      setConfirmDelete({ roomId: room.id, taskCount: tasks.length })
     } catch (error: unknown) {
-      setActionError(toUserErrorMessage(error, 'Nie udało się zmienić statusu pomieszczenia.'))
+      setActionError(toUserErrorMessage(error, 'Nie udało się sprawdzić zadań pomieszczenia.'))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function removeRoom(room: CleaningRoom) {
+    if (saving || roomsLoad !== 'ready' || confirmDelete?.roomId !== room.id) return
+    setSaving(true)
+    setActionError('')
+    try {
+      await deleteCleaningRoom(room.id)
+      setRooms((current) => current.filter((item) => item.id !== room.id))
+      setSelectedRoomId(null)
+      setConfirmDelete(null)
+      setTaskRevision((value) => value + 1)
+      setCountsRefresh((value) => value + 1)
+    } catch (error: unknown) {
+      // A dropped HTTP response may hide a committed deletion. Reconcile without replay.
+      try {
+        const latest = await loadCleaningRooms(ownerId)
+        setRooms(latest)
+        if (!latest.some((item) => item.id === room.id)) {
+          setSelectedRoomId(null)
+          setConfirmDelete(null)
+          setTaskRevision((value) => value + 1)
+          setCountsRefresh((value) => value + 1)
+          return
+        }
+      } catch { /* Do not assume the room has been removed. */ }
+      setActionError(toUserErrorMessage(error, 'Nie udało się usunąć pomieszczenia.'))
     } finally {
       setSaving(false)
     }
@@ -256,22 +280,24 @@ export function CleaningShell({ ownerId, onExit }: CleaningShellProps) {
           {selectedRoom ? (
             <>
               <div className="page-heading-row cleaning-room-detail-heading">
-                <button type="button" className="cleaning-back-button" onClick={() => { setSelectedRoomId(null); setEditor(null); setConfirmArchive(false); setActionError('') }}><KitchenIcon name="chevronLeft" size={18} /> Wszystkie pomieszczenia</button>
+                <button type="button" className="cleaning-back-button" onClick={() => { setSelectedRoomId(null); setEditor(null); setConfirmDelete(null); setActionError('') }}><KitchenIcon name="chevronLeft" size={18} /> Wszystkie pomieszczenia</button>
                 <div className="page-actions">
-                  {!selectedRoom.isArchived && <button type="button" className="icon-button" onClick={() => openEditor('rename')} disabled={saving} aria-label="Zmień nazwę pomieszczenia" title="Zmień nazwę"><KitchenIcon name="edit" size={19}/></button>}
+                  <button type="button" className="icon-button" onClick={() => openEditor('rename')} disabled={saving} aria-label="Zmień nazwę pomieszczenia" title="Zmień nazwę"><KitchenIcon name="edit" size={19}/></button>
                   <details className="cleaning-room-options"><summary className="icon-button" aria-label="Opcje pomieszczenia" title="Opcje pomieszczenia"><KitchenIcon name="chevronDown" size={19}/></summary>
                     <div className="cleaning-room-options-menu">
-                      {!selectedRoom.isArchived ? <button type="button" onClick={(event) => { event.currentTarget.closest('details')?.removeAttribute('open'); setConfirmArchive(true); setActionError('') }}>Archiwizuj pomieszczenie</button>
-                        : <button type="button" disabled={saving} onClick={() => { void updateArchive(selectedRoom, false) }}>Przywróć pomieszczenie</button>}
+                      <button type="button" disabled={saving} onClick={(event) => { event.currentTarget.closest('details')?.removeAttribute('open'); void prepareRoomDelete(selectedRoom) }}>Usuń pomieszczenie</button>
                     </div>
                   </details>
                 </div>
               </div>
               <>
-                  {confirmArchive && (
-                    <div className="cleaning-archive-confirm" role="group" aria-label="Potwierdź archiwizację">
-                      <strong>Archiwizować pomieszczenie?</strong><p>Pomieszczenie pozostanie w archiwum. Zadania nie zostaną usunięte.</p>
-                      <div className="sheet-actions"><button type="button" className="secondary-button" onClick={() => setConfirmArchive(false)} disabled={saving}>Anuluj</button><button type="button" className="cleaning-subtle-danger" onClick={() => { void updateArchive(selectedRoom, true) }} disabled={saving}>{saving ? 'Archiwizowanie…' : 'Archiwizuj'}</button></div>
+                  {confirmDelete?.roomId === selectedRoom.id && (
+                    <div className="cleaning-delete-confirm cleaning-room-delete-confirm" role="group" aria-label="Potwierdź usunięcie pomieszczenia">
+                      <strong>Usunąć pomieszczenie „{selectedRoom.name}”?</strong>
+                      <p>{confirmDelete.taskCount === 0
+                        ? 'Pomieszczenie zostanie trwale usunięte.'
+                        : `Usuniesz także ${confirmDelete.taskCount} ${confirmDelete.taskCount === 1 ? 'zadanie' : confirmDelete.taskCount % 10 >= 2 && confirmDelete.taskCount % 10 <= 4 && (confirmDelete.taskCount % 100 < 12 || confirmDelete.taskCount % 100 > 14) ? 'zadania' : 'zadań'} i historię ich wykonań.`} Tej operacji nie można cofnąć.</p>
+                      <div className="sheet-actions"><button type="button" className="secondary-button" onClick={() => setConfirmDelete(null)} disabled={saving}>Anuluj</button><button type="button" className="cleaning-subtle-danger" onClick={() => { void removeRoom(selectedRoom) }} disabled={saving}>{saving ? 'Usuwanie…' : 'Usuń na stałe'}</button></div>
                     </div>
                   )}
                   {actionErrorBanner}
@@ -303,14 +329,6 @@ export function CleaningShell({ ownerId, onExit }: CleaningShellProps) {
                         </span>
                       </button>
                     ))}</div>
-                  )}
-                  {archivedRooms.length > 0 && (
-                    <section className="cleaning-archived-section" aria-label="Archiwum pomieszczeń">
-                      <button className="cleaning-archived-toggle" type="button" aria-expanded={showArchived} onClick={() => setShowArchived((old) => !old)}>{showArchived ? 'Ukryj archiwum' : `Archiwum (${archivedRooms.length})`} <KitchenIcon name={showArchived ? 'chevronUp' : 'chevronDown'} size={17} /></button>
-                      {showArchived && <div className="cleaning-room-list">{archivedRooms.map((room) => (
-                        <button type="button" className="cleaning-room-card is-archived" onClick={() => openRoom(room)} key={room.id}><span className="cleaning-room-card-icon" aria-hidden="true"><KitchenIcon name="room" size={21} /></span><span className="cleaning-room-card-copy"><strong>{room.name}</strong><span>W archiwum · dotknij, aby przywrócić</span></span><KitchenIcon name="chevronRight" size={19} /></button>
-                      ))}</div>}
-                    </section>
                   )}
                 </>
               )}

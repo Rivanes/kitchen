@@ -5,7 +5,7 @@ H6.4.1 replaced the SQL business authority with anchored occurrence projection.
 H6.4.2 replaced the H5-only calendar reader and compacted its UI.
 
 **Retained H5 invariants:** Warsaw civil date, Monday-start week, DST-safe arithmetic,
-owner/RLS access, archived-room filtering, and no direct browser table writes.
+owner/RLS access, no direct browser table writes. H7.6E removed the obsolete archived-room filter.
 
 **Superseded (do NOT reintroduce):** one visible recurrence per task, no future projection,
 showing frequency on calendar cards, and one-date-only H5 tests.

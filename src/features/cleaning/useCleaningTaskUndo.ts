@@ -10,7 +10,7 @@ export function useCleaningTaskUndo() {
   const pending = useRef(new Map<string, { id: string; generation: number }>())
 
   async function undo(task: CleaningTask): Promise<CleaningTask | null> {
-    if (inFlightUndo.current || task.isArchived || !task.lastCompletedAt) return null
+    if (inFlightUndo.current || !task.lastCompletedAt) return null
     const previous = pending.current.get(task.id)
     if (previous && previous.generation !== task.cycleGeneration) {
       pending.current.delete(task.id)

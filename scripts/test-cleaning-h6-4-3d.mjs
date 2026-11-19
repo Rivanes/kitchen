@@ -7,7 +7,7 @@ import { scheduleEntries, entriesOn, overdueBacklog } from '../src/features/clea
 const today = '2026-11-01'
 const task = (id, date) => ({ id, title: id, roomId: 'room', nextDueDate: date,
   recurrenceKind: 'every_days', recurrenceInterval: 1, scheduleRevision: 0,
-  cycleGeneration: 0, isArchived: false, isCompleted: false })
+  cycleGeneration: 0, isCompleted: false })
 const event = (id, date, actionable = false) => ({ taskId: id, roomId: 'room',
   scheduledDueDate: date, isActionable: actionable, isDone: false,
   scheduleRevision: 0, cycleGeneration: 0, completedLocalDate: null })

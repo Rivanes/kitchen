@@ -3,14 +3,14 @@ import { readFile } from 'node:fs/promises'
 import { cleaningDashboardGroups } from '../src/features/cleaning/cleaningDashboard.ts'
 
 const task = (id, date, extra = {}) => ({ id, title: id, roomId: 'r', nextDueDate: date,
-  isArchived: false, isCompleted: false, cycleGeneration: 0, scheduleRevision: 0, ...extra })
+  isCompleted: false, cycleGeneration: 0, scheduleRevision: 0, ...extra })
 const occurrence = (id, date, actionable = false) => ({ taskId: id, roomId: 'r',
   scheduledDueDate: date, scheduleRevision: 0, cycleGeneration: 0, isDone: false, isActionable: actionable })
 const tasks = [task('a', '2026-10-29'), task('b', '2026-10-31'), task('c', '2026-11-01'),
-  task('d', '2026-11-07'), task('e', '2026-11-08'), task('f', '2026-10-30', { isArchived: true }),
+  task('d', '2026-11-07'), task('e', '2026-11-08'),
   task('g', '2026-10-30', { isCompleted: true }), task('h', '2026-10-30', { roomId: 'x' })]
 const events = [occurrence('c','2026-11-01',true), occurrence('d','2026-11-07',true),
-  occurrence('e','2026-11-08'), occurrence('f','2026-11-01'), occurrence('a','2026-11-03')]
+  occurrence('e','2026-11-08'), occurrence('a','2026-11-03')]
 const grouped = cleaningDashboardGroups(tasks, events, new Set(['r']), '2026-10-31')
 assert.deepEqual(grouped.due.map(({ task }) => task.id), ['a','b'])
 assert.deepEqual(grouped.upcoming.map(({ task }) => task.id), ['c','d'])

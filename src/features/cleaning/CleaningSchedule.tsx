@@ -144,7 +144,7 @@ export function CleaningSchedule({ ownerId, rooms, onOpenRoom, onChanged, jumpTo
     }
   }, [jumpToToday])
 
-  const activeRooms = rooms.filter((room) => !room.isArchived)
+  const activeRooms = rooms
   const roomById = new Map(activeRooms.map((room) => [room.id, room]))
   const activeRoomIds = new Set(roomById.keys())
   const entries = scheduleEntries(occurrences, tasks, activeRoomIds)

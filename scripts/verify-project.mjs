@@ -43,6 +43,8 @@ const requiredFiles = [
   'scripts/test-h7-1b-security-corrective.mjs',
   'scripts/test-h7-6d-security-corrective.mjs',
   'tests/H7_6D_SECURITY_CORRECTIVE_CONTRACT.md',
+  'scripts/test-h7-6e-archive-removal.mjs',
+  'tests/H7_6E_NO_ARCHIVE_HARD_DELETE_CONTRACT.md',
   'scripts/test-h7-3c-admin.mjs',
   'tests/H7_3C_INVITE_ADMIN_CONTRACT.md',
   'public/404.html',
@@ -1879,6 +1881,7 @@ await execFileAsync(process.execPath, ['scripts/test-cleaning-h6-4-3e.mjs'])
 await execFileAsync(process.execPath, ['scripts/test-h7-1-membership-source.mjs'])
 await execFileAsync(process.execPath, ['scripts/test-h7-1b-security-corrective.mjs'])
 await execFileAsync(process.execPath, ['scripts/test-h7-6d-security-corrective.mjs'])
+await execFileAsync(process.execPath, ['scripts/test-h7-6e-archive-removal.mjs'])
 await execFileAsync(process.execPath, ['scripts/test-h7-3-invites.mjs'])
 await execFileAsync(process.execPath, ['scripts/test-h7-3c-admin.mjs'])
 console.log('Kitchen project contract verification: PASS')

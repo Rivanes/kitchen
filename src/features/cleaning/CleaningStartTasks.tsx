@@ -79,7 +79,7 @@ export function CleaningStartTasks({ ownerId, rooms, onOpenRoom, onShowToday, on
     if (reload > 0) void refresh(true)
   }, [reload, refresh])
 
-  const roomById = new Map(rooms.filter((room) => !room.isArchived).map((room) => [room.id, room]))
+  const roomById = new Map(rooms.map((room) => [room.id, room]))
   const activeRoomIds = new Set(roomById.keys())
   const { due, upcoming } = cleaningDashboardGroups(tasks, occurrences, activeRoomIds, today)
 

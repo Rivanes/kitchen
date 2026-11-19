@@ -17,8 +17,8 @@ for (const marker of [
   'await loadCleaningTasks(ownerId, room.id)', 'onChanged()',
   'cleaning-catalog-edit', 'cleaning-catalog-content',
   'recurrenceLabel(task.recurrenceKind, task.recurrenceInterval)',
-  'const canEdit = !room.isArchived && !task.isArchived && !task.isCompleted',
-  "a.title.localeCompare(b.title, 'pl')", 'Zrobione (', 'Ukryte zadania (',
+  'const canEdit = !task.isCompleted',
+  "a.title.localeCompare(b.title, 'pl')", 'Zrobione (',
   'Następny termin', 'Pierwszy termin', 'Termin wykonania',
   'id="cleaning-task-due" type="date"',
 ]) assert.ok(board.includes(marker), `H6.4.3E missing ${marker}`)

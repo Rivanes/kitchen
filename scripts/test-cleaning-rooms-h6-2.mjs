@@ -2,19 +2,19 @@ import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import { countCleaningRoomTasks } from '../src/features/cleaning/cleaningRoomCounts.ts'
 
-// All persisted, nonarchived task records are counted: completed one-offs included.
+// All persisted task records are counted: completed one-offs included.
 const tasks = [
-  { id: 'todo', roomId: 'bath', isArchived: false, isCompleted: false, recurrenceKind: 'once' },
-  { id: 'done-oneoff', roomId: 'bath', isArchived: false, isCompleted: true, recurrenceKind: 'once' },
-  { id: 'recurring', roomId: 'bath', isArchived: false, isCompleted: false, recurrenceKind: 'days', cycleGeneration: 12 },
-  { id: 'archived', roomId: 'bath', isArchived: true, isCompleted: false, recurrenceKind: 'once' },
-  { id: 'other-room', roomId: 'kitchen', isArchived: false, isCompleted: false, recurrenceKind: 'once' },
+  { id: 'todo', roomId: 'bath', isCompleted: false, recurrenceKind: 'once' },
+  { id: 'done-oneoff', roomId: 'bath', isCompleted: true, recurrenceKind: 'once' },
+  { id: 'recurring', roomId: 'bath', isCompleted: false, recurrenceKind: 'days', cycleGeneration: 12 },
+  { id: 'another', roomId: 'bath', isCompleted: false, recurrenceKind: 'once' },
+  { id: 'other-room', roomId: 'kitchen', isCompleted: false, recurrenceKind: 'once' },
 ]
 const counted = countCleaningRoomTasks(tasks)
-assert.equal(counted.get('bath'), 3, 'completed one-off counts, archived does not')
+assert.equal(counted.get('bath'), 4, 'all persisted task records count, including completed one-offs')
 assert.equal(counted.get('kitchen'), 1, 'room scoping matters')
 assert.equal(counted.get('empty') ?? 0, 0, 'true zero for an empty room')
-assert.equal(countCleaningRoomTasks([{ roomId: 'bath', isArchived: false, isCompleted: false, cycleGeneration: 999 }]).get('bath'), 1, 'recurring task counts once per row, independent of completed cycles')
+assert.equal(countCleaningRoomTasks([{ roomId: 'bath', isCompleted: false, cycleGeneration: 999 }]).get('bath'), 1, 'recurring task counts once per row, independent of completed cycles')
 assert.deepEqual([...countCleaningRoomTasks([])], [])
 
 const [shell, inventory, css, api, verifier] = await Promise.all([

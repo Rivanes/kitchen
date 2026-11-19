@@ -15,11 +15,11 @@ const [hub, shell, data, styles, flags, h1, contract] = await Promise.all([
 ])
 assert.match(hub, /<CleaningShell ownerId=\{user\.id\} onExit=\{returnHome\}/)
 assert.match(shell, /loadCleaningRooms\(ownerId\)/)
-for (const method of ['createCleaningRoom','renameCleaningRoom','setCleaningRoomArchived','validateCleaningRoomName']) {
+for (const method of ['createCleaningRoom','renameCleaningRoom','deleteCleaningRoom','validateCleaningRoomName']) {
   assert.ok(shell.includes(method), `Missing Cleaning UI operation: ${method}`)
   assert.ok(data.includes(`function ${method}(`), `Missing Cleaning DB operation: ${method}`)
 }
-for (const marker of ['onSubmit=', 'Archiwizuj', 'Przywróć pomieszczenie', 'Pomieszczenie o tej nazwie już istnieje', 'is_archived', "eq('owner_id', ownerId)"]) {
+for (const marker of ['onSubmit=', 'Usuń pomieszczenie', 'Usuń na stałe', 'Pomieszczenie o tej nazwie już istnieje', "eq('owner_id', ownerId)"]) {
   assert.ok(`${shell}\n${data}`.includes(marker), `Missing H2 contract marker: ${marker}`)
 }
 assert.match(shell, /setSaving\(true\)/)
@@ -28,8 +28,8 @@ assert.match(shell, /renderLoadStatus\(\)/)
 assert.match(data, /\.from\('cleaning_rooms'\)/)
 assert.doesNotMatch(data, /\.delete\(/)
 assert.match(data, /\.eq\('owner_id', ownerId\)/)
-assert.match(data, /\.eq\('is_archived', false\)/)
-assert.match(data, /\.eq\('is_archived', !archived\)/)
+assert.match(data, /rpc\('h76_delete_cleaning_room'/)
+assert.doesNotMatch(`${shell}\n${data}`, /is_archived|setCleaningRoomArchived|Archiwizuj/)
 assert.match(styles, /\.cleaning-room-editor/)
 assert.match(styles, /\.cleaning-room-card/)
 assert.match(flags, /export const KITCHEN_VOICE_ENABLED = false/)

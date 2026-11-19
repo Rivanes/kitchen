@@ -12,7 +12,7 @@ const [schedule, old, incremental, fresh, canonical] = await Promise.all([
 ])
 const event = {taskId:'weekly',roomId:'room',scheduledDueDate:'2026-10-31',
   completedLocalDate:'2026-11-01',isDone:true,isActionable:false,scheduleRevision:0,cycleGeneration:1}
-const task = {id:'weekly',roomId:'room',title:'Test',isArchived:false,isCompleted:false}
+const task = {id:'weekly',roomId:'room',title:'Test',isCompleted:false}
 const entries=scheduleEntries([event],[task],new Set(['room']))
 assert.equal(occurrenceCalendarDay(event),'2026-11-01')
 assert.equal(entriesOn(entries,'2026-10-31').length,0)
