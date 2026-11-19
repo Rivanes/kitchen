@@ -1,0 +1,35 @@
+name: Kitchen H7.6F — Real JWT A/B QA (manual only)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: h7-6f-qa-a-b
+  cancel-in-progress: false
+
+jobs:
+  independent-jwt:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
+      VITE_SUPABASE_PUBLISHABLE_KEY: ${{ vars.VITE_SUPABASE_PUBLISHABLE_KEY }}
+      H76F_QA_A_EMAIL: ${{ secrets.H76F_QA_A_EMAIL }}
+      H76F_QA_A_PASSWORD: ${{ secrets.H76F_QA_A_PASSWORD }}
+      H76F_QA_B_EMAIL: ${{ secrets.H76F_QA_B_EMAIL }}
+      H76F_QA_B_PASSWORD: ${{ secrets.H76F_QA_B_PASSWORD }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.16.0
+          cache: npm
+      - name: Exact dependencies
+        run: npm ci --no-audit --no-fund
+      - name: REAL cross-owner REST/RPC/private Storage checks, isolated JWTs
+        run: node scripts/h7-6f-live-jwt-ab.mjs
